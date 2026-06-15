@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "ai-assistant",
+  "version": "${version}",
+  "name": "AI Assistant",
+  "description": "A HuggingFace-powered AI player that builds, fights, and helps in-game.",
+  "authors": ["MilkdromedaStudios"],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/ai-assistant/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.milkdromeda.aiassistant.AiAssistantMod"],
+    "client": ["com.milkdromeda.aiassistant.client.AiAssistantClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.4",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
