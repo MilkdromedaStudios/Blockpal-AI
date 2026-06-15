@@ -11,6 +11,8 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntitySpawnReason;
@@ -36,7 +38,7 @@ public class AiCommands {
                         .then(Commands.literal("stop")
                                 .executes(AiCommands::stop))
 
-                        // /ai settings — show or change config
+                        // /ai settings
                         .then(Commands.literal("settings")
                                 .executes(AiCommands::showSettings)
 
@@ -82,7 +84,7 @@ public class AiCommands {
         );
     }
 
-    // ── /ai summon ────────────────────────────────────────────────────────────
+    // ── /ai summon ─────────────────────────────────────────────────────────────
 
     private static int summon(CommandContext<CommandSourceStack> ctx, String name) {
         ServerPlayer player = getPlayer(ctx);
@@ -98,12 +100,14 @@ public class AiCommands {
         entity.setMode(AiAssistantEntity.Mode.FOLLOWING);
         level.addFreshEntity(entity);
 
-        player.sendSystemMessage(Component.literal(
-                "[" + name + "] Ready! Use /ai <task> to give me instructions."));
+        player.sendSystemMessage(header(name)
+                .append(val("Summoned! Type "))
+                .append(Component.literal("/ai <task>").withStyle(Style.EMPTY.withColor(0x55FF55)))
+                .append(val(" to give me instructions.")));
         return 1;
     }
 
-    // ── /ai stop ──────────────────────────────────────────────────────────────
+    // ── /ai stop ───────────────────────────────────────────────────────────────
 
     private static int stop(CommandContext<CommandSourceStack> ctx) {
         ServerPlayer player = getPlayer(ctx);
@@ -114,11 +118,12 @@ public class AiCommands {
 
         ai.getTaskManager().clearPlan();
         ai.setMode(AiAssistantEntity.Mode.FOLLOWING);
-        player.sendSystemMessage(Component.literal("[" + ai.getAssistantName() + "] Stopped. Standing by."));
+        player.sendSystemMessage(header(ai.getAssistantName())
+                .append(val("Stopped — standing by.")));
         return 1;
     }
 
-    // ── /ai settings ─────────────────────────────────────────────────────────
+    // ── /ai settings ───────────────────────────────────────────────────────────
 
     private static int showSettings(CommandContext<CommandSourceStack> ctx) {
         ServerPlayer player = getPlayer(ctx);
@@ -126,22 +131,27 @@ public class AiCommands {
 
         ModConfig cfg = ModConfig.get();
         AiAssistantEntity ai = nearest(player, 128);
-        String aiName = ai != null ? ai.getAssistantName() : "none nearby";
-        String mode   = ai != null ? ai.getMode().name() : "-";
-        String task   = ai != null ? ai.getTaskManager().getPlanDescription() : "-";
+        String aiName   = ai != null ? ai.getAssistantName() : "—";
+        String modeStr  = ai != null ? ai.getMode().name()   : "—";
+        String taskStr  = ai != null ? ai.getTaskManager().getPlanDescription() : "—";
+        boolean hasToken = cfg.hasApiToken();
 
-        player.sendSystemMessage(Component.literal(
-                "§6=== AI Assistant Settings ===\n" +
-                "§eAssistant:     §f" + aiName + "  (mode: " + mode + ")\n" +
-                "§eCurrent task:  §f" + task + "\n" +
-                "§eHF model:      §f" + cfg.hfModel + "\n" +
-                "§eHF token:      §f" + (cfg.hasApiToken() ? "set ✓" : "§cnot set — /ai settings hf_token <token>") + "\n" +
-                "§eTemperature:   §f" + cfg.temperature + "\n" +
-                "§eMax tokens:    §f" + cfg.maxNewTokens + "\n" +
-                "§eFollow dist:   §f" + cfg.followDistance + "\n" +
-                "§eGuard radius:  §f" + cfg.guardRadius + "\n" +
-                "§7Use /ai settings <key> <value> to change any setting."
-        ));
+        player.sendSystemMessage(
+            section("⚙ AI Assistant Settings")
+            .append(row("Assistant",    aiName + " §7(mode: §f" + modeStr + "§7)"))
+            .append(row("Task",         taskStr))
+            .append(divider())
+            .append(row("HF model",     cfg.hfModel))
+            .append(row("HF token",     hasToken ? "§aset ✓" : "§cnot set"))
+            .append(row("Temperature",  String.valueOf(cfg.temperature)))
+            .append(row("Max tokens",   String.valueOf(cfg.maxNewTokens)))
+            .append(row("Follow dist",  String.valueOf(cfg.followDistance)))
+            .append(row("Guard radius", String.valueOf(cfg.guardRadius)))
+            .append(divider())
+            .append(hint(!hasToken
+                    ? "Set your token: /ai settings hf_token <token>"
+                    : "Use /ai settings <key> <value> to change settings."))
+        );
         return 1;
     }
 
@@ -152,12 +162,13 @@ public class AiCommands {
 
         switch (key) {
             case "hf_token" -> cfg.hfToken = value;
-            case "model"    -> cfg.hfModel = value;
-            default -> { player.sendSystemMessage(Component.literal("Unknown key: " + key)); return 0; }
+            case "model"    -> cfg.hfModel  = value;
+            default -> { player.sendSystemMessage(err("Unknown setting: " + key)); return 0; }
         }
 
         ModConfig.save();
-        player.sendSystemMessage(Component.literal("§a[AI Settings] §f" + key + " §7= §f" + (key.equals("hf_token") ? "***" : value)));
+        String display = key.equals("hf_token") ? "●●●●●●●●" : value;
+        player.sendSystemMessage(ok("✓ " + key + " = " + display));
         return 1;
     }
 
@@ -167,13 +178,13 @@ public class AiCommands {
         ModConfig cfg = ModConfig.get();
 
         switch (key) {
-            case "temperature"     -> cfg.temperature = value;
+            case "temperature"     -> cfg.temperature    = value;
             case "follow_distance" -> cfg.followDistance = value;
-            case "guard_radius"    -> cfg.guardRadius = value;
+            case "guard_radius"    -> cfg.guardRadius    = value;
         }
 
         ModConfig.save();
-        player.sendSystemMessage(Component.literal("§a[AI Settings] §f" + key + " §7= §f" + value));
+        player.sendSystemMessage(ok("✓ " + key + " = " + value));
         return 1;
     }
 
@@ -185,7 +196,7 @@ public class AiCommands {
         if ("max_tokens".equals(key)) cfg.maxNewTokens = value;
 
         ModConfig.save();
-        player.sendSystemMessage(Component.literal("§a[AI Settings] §f" + key + " §7= §f" + value));
+        player.sendSystemMessage(ok("✓ " + key + " = " + value));
         return 1;
     }
 
@@ -198,11 +209,11 @@ public class AiCommands {
 
         String old = ai.getAssistantName();
         ai.setAssistantName(newName);
-        player.sendSystemMessage(Component.literal("§a[AI Settings] §fRenamed '" + old + "' → '" + newName + "'"));
+        player.sendSystemMessage(ok("✓ Renamed '" + old + "' → '" + newName + "'"));
         return 1;
     }
 
-    // ── /ai <task> ────────────────────────────────────────────────────────────
+    // ── /ai <task> ─────────────────────────────────────────────────────────────
 
     private static int doTask(CommandContext<CommandSourceStack> ctx, String task) {
         ServerPlayer player = getPlayer(ctx);
@@ -212,8 +223,7 @@ public class AiCommands {
         if (ai == null) return noAi(player);
 
         if (!ModConfig.get().hasApiToken()) {
-            player.sendSystemMessage(Component.literal(
-                    "§c[AI] No HuggingFace token set. Run: §f/ai settings hf_token <your_token>"));
+            player.sendSystemMessage(err("No HuggingFace token — run: /ai settings hf_token <token>"));
             return 0;
         }
 
@@ -221,7 +231,45 @@ public class AiCommands {
         return 1;
     }
 
-    // ── helpers ───────────────────────────────────────────────────────────────
+    // ── Component helpers ─────────────────────────────────────────────────────
+
+    /** Gold bold "[Name] " prefix. */
+    private static MutableComponent header(String name) {
+        return Component.literal("[")
+                .withStyle(Style.EMPTY.withColor(0x888888))
+                .append(Component.literal(name).withStyle(Style.EMPTY.withColor(0xF0A000).withBold(true)))
+                .append(Component.literal("] ").withStyle(Style.EMPTY.withColor(0x888888)));
+    }
+
+    private static MutableComponent section(String title) {
+        return Component.literal("\n§8▬▬▬ §6§l" + title + " §8▬▬▬\n");
+    }
+
+    private static MutableComponent row(String label, String value) {
+        return Component.literal("  §e" + label + ": §f" + value + "\n");
+    }
+
+    private static MutableComponent divider() {
+        return Component.literal("  §8· · · · · · · · · · · · · · ·\n");
+    }
+
+    private static MutableComponent hint(String text) {
+        return Component.literal("  §7" + text + "\n");
+    }
+
+    private static MutableComponent val(String text) {
+        return Component.literal(text).withStyle(Style.EMPTY.withColor(0xCCCCCC));
+    }
+
+    private static MutableComponent ok(String text) {
+        return Component.literal(text).withStyle(Style.EMPTY.withColor(0x55FF55));
+    }
+
+    private static MutableComponent err(String text) {
+        return Component.literal("✗ " + text).withStyle(Style.EMPTY.withColor(0xFF5555));
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
 
     private static ServerPlayer getPlayer(CommandContext<CommandSourceStack> ctx) {
         try { return ctx.getSource().getPlayerOrException(); } catch (Exception e) { return null; }
@@ -231,15 +279,13 @@ public class AiCommands {
         AABB box = AABB.ofSize(player.position(), range * 2, range, range * 2);
         List<AiAssistantEntity> list = player.level()
                 .getEntitiesOfClass(AiAssistantEntity.class, box, e -> true);
-        // Return the closest one
         return list.stream()
                 .min(Comparator.comparingDouble(a -> a.distanceToSqr(player)))
                 .orElse(null);
     }
 
     private static int noAi(ServerPlayer player) {
-        player.sendSystemMessage(Component.literal(
-                "§cNo AI assistant nearby. Spawn one with §f/ai summon"));
+        player.sendSystemMessage(err("No AI assistant nearby. Spawn one with /ai summon"));
         return 0;
     }
 }

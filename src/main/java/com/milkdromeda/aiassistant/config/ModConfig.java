@@ -15,7 +15,8 @@ public class ModConfig {
     private static ModConfig instance;
 
     public String hfToken = "";
-    public String hfModel = "mistralai/Mistral-7B-Instruct-v0.2";
+    // Free tier model on HuggingFace — supports the chat completions endpoint
+    public String hfModel = "meta-llama/Llama-3.2-3B-Instruct";
     public int maxNewTokens = 512;
     public double temperature = 0.7;
     public boolean debugLogging = false;

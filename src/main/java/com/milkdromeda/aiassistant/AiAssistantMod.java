@@ -21,7 +21,7 @@ public class AiAssistantMod implements ModInitializer {
 
         LOGGER.info("AI Assistant mod initialized.");
         if (!ModConfig.get().hasApiToken()) {
-            LOGGER.warn("No HuggingFace API token set. Use /aiassistant config hf_token <token> in-game.");
+            LOGGER.warn("No HuggingFace API token set. Use /ai settings hf_token <token> in-game.");
         }
     }
 }

@@ -14,95 +14,116 @@ public class HuggingFaceClient {
             .connectTimeout(Duration.ofSeconds(15))
             .build();
     private static final Gson GSON = new Gson();
-    private static final String API_BASE = "https://api-inference.huggingface.co/models/";
+
+    // OpenAI-compatible chat completions endpoint (works with all major HF models)
+    private static final String CHAT_API = "https://api-inference.huggingface.co/v1/chat/completions";
 
     private static final String SYSTEM_PROMPT = """
-            You are an AI Minecraft assistant physically present in the game world.
-            When given a task and context, respond ONLY with valid JSON matching this exact schema:
+            You are ARIA — an AI assistant physically present in a Minecraft world.
+            Given a player task and world context, output ONLY valid JSON with this schema:
             {
-              "thinking": "<one sentence of reasoning>",
-              "description": "<short human-readable plan summary>",
+              "thinking": "<one-line reasoning>",
+              "description": "<short plan summary players will see>",
               "steps": [
                 {"action": "<ACTION>", "params": {<params>}}
               ]
             }
 
-            Available actions and their params:
-            MOVE_TO        {"x": int, "y": int, "z": int}
-            PLACE_BLOCK    {"block": "minecraft:id", "x": int, "y": int, "z": int}
-            BREAK_BLOCK    {"x": int, "y": int, "z": int}
-            ATTACK_NEAREST {"range": int}
-            FOLLOW_PLAYER  {"name": "player_name", "distance": int}
-            LOOK_AT        {"x": int, "y": int, "z": int}
-            CHAT           {"message": "text to say in chat"}
-            WAIT           {"ticks": int}
-            COLLECT_ITEM   {"x": int, "y": int, "z": int}
+            Available actions:
+            MOVE_TO        {"x":int,"y":int,"z":int}
+            PLACE_BLOCK    {"block":"minecraft:id","x":int,"y":int,"z":int}
+            BREAK_BLOCK    {"x":int,"y":int,"z":int}
+            ATTACK_NEAREST {"range":int}
+            FOLLOW_PLAYER  {"name":"player_name","distance":int}
+            LOOK_AT        {"x":int,"y":int,"z":int}
+            CHAT           {"message":"text"}
+            WAIT           {"ticks":int}
+            COLLECT_ITEM   {"x":int,"y":int,"z":int}
             STOP           {}
 
             Rules:
-            - Use CHAT to acknowledge the player or report status
-            - For building, generate MOVE_TO then PLACE_BLOCK steps
-            - Always stay within ±64 blocks of the player unless told otherwise
-            - Respond with ONLY the JSON object, no extra text
+            - Always start with a CHAT step to acknowledge the task
+            - Stay within ±64 blocks of players unless instructed otherwise
+            - For building tasks, chain MOVE_TO then PLACE_BLOCK steps
+            - Respond with ONLY the JSON object — no markdown, no extra text
             """;
 
     public CompletableFuture<ActionPlan> requestPlan(String task, String context) {
         ModConfig cfg = ModConfig.get();
-        String prompt = buildPrompt(task, context);
+
+        JsonArray messages = new JsonArray();
+
+        JsonObject systemMsg = new JsonObject();
+        systemMsg.addProperty("role", "system");
+        systemMsg.addProperty("content", SYSTEM_PROMPT);
+        messages.add(systemMsg);
+
+        JsonObject userMsg = new JsonObject();
+        userMsg.addProperty("role", "user");
+        userMsg.addProperty("content", "World context:\n" + context + "\n\nPlayer task: " + task);
+        messages.add(userMsg);
 
         JsonObject body = new JsonObject();
-        body.addProperty("inputs", prompt);
-
-        JsonObject parameters = new JsonObject();
-        parameters.addProperty("max_new_tokens", cfg.maxNewTokens);
-        parameters.addProperty("temperature", cfg.temperature);
-        parameters.addProperty("return_full_text", false);
-        parameters.addProperty("do_sample", true);
-        body.add("parameters", parameters);
+        body.addProperty("model", cfg.hfModel);
+        body.add("messages", messages);
+        body.addProperty("max_tokens", cfg.maxNewTokens);
+        body.addProperty("temperature", cfg.temperature);
+        body.addProperty("stream", false);
 
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(API_BASE + cfg.hfModel))
+                .uri(URI.create(CHAT_API))
                 .header("Authorization", "Bearer " + cfg.hfToken)
                 .header("Content-Type", "application/json")
-                .timeout(Duration.ofSeconds(60))
+                .timeout(Duration.ofSeconds(90))
                 .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body)))
                 .build();
 
         return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                 .thenApply(resp -> {
-                    if (resp.statusCode() != 200) {
-                        String preview = resp.body().substring(0, Math.min(120, resp.body().length()));
-                        return errorPlan(task, "HTTP " + resp.statusCode() + ": " + preview);
+                    int code = resp.statusCode();
+                    if (code == 401) return errorPlan(task, "Invalid HF token — run /ai settings hf_token <token>");
+                    if (code == 404) return errorPlan(task, "Model not found: " + cfg.hfModel);
+                    if (code == 503) return errorPlan(task, "Model is loading, try again in ~20s");
+                    if (code != 200) {
+                        String preview = resp.body().substring(0, Math.min(160, resp.body().length()));
+                        return errorPlan(task, "HTTP " + code + ": " + preview);
                     }
                     return parseResponse(resp.body(), task);
                 })
-                .exceptionally(ex -> errorPlan(task, ex.getMessage()));
-    }
-
-    private String buildPrompt(String task, String context) {
-        return "[INST] <<SYS>>\n" + SYSTEM_PROMPT + "\n<</SYS>>\n\n"
-                + "Context:\n" + context + "\n\nTask: " + task + " [/INST]";
+                .exceptionally(ex -> errorPlan(task, "Network error: " + ex.getMessage()));
     }
 
     private ActionPlan parseResponse(String rawBody, String originalTask) {
         try {
             JsonElement root = JsonParser.parseString(rawBody);
-            String generated;
+            String content;
 
-            if (root.isJsonArray()) {
-                generated = root.getAsJsonArray().get(0).getAsJsonObject()
+            if (root.isJsonObject()) {
+                JsonObject obj = root.getAsJsonObject();
+                if (obj.has("choices")) {
+                    // Chat completions format
+                    content = obj.getAsJsonArray("choices")
+                            .get(0).getAsJsonObject()
+                            .getAsJsonObject("message")
+                            .get("content").getAsString().trim();
+                } else if (obj.has("generated_text")) {
+                    content = obj.get("generated_text").getAsString().trim();
+                } else {
+                    content = rawBody;
+                }
+            } else if (root.isJsonArray()) {
+                // Old HF text-generation format
+                content = root.getAsJsonArray().get(0).getAsJsonObject()
                         .get("generated_text").getAsString().trim();
-            } else if (root.isJsonObject() && root.getAsJsonObject().has("generated_text")) {
-                generated = root.getAsJsonObject().get("generated_text").getAsString().trim();
             } else {
-                generated = rawBody;
+                return errorPlan(originalTask, "Unexpected response format");
             }
 
-            int start = generated.indexOf('{');
-            int end   = generated.lastIndexOf('}');
-            if (start == -1 || end == -1) return errorPlan(originalTask, "No JSON in response");
+            int start = content.indexOf('{');
+            int end   = content.lastIndexOf('}');
+            if (start == -1 || end == -1) return errorPlan(originalTask, "No JSON in AI response");
 
-            JsonObject plan = JsonParser.parseString(generated.substring(start, end + 1)).getAsJsonObject();
+            JsonObject plan = JsonParser.parseString(content.substring(start, end + 1)).getAsJsonObject();
             String thinking    = plan.has("thinking")    ? plan.get("thinking").getAsString()    : "";
             String description = plan.has("description") ? plan.get("description").getAsString() : originalTask;
 
@@ -118,7 +139,7 @@ public class HuggingFaceClient {
                 }
             }
 
-            if (steps.isEmpty()) return errorPlan(originalTask, "Empty step list");
+            if (steps.isEmpty()) return errorPlan(originalTask, "AI returned no steps");
             return new ActionPlan(thinking, description, steps);
 
         } catch (Exception e) {
@@ -128,7 +149,7 @@ public class HuggingFaceClient {
 
     private ActionPlan errorPlan(String task, String reason) {
         JsonObject params = new JsonObject();
-        params.addProperty("message", "Couldn't plan '" + task + "': " + reason);
+        params.addProperty("message", "⚠ " + reason);
         return new ActionPlan("error", task,
                 List.of(new ActionStep(ActionStep.ActionType.CHAT, params)));
     }

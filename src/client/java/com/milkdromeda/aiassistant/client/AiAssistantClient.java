@@ -20,5 +20,7 @@ public class AiAssistantClient implements ClientModInitializer {
                 ModEntities.AI_ASSISTANT,
                 AiAssistantEntityRenderer::new
         );
+
+        AiAssistantHud.register();
     }
 }

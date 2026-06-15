@@ -43,7 +43,7 @@ public class CombatAssistGoal extends Goal {
     @Override
     public void start() {
         entity.setMode(AiAssistantEntity.Mode.FIGHTING);
-        entity.broadcastMessage("Engaging hostiles!");
+        entity.say("⚔ Engaging hostiles!", AiAssistantEntity.COL_COMBAT);
     }
 
     @Override
