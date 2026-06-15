@@ -16,17 +16,22 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.phys.AABB;
 
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 
 public class AiAssistantEntity extends PathfinderMob {
+
+    public static final String DEFAULT_NAME = "Ethan";
 
     public enum Mode {
         IDLE, FOLLOWING, BUILDING, FIGHTING, GUARDING, EXECUTING
     }
 
     private Mode mode = Mode.IDLE;
-    private String assistantName = "ARIA";
+    private String assistantName = DEFAULT_NAME;
     private UUID ownerUuid;
     private String pendingTask;
     private final AiTaskManager taskManager;
@@ -36,6 +41,10 @@ public class AiAssistantEntity extends PathfinderMob {
     public AiAssistantEntity(EntityType<? extends AiAssistantEntity> type, Level level) {
         super(type, level);
         this.taskManager = new AiTaskManager(this);
+        // Ensure a visible nametag from the moment the entity exists.
+        setAssistantName(this.assistantName);
+        // A helper should never despawn when the player wanders off.
+        setPersistenceRequired();
     }
 
     @Override
@@ -69,7 +78,7 @@ public class AiAssistantEntity extends PathfinderMob {
         taskManager.tick();
 
         if (idleMessageTimer == 20 && mode == Mode.IDLE) {
-            messageOwner("Ready! Tell me what to do with /ai <task>");
+            messageOwner("Ready! Say \"" + assistantName + ", follow me\" in chat, or use /ai help.");
         }
         idleMessageTimer++;
 
@@ -90,13 +99,13 @@ public class AiAssistantEntity extends PathfinderMob {
     public void giveTask(String task, ServerPlayer issuer) {
         if (!ModConfig.get().hasApiToken()) {
             issuer.sendSystemMessage(Component.literal(
-                    "[AI] No HuggingFace token. Use: /ai settings hf_token <token>"));
+                    "[" + assistantName + "] I need an API token before I can do that. Set one with /ai token <token>."));
             return;
         }
         pendingTask = task;
         mode = Mode.EXECUTING;
         taskManager.clearPlan();
-        broadcastMessage("Thinking: " + task);
+        broadcastMessage("On it — working on: " + task);
         taskManager.requestPlan(task);
     }
 
@@ -104,6 +113,43 @@ public class AiAssistantEntity extends PathfinderMob {
         broadcastMessage("Done: " + (pendingTask != null ? pendingTask : "task complete"));
         pendingTask = null;
         mode = Mode.FOLLOWING;
+    }
+
+    // ---- Quick (no-API) behaviours used by commands and chat ----
+
+    /** Calls the assistant to the player; teleports if it's far away so it always arrives. */
+    public void comeTo(Player player) {
+        taskManager.clearPlan();
+        mode = Mode.FOLLOWING;
+        if (distanceToSqr(player) > 16 * 16) {
+            // Same approach FollowOwnerGoal uses when the owner gets too far.
+            setPos(player.getX() + 1.0, player.getY(), player.getZ());
+            getNavigation().stop();
+        } else {
+            getNavigation().moveTo(player, 1.2);
+        }
+        broadcastMessage("Coming!");
+    }
+
+    public void followPlayer() {
+        taskManager.clearPlan();
+        mode = Mode.FOLLOWING;
+        broadcastMessage("Following you.");
+    }
+
+    /** Stops moving and guards the current spot (still defends against hostiles). */
+    public void stayHere() {
+        taskManager.clearPlan();
+        getNavigation().stop();
+        mode = Mode.GUARDING;
+        broadcastMessage("Staying here and keeping watch.");
+    }
+
+    public void stopTask() {
+        taskManager.clearPlan();
+        getNavigation().stop();
+        mode = Mode.FOLLOWING;
+        broadcastMessage("Stopped. Standing by.");
     }
 
     public void broadcastMessage(String msg) {
@@ -136,7 +182,7 @@ public class AiAssistantEntity extends PathfinderMob {
     @Override
     protected void readAdditionalSaveData(ValueInput input) {
         super.readAdditionalSaveData(input);
-        assistantName = input.getStringOr("AssistantName", "ARIA");
+        setAssistantName(input.getStringOr("AssistantName", DEFAULT_NAME));
         String modeStr = input.getStringOr("Mode", "FOLLOWING");
         try { mode = Mode.valueOf(modeStr); } catch (IllegalArgumentException ignored) { mode = Mode.FOLLOWING; }
         input.read("OwnerUuid", UUIDUtil.STRING_CODEC).ifPresent(uuid -> ownerUuid = uuid);
@@ -148,10 +194,21 @@ public class AiAssistantEntity extends PathfinderMob {
     public Mode getMode() { return mode; }
     public void setMode(Mode mode) { this.mode = mode; }
     public String getAssistantName() { return assistantName; }
-    public void setAssistantName(String name) { this.assistantName = name; }
+
+    /** Sets the assistant's name and keeps the floating nametag in sync. */
+    public void setAssistantName(String name) {
+        this.assistantName = name;
+        setCustomName(Component.literal(name));
+        setCustomNameVisible(true);
+    }
+
     public UUID getOwnerUuid() { return ownerUuid; }
     public void setOwnerUuid(UUID uuid) { this.ownerUuid = uuid; }
     public AiTaskManager getTaskManager() { return taskManager; }
+
+    public boolean isOwnedBy(Player player) {
+        return ownerUuid != null && ownerUuid.equals(player.getUUID());
+    }
 
     public Player getOwnerPlayer() {
         if (ownerUuid == null) return null;
@@ -162,5 +219,20 @@ public class AiAssistantEntity extends PathfinderMob {
     @Override
     protected Component getTypeName() {
         return Component.literal(assistantName);
+    }
+
+    /**
+     * Finds the assistant most relevant to a player within range: prefers one the
+     * player owns, otherwise the nearest one.
+     */
+    public static AiAssistantEntity findFor(ServerPlayer player, double range) {
+        AABB box = AABB.ofSize(player.position(), range * 2, range, range * 2);
+        List<AiAssistantEntity> list = player.level()
+                .getEntitiesOfClass(AiAssistantEntity.class, box, e -> true);
+        return list.stream()
+                .min(Comparator
+                        .comparingInt((AiAssistantEntity a) -> a.isOwnedBy(player) ? 0 : 1)
+                        .thenComparingDouble(a -> a.distanceToSqr(player)))
+                .orElse(null);
     }
 }

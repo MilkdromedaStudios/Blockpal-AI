@@ -3,6 +3,7 @@ package com.milkdromeda.aiassistant.command;
 import com.milkdromeda.aiassistant.ModEntities;
 import com.milkdromeda.aiassistant.config.ModConfig;
 import com.milkdromeda.aiassistant.entity.AiAssistantEntity;
+import com.milkdromeda.aiassistant.util.Locator;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -14,10 +15,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntitySpawnReason;
-import net.minecraft.world.phys.AABB;
-
-import java.util.Comparator;
-import java.util.List;
 
 public class AiCommands {
 
@@ -25,29 +22,53 @@ public class AiCommands {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, env) ->
                 dispatcher.register(Commands.literal("ai")
                         .requires(src -> true)
+                        .executes(AiCommands::help)
 
-                        // /ai summon [name]
+                        // ── friendly everyday commands ───────────────────────────────
+                        .then(Commands.literal("help").executes(AiCommands::help))
+
                         .then(Commands.literal("summon")
-                                .executes(ctx -> summon(ctx, "ARIA"))
-                                .then(Commands.argument("name", StringArgumentType.word())
+                                .executes(ctx -> summon(ctx, ModConfig.get().defaultName))
+                                .then(Commands.argument("name", StringArgumentType.greedyString())
                                         .executes(ctx -> summon(ctx, StringArgumentType.getString(ctx, "name")))))
 
-                        // /ai stop
-                        .then(Commands.literal("stop")
-                                .executes(AiCommands::stop))
+                        .then(Commands.literal("dismiss").executes(AiCommands::dismiss))
 
-                        // /ai settings — show or change config
+                        // movement commands accept optional trailing text ("follow me")
+                        .then(actionCommand("come",   AiCommands::come))
+                        .then(actionCommand("follow", AiCommands::follow))
+                        .then(actionCommand("stay",   AiCommands::stay))
+
+                        .then(Commands.literal("stop").executes(AiCommands::stop))
+
+                        .then(Commands.literal("locate").executes(AiCommands::locate))
+                        .then(Commands.literal("where").executes(AiCommands::locate))
+
+                        .then(Commands.literal("name")
+                                .then(Commands.argument("name", StringArgumentType.greedyString())
+                                        .executes(ctx -> rename(ctx, StringArgumentType.getString(ctx, "name")))))
+
+                        .then(Commands.literal("token")
+                                .then(Commands.argument("token", StringArgumentType.greedyString())
+                                        .executes(ctx -> setToken(ctx, StringArgumentType.getString(ctx, "token")))))
+
+                        .then(Commands.literal("listen")
+                                .executes(AiCommands::showListen)
+                                .then(Commands.literal("on").executes(ctx -> setListen(ctx, true)))
+                                .then(Commands.literal("off").executes(ctx -> setListen(ctx, false))))
+
+                        // ── advanced settings ────────────────────────────────────────
                         .then(Commands.literal("settings")
                                 .executes(AiCommands::showSettings)
 
-                                .then(Commands.literal("hf_token")
-                                        .then(Commands.argument("value", StringArgumentType.greedyString())
-                                                .executes(ctx -> setSetting(ctx, "hf_token",
-                                                        StringArgumentType.getString(ctx, "value")))))
-
                                 .then(Commands.literal("model")
                                         .then(Commands.argument("value", StringArgumentType.greedyString())
-                                                .executes(ctx -> setSetting(ctx, "model",
+                                                .executes(ctx -> setStringSetting(ctx, "model",
+                                                        StringArgumentType.getString(ctx, "value")))))
+
+                                .then(Commands.literal("api_url")
+                                        .then(Commands.argument("value", StringArgumentType.greedyString())
+                                                .executes(ctx -> setStringSetting(ctx, "api_url",
                                                         StringArgumentType.getString(ctx, "value")))))
 
                                 .then(Commands.literal("temperature")
@@ -68,21 +89,54 @@ public class AiCommands {
                                 .then(Commands.literal("guard_radius")
                                         .then(Commands.argument("value", DoubleArgumentType.doubleArg(4.0, 64.0))
                                                 .executes(ctx -> setSettingDouble(ctx, "guard_radius",
-                                                        DoubleArgumentType.getDouble(ctx, "value")))))
+                                                        DoubleArgumentType.getDouble(ctx, "value"))))))
 
-                                .then(Commands.literal("name")
-                                        .then(Commands.argument("value", StringArgumentType.word())
-                                                .executes(ctx -> renameAssistant(ctx,
-                                                        StringArgumentType.getString(ctx, "value"))))))
-
-                        // /ai <task> — must be last (greedy)
+                        // ── /ai <task> — natural language, must be last (greedy) ──────
                         .then(Commands.argument("task", StringArgumentType.greedyString())
                                 .executes(ctx -> doTask(ctx, StringArgumentType.getString(ctx, "task"))))
                 )
         );
     }
 
-    // ── /ai summon ────────────────────────────────────────────────────────────
+    /** A literal action command that also accepts (and ignores) trailing text like "me". */
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> actionCommand(
+            String literal, java.util.function.ToIntFunction<CommandContext<CommandSourceStack>> handler) {
+        return Commands.literal(literal)
+                .executes(handler::applyAsInt)
+                .then(Commands.argument("rest", StringArgumentType.greedyString())
+                        .executes(handler::applyAsInt));
+    }
+
+    // ── help ───────────────────────────────────────────────────────────────────
+
+    private static int help(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+
+        player.sendSystemMessage(Component.literal(
+                "§6=== Your AI Assistant ===\n" +
+                "§eJust talk in chat (no slash needed):\n" +
+                "§7  \"follow me\"   \"come here\"   \"stay\"   \"stop\"   \"where are you\"\n" +
+                "§7  \"help me mine this tree\"   \"Ethan, build a wall\"\n" +
+                "§6\n" +
+                "§eCommands:\n" +
+                "§f/ai summon [name] §7— bring a new assistant into the world\n" +
+                "§f/ai come §7— call it over to you\n" +
+                "§f/ai follow §7— have it follow you\n" +
+                "§f/ai stay §7— hold position and keep watch\n" +
+                "§f/ai stop §7— cancel what it's doing\n" +
+                "§f/ai locate §7— find where it is\n" +
+                "§f/ai <task> §7— tell it what to do (e.g. /ai build a 5x5 floor)\n" +
+                "§f/ai name <name> §7— rename it\n" +
+                "§f/ai token <token> §7— set your AI service token\n" +
+                "§f/ai listen on|off §7— toggle chat listening\n" +
+                "§f/ai dismiss §7— send it away\n" +
+                "§f/ai settings §7— advanced configuration"
+        ));
+        return 1;
+    }
+
+    // ── summon / dismiss ────────────────────────────────────────────────────────
 
     private static int summon(CommandContext<CommandSourceStack> ctx, String name) {
         ServerPlayer player = getPlayer(ctx);
@@ -99,65 +153,158 @@ public class AiCommands {
         level.addFreshEntity(entity);
 
         player.sendSystemMessage(Component.literal(
-                "[" + name + "] Ready! Use /ai <task> to give me instructions."));
+                "§a[" + name + "] §fReady to help! Just talk to me in chat, or use §e/ai help§f for commands."));
         return 1;
     }
 
-    // ── /ai stop ──────────────────────────────────────────────────────────────
+    private static int dismiss(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+
+        AiAssistantEntity ai = AiAssistantEntity.findFor(player, 128);
+        if (ai == null) return noAi(player);
+
+        String name = ai.getAssistantName();
+        ai.discard();
+        player.sendSystemMessage(Component.literal("§7" + name + " has been dismissed. Bring it back with /ai summon."));
+        return 1;
+    }
+
+    // ── movement / quick actions ──────────────────────────────────────────────
+
+    private static int come(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        AiAssistantEntity ai = AiAssistantEntity.findFor(player, 256);
+        if (ai == null) return noAi(player);
+        ai.comeTo(player);
+        return 1;
+    }
+
+    private static int follow(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        AiAssistantEntity ai = AiAssistantEntity.findFor(player, 128);
+        if (ai == null) return noAi(player);
+        ai.followPlayer();
+        return 1;
+    }
+
+    private static int stay(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        AiAssistantEntity ai = AiAssistantEntity.findFor(player, 128);
+        if (ai == null) return noAi(player);
+        ai.stayHere();
+        return 1;
+    }
 
     private static int stop(CommandContext<CommandSourceStack> ctx) {
         ServerPlayer player = getPlayer(ctx);
         if (player == null) return 0;
-
-        AiAssistantEntity ai = nearest(player, 128);
+        AiAssistantEntity ai = AiAssistantEntity.findFor(player, 128);
         if (ai == null) return noAi(player);
-
-        ai.getTaskManager().clearPlan();
-        ai.setMode(AiAssistantEntity.Mode.FOLLOWING);
-        player.sendSystemMessage(Component.literal("[" + ai.getAssistantName() + "] Stopped. Standing by."));
+        ai.stopTask();
         return 1;
     }
 
-    // ── /ai settings ─────────────────────────────────────────────────────────
+    private static int locate(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        AiAssistantEntity ai = AiAssistantEntity.findFor(player, 512);
+        if (ai == null) {
+            player.sendSystemMessage(Component.literal(
+                    "§cI can't find your assistant nearby. It may be in an unloaded area — try /ai summon."));
+            return 0;
+        }
+        player.sendSystemMessage(Component.literal("§b[" + ai.getAssistantName() + "] §f" + Locator.describe(player, ai)));
+        return 1;
+    }
+
+    private static int rename(CommandContext<CommandSourceStack> ctx, String newName) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+
+        AiAssistantEntity ai = AiAssistantEntity.findFor(player, 64);
+        if (ai == null) return noAi(player);
+
+        String old = ai.getAssistantName();
+        ai.setAssistantName(newName);
+        player.sendSystemMessage(Component.literal("§aRenamed §f" + old + " §a→ §f" + newName));
+        return 1;
+    }
+
+    // ── token / listen ──────────────────────────────────────────────────────────
+
+    private static int setToken(CommandContext<CommandSourceStack> ctx, String token) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        ModConfig.get().hfToken = token.trim();
+        ModConfig.save();
+        player.sendSystemMessage(Component.literal("§aAPI token saved ✓ §7Your assistant can now take tasks."));
+        return 1;
+    }
+
+    private static int showListen(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        boolean on = ModConfig.get().chatListening;
+        player.sendSystemMessage(Component.literal(
+                "§eChat listening is " + (on ? "§aON" : "§cOFF") + "§e. Use /ai listen on|off to change it."));
+        return 1;
+    }
+
+    private static int setListen(CommandContext<CommandSourceStack> ctx, boolean on) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        ModConfig.get().chatListening = on;
+        ModConfig.save();
+        player.sendSystemMessage(Component.literal(on
+                ? "§aChat listening ON §7— just talk to your assistant in chat."
+                : "§cChat listening OFF §7— use /ai commands instead."));
+        return 1;
+    }
+
+    // ── advanced settings ─────────────────────────────────────────────────────
 
     private static int showSettings(CommandContext<CommandSourceStack> ctx) {
         ServerPlayer player = getPlayer(ctx);
         if (player == null) return 0;
 
         ModConfig cfg = ModConfig.get();
-        AiAssistantEntity ai = nearest(player, 128);
+        AiAssistantEntity ai = AiAssistantEntity.findFor(player, 128);
         String aiName = ai != null ? ai.getAssistantName() : "none nearby";
         String mode   = ai != null ? ai.getMode().name() : "-";
-        String task   = ai != null ? ai.getTaskManager().getPlanDescription() : "-";
 
         player.sendSystemMessage(Component.literal(
                 "§6=== AI Assistant Settings ===\n" +
                 "§eAssistant:     §f" + aiName + "  (mode: " + mode + ")\n" +
-                "§eCurrent task:  §f" + task + "\n" +
-                "§eHF model:      §f" + cfg.hfModel + "\n" +
-                "§eHF token:      §f" + (cfg.hasApiToken() ? "set ✓" : "§cnot set — /ai settings hf_token <token>") + "\n" +
+                "§eChat listening:§f " + (cfg.chatListening ? "on" : "off") + "\n" +
+                "§eModel:         §f" + cfg.hfModel + "\n" +
+                "§eAPI URL:       §f" + cfg.apiUrl + "\n" +
+                "§eAPI token:     §f" + (cfg.hasApiToken() ? "set ✓" : "§cnot set — /ai token <token>") + "\n" +
                 "§eTemperature:   §f" + cfg.temperature + "\n" +
                 "§eMax tokens:    §f" + cfg.maxNewTokens + "\n" +
                 "§eFollow dist:   §f" + cfg.followDistance + "\n" +
                 "§eGuard radius:  §f" + cfg.guardRadius + "\n" +
-                "§7Use /ai settings <key> <value> to change any setting."
+                "§7Change with /ai settings <key> <value>."
         ));
         return 1;
     }
 
-    private static int setSetting(CommandContext<CommandSourceStack> ctx, String key, String value) {
+    private static int setStringSetting(CommandContext<CommandSourceStack> ctx, String key, String value) {
         ServerPlayer player = getPlayer(ctx);
         if (player == null) return 0;
         ModConfig cfg = ModConfig.get();
 
         switch (key) {
-            case "hf_token" -> cfg.hfToken = value;
-            case "model"    -> cfg.hfModel = value;
-            default -> { player.sendSystemMessage(Component.literal("Unknown key: " + key)); return 0; }
+            case "model"   -> cfg.hfModel = value.trim();
+            case "api_url" -> cfg.apiUrl = value.trim();
+            default -> { player.sendSystemMessage(Component.literal("Unknown setting: " + key)); return 0; }
         }
 
         ModConfig.save();
-        player.sendSystemMessage(Component.literal("§a[AI Settings] §f" + key + " §7= §f" + (key.equals("hf_token") ? "***" : value)));
+        player.sendSystemMessage(Component.literal("§a[Settings] §f" + key + " §7= §f" + value));
         return 1;
     }
 
@@ -173,7 +320,7 @@ public class AiCommands {
         }
 
         ModConfig.save();
-        player.sendSystemMessage(Component.literal("§a[AI Settings] §f" + key + " §7= §f" + value));
+        player.sendSystemMessage(Component.literal("§a[Settings] §f" + key + " §7= §f" + value));
         return 1;
     }
 
@@ -185,20 +332,7 @@ public class AiCommands {
         if ("max_tokens".equals(key)) cfg.maxNewTokens = value;
 
         ModConfig.save();
-        player.sendSystemMessage(Component.literal("§a[AI Settings] §f" + key + " §7= §f" + value));
-        return 1;
-    }
-
-    private static int renameAssistant(CommandContext<CommandSourceStack> ctx, String newName) {
-        ServerPlayer player = getPlayer(ctx);
-        if (player == null) return 0;
-
-        AiAssistantEntity ai = nearest(player, 32);
-        if (ai == null) return noAi(player);
-
-        String old = ai.getAssistantName();
-        ai.setAssistantName(newName);
-        player.sendSystemMessage(Component.literal("§a[AI Settings] §fRenamed '" + old + "' → '" + newName + "'"));
+        player.sendSystemMessage(Component.literal("§a[Settings] §f" + key + " §7= §f" + value));
         return 1;
     }
 
@@ -208,12 +342,12 @@ public class AiCommands {
         ServerPlayer player = getPlayer(ctx);
         if (player == null) return 0;
 
-        AiAssistantEntity ai = nearest(player, 128);
+        AiAssistantEntity ai = AiAssistantEntity.findFor(player, 128);
         if (ai == null) return noAi(player);
 
         if (!ModConfig.get().hasApiToken()) {
             player.sendSystemMessage(Component.literal(
-                    "§c[AI] No HuggingFace token set. Run: §f/ai settings hf_token <your_token>"));
+                    "§c[AI] No API token set yet. Run: §f/ai token <your_token>"));
             return 0;
         }
 
@@ -227,19 +361,9 @@ public class AiCommands {
         try { return ctx.getSource().getPlayerOrException(); } catch (Exception e) { return null; }
     }
 
-    private static AiAssistantEntity nearest(ServerPlayer player, double range) {
-        AABB box = AABB.ofSize(player.position(), range * 2, range, range * 2);
-        List<AiAssistantEntity> list = player.level()
-                .getEntitiesOfClass(AiAssistantEntity.class, box, e -> true);
-        // Return the closest one
-        return list.stream()
-                .min(Comparator.comparingDouble(a -> a.distanceToSqr(player)))
-                .orElse(null);
-    }
-
     private static int noAi(ServerPlayer player) {
         player.sendSystemMessage(Component.literal(
-                "§cNo AI assistant nearby. Spawn one with §f/ai summon"));
+                "§cNo AI assistant nearby. Summon one with §f/ai summon"));
         return 0;
     }
 }

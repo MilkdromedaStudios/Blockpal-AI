@@ -1,12 +1,12 @@
 {
   "entity.ai-assistant.ai_assistant": "AI Assistant",
 
-  "chat.aiassistant.ready":          "[%s] I'm here! Tell me what to do with /ai <task>",
-  "chat.aiassistant.thinking":       "[%s] Thinking...",
+  "chat.aiassistant.ready":          "[%s] Ready to help! Talk to me in chat, or use /ai help.",
+  "chat.aiassistant.thinking":       "[%s] On it...",
   "chat.aiassistant.task_complete":  "[%s] Done!",
-  "chat.aiassistant.task_failed":    "[%s] I couldn't do that: %s",
-  "chat.aiassistant.no_token":       "[AI] Set your HuggingFace token first: /ai config hf_token <token>",
-  "chat.aiassistant.no_ai":         "No AI nearby — summon one with /ai summon",
+  "chat.aiassistant.task_failed":    "[%s] Sorry, I couldn't do that: %s",
+  "chat.aiassistant.no_token":       "[AI] Set your AI token first: /ai token <token>",
+  "chat.aiassistant.no_ai":          "No AI nearby — summon one with /ai summon",
   "chat.aiassistant.stopped":        "[%s] Stopped. Standing by.",
   "chat.aiassistant.low_health":     "[%s] Taking heavy damage, retreating!",
   "chat.aiassistant.fighting":       "[%s] Engaging hostiles!",

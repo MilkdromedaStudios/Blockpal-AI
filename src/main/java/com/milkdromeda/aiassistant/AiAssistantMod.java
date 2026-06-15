@@ -1,5 +1,6 @@
 package com.milkdromeda.aiassistant;
 
+import com.milkdromeda.aiassistant.chat.ChatListener;
 import com.milkdromeda.aiassistant.command.AiCommands;
 import com.milkdromeda.aiassistant.config.ModConfig;
 import com.milkdromeda.aiassistant.entity.AiAssistantEntity;
@@ -18,10 +19,11 @@ public class AiAssistantMod implements ModInitializer {
         ModEntities.register();
         FabricDefaultAttributeRegistry.register(ModEntities.AI_ASSISTANT, AiAssistantEntity.createAttributes());
         AiCommands.register();
+        ChatListener.register();
 
         LOGGER.info("AI Assistant mod initialized.");
         if (!ModConfig.get().hasApiToken()) {
-            LOGGER.warn("No HuggingFace API token set. Use /aiassistant config hf_token <token> in-game.");
+            LOGGER.warn("No AI API token set. Use /ai token <token> in-game to enable AI tasks.");
         }
     }
 }

@@ -1,0 +1,124 @@
+package com.milkdromeda.aiassistant.chat;
+
+import com.milkdromeda.aiassistant.config.ModConfig;
+import com.milkdromeda.aiassistant.entity.AiAssistantEntity;
+import com.milkdromeda.aiassistant.util.Locator;
+import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+
+import java.util.Locale;
+import java.util.Set;
+
+/**
+ * Watches normal in-game chat so players can command the assistant with plain
+ * language — e.g. "Ethan, follow me" or "help me mine this tree" — without
+ * having to type /ai. Quick intents (come, follow, stay, stop, locate) are
+ * handled instantly with no API call; anything else becomes an AI task.
+ */
+public final class ChatListener {
+
+    private ChatListener() {}
+
+    /** First words that mark a chat message as a request aimed at the assistant. */
+    private static final Set<String> TRIGGER_WORDS = Set.of(
+            "help", "come", "follow", "stop", "stay", "wait", "guard", "defend",
+            "mine", "dig", "chop", "build", "place", "break", "attack", "kill",
+            "fight", "gather", "collect", "get", "bring", "make", "craft", "go",
+            "move", "find", "hey", "locate", "where", "harvest", "farm", "plant"
+    );
+
+    public static void register() {
+        ServerMessageEvents.CHAT_MESSAGE.register((message, sender, params) -> {
+            try {
+                handle(sender, message.signedContent());
+            } catch (Exception ignored) {
+                // Never let chat parsing break the chat pipeline.
+            }
+        });
+    }
+
+    public static void handle(ServerPlayer sender, String raw) {
+        if (raw == null || raw.isBlank()) return;
+        if (!ModConfig.get().chatListening) return;
+
+        AiAssistantEntity ai = AiAssistantEntity.findFor(sender, 128);
+        if (ai == null) return; // No assistant around — stay quiet.
+
+        String text = raw.trim();
+        String lower = text.toLowerCase(Locale.ROOT);
+        String name = ai.getAssistantName().toLowerCase(Locale.ROOT);
+
+        boolean addressedByName = lower.equals(name) || lower.startsWith(name + " ")
+                || lower.startsWith(name + ",") || lower.startsWith(name + ":");
+
+        String body = text;
+        if (addressedByName) {
+            body = text.substring(name.length()).replaceFirst("^[,:\\s]+", "").trim();
+            if (body.isEmpty()) {
+                ai.broadcastMessage("Yes? Tell me what to do — e.g. \"follow me\" or \"help me mine this tree\".");
+                return;
+            }
+        }
+
+        // Only react if it was clearly aimed at the assistant.
+        if (!addressedByName && !startsWithTrigger(lower)) return;
+
+        if (handleQuickIntent(sender, ai, body.toLowerCase(Locale.ROOT))) return;
+
+        // Anything else is a real task for the AI planner.
+        if (!ModConfig.get().hasApiToken()) {
+            sender.sendSystemMessage(Component.literal(
+                    "[" + ai.getAssistantName() + "] I need an API token for that. Set one with /ai token <token>."));
+            return;
+        }
+        ai.giveTask(body, sender);
+    }
+
+    private static boolean startsWithTrigger(String lower) {
+        int space = lower.indexOf(' ');
+        String firstWord = space == -1 ? lower : lower.substring(0, space);
+        return TRIGGER_WORDS.contains(firstWord);
+    }
+
+    /** Handles instant, no-API commands. Returns true if the message was consumed. */
+    private static boolean handleQuickIntent(ServerPlayer player, AiAssistantEntity ai, String rawBody) {
+        // Normalise for matching only: drop punctuation, collapse spaces.
+        String body = rawBody.replaceAll("[^a-z0-9 ]", " ").replaceAll("\\s+", " ").trim();
+
+        if (body.equals("help") || body.equals("help me") || body.equals("commands")) {
+            player.sendSystemMessage(Component.literal(
+                    "[" + ai.getAssistantName() + "] Try: \"follow me\", \"come here\", \"stay\", \"stop\", "
+                            + "\"where are you\", or \"help me <build/mine/fight...>\". Full list: /ai help"));
+            return true;
+        }
+        if (matches(body, "come", "come here", "come back", "over here", "to me", "here boy")) {
+            ai.comeTo(player);
+            return true;
+        }
+        if (matches(body, "follow", "follow me", "stay with me", "come with me")) {
+            ai.followPlayer();
+            return true;
+        }
+        if (matches(body, "stop", "stop it", "cancel", "halt", "nevermind", "never mind", "quit")) {
+            ai.stopTask();
+            return true;
+        }
+        if (matches(body, "stay", "stay here", "wait", "wait here", "hold", "hold position", "guard", "defend", "stand guard")) {
+            ai.stayHere();
+            return true;
+        }
+        if (matches(body, "where are you", "where r u", "where you at", "locate", "your location", "where")) {
+            player.sendSystemMessage(Component.literal("[" + ai.getAssistantName() + "] " + Locator.describe(player, ai)));
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean matches(String body, String... options) {
+        for (String option : options) {
+            if (body.equals(option)) return true;
+        }
+        return false;
+    }
+}
