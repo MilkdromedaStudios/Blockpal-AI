@@ -25,7 +25,9 @@ public record ConfigData(
         double temperature,
         int maxTokens,
         double followDistance,
-        double guardRadius
+        double guardRadius,
+        boolean allowCommands,
+        int commandPermissionLevel
 ) {
     public static final StreamCodec<FriendlyByteBuf, ConfigData> STREAM_CODEC =
             StreamCodec.of(ConfigData::write, ConfigData::read);
@@ -45,7 +47,9 @@ public record ConfigData(
                 c.temperature,
                 c.maxNewTokens,
                 c.followDistance,
-                c.guardRadius);
+                c.guardRadius,
+                c.allowCommands,
+                c.commandPermissionLevel);
     }
 
     /** Applies this snapshot onto the live config, clamping and keeping blanks. */
@@ -61,6 +65,8 @@ public record ConfigData(
         c.maxNewTokens = (int) clamp(maxTokens, 32, 2048);
         c.followDistance = clamp(followDistance, 1.0, 32.0);
         c.guardRadius = clamp(guardRadius, 4.0, 64.0);
+        c.allowCommands = allowCommands;
+        c.commandPermissionLevel = (int) clamp(commandPermissionLevel, 0, 4);
     }
 
     private static boolean notBlank(String s) {
@@ -84,6 +90,8 @@ public record ConfigData(
         buf.writeInt(d.maxTokens);
         buf.writeDouble(d.followDistance);
         buf.writeDouble(d.guardRadius);
+        buf.writeBoolean(d.allowCommands);
+        buf.writeInt(d.commandPermissionLevel);
     }
 
     private static ConfigData read(FriendlyByteBuf buf) {
@@ -99,6 +107,8 @@ public record ConfigData(
                 buf.readDouble(),
                 buf.readInt(),
                 buf.readDouble(),
-                buf.readDouble());
+                buf.readDouble(),
+                buf.readBoolean(),
+                buf.readInt());
     }
 }

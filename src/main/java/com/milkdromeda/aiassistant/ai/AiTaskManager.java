@@ -2,10 +2,13 @@ package com.milkdromeda.aiassistant.ai;
 
 import com.milkdromeda.aiassistant.entity.AiAssistantEntity;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 
 import java.util.List;
@@ -18,6 +21,9 @@ public class AiTaskManager {
     private ActionPlan currentPlan;
     private boolean waitingForApi = false;
     private CompletableFuture<ActionPlan> pendingFuture;
+    private String lastTask;
+    private boolean lastLoop = false;
+    private int loopCooldown = 0;
 
     public AiTaskManager(AiAssistantEntity entity) {
         this.entity = entity;
@@ -25,6 +31,23 @@ public class AiTaskManager {
 
     public void requestPlan(String task) {
         if (waitingForApi) return;
+        lastTask = task;
+        waitingForApi = true;
+        pendingFuture = CLIENT.requestPlan(task, buildContext());
+    }
+
+    /** Whether the current/last activity asked to keep going after its steps run out. */
+    public boolean isLooping() {
+        return lastLoop && lastTask != null;
+    }
+
+    /** Re-requests the looping task with fresh context (throttled), keeping the activity alive. */
+    public void loopAgain() {
+        if (waitingForApi || lastTask == null) return;
+        if (loopCooldown > 0) { loopCooldown--; return; }
+        loopCooldown = 40; // ~2s between rounds so it stays lively but not spammy
+        String task = lastTask;
+        currentPlan = null;
         waitingForApi = true;
         pendingFuture = CLIENT.requestPlan(task, buildContext());
     }
@@ -39,6 +62,7 @@ public class AiTaskManager {
             waitingForApi = false;
             try {
                 currentPlan = pendingFuture.get();
+                lastLoop = currentPlan != null && currentPlan.loop;
             } catch (Exception e) {
                 currentPlan = null;
             }
@@ -57,6 +81,9 @@ public class AiTaskManager {
     public void clearPlan() {
         currentPlan = null;
         waitingForApi = false;
+        lastLoop = false;
+        lastTask = null;
+        loopCooldown = 0;
         if (pendingFuture != null) { pendingFuture.cancel(true); pendingFuture = null; }
     }
 
@@ -81,12 +108,64 @@ public class AiTaskManager {
                 sb.append("\n");
             }
 
-            AABB box = AABB.ofSize(entity.position(), 20, 10, 20);
+            AABB box = AABB.ofSize(entity.position(), 24, 12, 24);
             List<Monster> nearby = sl.getEntitiesOfClass(Monster.class, box, Entity::isAlive);
-            if (!nearby.isEmpty()) sb.append("Hostile mobs nearby: ").append(nearby.size()).append("\n");
+            if (!nearby.isEmpty()) {
+                Monster m = nearby.get(0);
+                sb.append("Hostile mobs nearby: ").append(nearby.size())
+                        .append(" (nearest ").append(m.getType().toShortString())
+                        .append(" @").append(m.blockPosition().getX()).append(",")
+                        .append(m.blockPosition().getY()).append(",")
+                        .append(m.blockPosition().getZ()).append(")\n");
+            }
+
+            long t = sl.getDayTime() % 24000L;
+            sb.append("Time: ").append(t >= 13000 && t < 23000 ? "night" : "day").append("\n");
+
+            String interactables = scanInteractables(sl);
+            if (!interactables.isEmpty()) {
+                sb.append("Interactables (use USE_BLOCK or wire with redstone): ")
+                        .append(interactables).append("\n");
+            }
         }
 
         sb.append("Health: ").append((int) entity.getHealth()).append("/").append((int) entity.getMaxHealth());
         return sb.toString();
+    }
+
+    /** Lists nearby interactive/redstone blocks so the planner can solve puzzles and wire things. */
+    private String scanInteractables(ServerLevel sl) {
+        BlockPos center = entity.blockPosition();
+        int r = 6;
+        StringBuilder sb = new StringBuilder();
+        int found = 0;
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (int dx = -r; dx <= r && found < 12; dx++) {
+            for (int dy = -3; dy <= 3 && found < 12; dy++) {
+                for (int dz = -r; dz <= r && found < 12; dz++) {
+                    cursor.set(center.getX() + dx, center.getY() + dy, center.getZ() + dz);
+                    BlockState state = sl.getBlockState(cursor);
+                    if (state.isAir()) continue;
+                    Identifier id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
+                    String path = id.getPath();
+                    if (isInteresting(path)) {
+                        sb.append(path).append("@").append(cursor.getX()).append(",")
+                                .append(cursor.getY()).append(",").append(cursor.getZ()).append("; ");
+                        found++;
+                    }
+                }
+            }
+        }
+        return sb.toString().trim();
+    }
+
+    private boolean isInteresting(String path) {
+        return path.contains("lever") || path.contains("button") || path.contains("door")
+                || path.contains("pressure_plate") || path.contains("redstone")
+                || path.contains("repeater") || path.contains("comparator") || path.contains("observer")
+                || path.contains("piston") || path.contains("dispenser") || path.contains("dropper")
+                || path.contains("hopper") || path.contains("chest") || path.contains("lectern")
+                || path.contains("note_block") || path.contains("target") || path.contains("tripwire")
+                || path.contains("lamp") || path.contains("bell");
     }
 }

@@ -57,13 +57,15 @@ public class AiAssistantEntity extends PathfinderMob {
         buildGoal = new BuildGoal(this);
         ExecuteTaskGoal executeGoal = new ExecuteTaskGoal(this);
 
-        goalSelector.addGoal(1, new FloatGoal(this));
-        goalSelector.addGoal(2, new CombatAssistGoal(this));
-        goalSelector.addGoal(3, executeGoal);
-        goalSelector.addGoal(4, buildGoal);
-        goalSelector.addGoal(5, new com.milkdromeda.aiassistant.entity.goal.FollowOwnerGoal(this, 1.0, ModConfig.get().followDistance, 64.0));
-        goalSelector.addGoal(6, new RandomLookAroundGoal(this));
-        goalSelector.addGoal(7, new WaterAvoidingRandomStrollGoal(this, 0.8));
+        goalSelector.addGoal(0, new FloatGoal(this));
+        // Highest active priority: survive. Runs in EVERY mode and needs no API,
+        // so the assistant never just stands there while a plan is generating.
+        goalSelector.addGoal(1, new SurvivalReflexGoal(this));
+        goalSelector.addGoal(2, executeGoal);
+        goalSelector.addGoal(3, buildGoal);
+        goalSelector.addGoal(4, new FollowOwnerGoal(this, 1.0, ModConfig.get().followDistance, 64.0));
+        goalSelector.addGoal(5, new RandomLookAroundGoal(this));
+        goalSelector.addGoal(6, new WaterAvoidingRandomStrollGoal(this, 0.8));
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -87,17 +89,16 @@ public class AiAssistantEntity extends PathfinderMob {
         }
         idleMessageTimer++;
 
-        if (mode == Mode.FOLLOWING && getLastHurtByMob() != null) {
-            mode = Mode.GUARDING;
-        }
-
-        if (getHealth() < getMaxHealth() * 0.25f && mode == Mode.FIGHTING) {
-            broadcastMessage("Taking heavy damage, retreating!");
-            mode = Mode.FOLLOWING;
-        }
+        // Combat and retreat are handled reflexively by SurvivalReflexGoal in
+        // every mode, so the assistant stays responsive even mid-plan.
 
         if (mode == Mode.EXECUTING && !taskManager.isWaiting() && !taskManager.hasPlan()) {
-            finishTask();
+            if (taskManager.isLooping()) {
+                // Ongoing activity (patrol/guard/explore/keep-building): re-plan and continue.
+                taskManager.loopAgain();
+            } else {
+                finishTask();
+            }
         }
     }
 
@@ -199,6 +200,13 @@ public class AiAssistantEntity extends PathfinderMob {
         getNavigation().stop();
         mode = Mode.FOLLOWING;
         broadcastMessage("Stopped. Standing by.");
+    }
+
+    /** Public hop — used by the JUMP action and for getting unstuck on parkour. */
+    public void doJump() {
+        if (onGround()) {
+            this.jumpFromGround();
+        }
     }
 
     public void broadcastMessage(String msg) {

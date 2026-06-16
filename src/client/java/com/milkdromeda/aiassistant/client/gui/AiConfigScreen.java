@@ -33,6 +33,7 @@ public class AiConfigScreen extends Screen {
     private CycleButton<Boolean> listenButton;
     private CycleButton<Boolean> activeButton;
     private CycleButton<Boolean> debugButton;
+    private CycleButton<Boolean> commandsButton;
     private EditBox nameBox;
     private EditBox tokenBox;
     private EditBox apiUrlBox;
@@ -41,6 +42,7 @@ public class AiConfigScreen extends Screen {
     private OptionSlider maxTokensSlider;
     private OptionSlider followSlider;
     private OptionSlider guardSlider;
+    private OptionSlider commandLevelSlider;
 
     private record Label(int x, int y, String text) {}
 
@@ -72,6 +74,11 @@ public class AiConfigScreen extends Screen {
         debugButton = CycleButton.onOffBuilder(initial.debugLogging())
                 .create(left, ly, COL_W, FIELD_H, Component.literal("Debug logging"));
         addRenderableWidget(debugButton);
+        ly += ROW_H;
+
+        commandsButton = CycleButton.onOffBuilder(initial.allowCommands())
+                .create(left, ly, COL_W, FIELD_H, Component.literal("Allow commands"));
+        addRenderableWidget(commandsButton);
         ly += ROW_H;
 
         nameBox = labeledBox(left, ly, "Assistant name", initial.defaultName(), 32);
@@ -109,6 +116,11 @@ public class AiConfigScreen extends Screen {
         addRenderableWidget(guardSlider);
         ry += ROW_H;
 
+        commandLevelSlider = new OptionSlider(right, ry, COL_W, FIELD_H,
+                "Command perm level", 0, 4, initial.commandPermissionLevel(), true);
+        addRenderableWidget(commandLevelSlider);
+        ry += ROW_H;
+
         // ── Save / Cancel ──
         int by = Math.max(ly, ry) + 14;
         int bw = 120;
@@ -141,7 +153,9 @@ public class AiConfigScreen extends Screen {
                 temperatureSlider.current(),
                 (int) Math.round(maxTokensSlider.current()),
                 followSlider.current(),
-                guardSlider.current());
+                guardSlider.current(),
+                commandsButton.getValue(),
+                (int) Math.round(commandLevelSlider.current()));
         ClientPlayNetworking.send(new ConfigUpdatePayload(data));
         onClose();
     }

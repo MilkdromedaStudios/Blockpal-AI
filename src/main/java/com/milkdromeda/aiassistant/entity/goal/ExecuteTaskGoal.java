@@ -1,11 +1,14 @@
 package com.milkdromeda.aiassistant.entity.goal;
 
 import com.milkdromeda.aiassistant.ai.ActionStep;
+import com.milkdromeda.aiassistant.config.ModConfig;
 import com.milkdromeda.aiassistant.entity.AiAssistantEntity;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
@@ -14,11 +17,19 @@ import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.ButtonBlock;
+import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.LeverBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 public class ExecuteTaskGoal extends Goal {
     private final AiAssistantEntity entity;
@@ -75,6 +86,11 @@ public class ExecuteTaskGoal extends Goal {
             case MOVE_TO        -> execMoveTo(step);
             case PLACE_BLOCK    -> execPlaceBlock(step);
             case BREAK_BLOCK    -> execBreakBlock(step);
+            case MINE_AREA      -> execMineArea(step);
+            case USE_BLOCK      -> execUseBlock(step);
+            case RUN_COMMAND    -> execRunCommand(step);
+            case JUMP           -> execJump(step);
+            case SET_SNEAK      -> execSetSneak(step);
             case ATTACK_NEAREST -> execAttackNearest(step);
             case FOLLOW_PLAYER  -> execFollowPlayer(step);
             case LOOK_AT        -> execLookAt(step);
@@ -133,6 +149,134 @@ public class ExecuteTaskGoal extends Goal {
             level.destroyBlock(pos, true, entity);
             entity.swing(InteractionHand.MAIN_HAND);
         }
+        return true;
+    }
+
+    /** Clears every block in a small box (capped so it can't lag the server). */
+    private boolean execMineArea(ActionStep step) {
+        int x1 = step.getInt("x1", (int) entity.getX()),
+            y1 = step.getInt("y1", (int) entity.getY()),
+            z1 = step.getInt("z1", (int) entity.getZ());
+        int x2 = step.getInt("x2", x1), y2 = step.getInt("y2", y1), z2 = step.getInt("z2", z1);
+        int minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+        int minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+        int minZ = Math.min(z1, z2), maxZ = Math.max(z1, z2);
+        // Hard cap the volume (≈ 6×6×6) so a runaway plan can't grind the world.
+        maxX = Math.min(maxX, minX + 5);
+        maxY = Math.min(maxY, minY + 5);
+        maxZ = Math.min(maxZ, minZ + 5);
+
+        Vec3 center = new Vec3((minX + maxX) / 2.0, (minY + maxY) / 2.0, (minZ + maxZ) / 2.0);
+        if (entity.distanceToSqr(center) > 64) {
+            entity.getNavigation().moveTo(center.x, center.y, center.z, 1.0);
+            return false;
+        }
+        Level level = entity.level();
+        if (!level.isClientSide()) {
+            for (int x = minX; x <= maxX; x++) {
+                for (int y = minY; y <= maxY; y++) {
+                    for (int z = minZ; z <= maxZ; z++) {
+                        BlockPos p = new BlockPos(x, y, z);
+                        if (!level.getBlockState(p).isAir()) {
+                            level.destroyBlock(p, true, entity);
+                        }
+                    }
+                }
+            }
+            entity.swing(InteractionHand.MAIN_HAND);
+        }
+        return true;
+    }
+
+    /** Activates a lever / button / door / trapdoor / fence gate — the heart of escape-room puzzles. */
+    private boolean execUseBlock(ActionStep step) {
+        int x = step.getInt("x", (int) entity.getX()),
+            y = step.getInt("y", (int) entity.getY()),
+            z = step.getInt("z", (int) entity.getZ());
+        BlockPos pos = new BlockPos(x, y, z);
+
+        if (entity.distanceToSqr(Vec3.atCenterOf(pos)) > 25) {
+            entity.getNavigation().moveTo(x, y, z, 1.0);
+            return false;
+        }
+        entity.getLookControl().setLookAt(x, y, z, 30f, 30f);
+
+        if (!(entity.level() instanceof ServerLevel sl)) return true;
+        try {
+            BlockState state = sl.getBlockState(pos);
+            Block block = state.getBlock();
+            if (block instanceof LeverBlock && state.hasProperty(BlockStateProperties.POWERED)) {
+                sl.setBlock(pos, state.cycle(BlockStateProperties.POWERED), Block.UPDATE_ALL);
+            } else if (block instanceof ButtonBlock && state.hasProperty(BlockStateProperties.POWERED)) {
+                sl.setBlock(pos, state.setValue(BlockStateProperties.POWERED, true), Block.UPDATE_ALL);
+                sl.scheduleTick(pos, block, 20); // auto-release like a real button press
+            } else if (block instanceof DoorBlock && state.hasProperty(BlockStateProperties.OPEN)) {
+                boolean open = !state.getValue(BlockStateProperties.OPEN);
+                sl.setBlock(pos, state.setValue(BlockStateProperties.OPEN, open), Block.UPDATE_ALL);
+                BlockPos other = state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.LOWER
+                        ? pos.above() : pos.below();
+                BlockState os = sl.getBlockState(other);
+                if (os.getBlock() instanceof DoorBlock && os.hasProperty(BlockStateProperties.OPEN)) {
+                    sl.setBlock(other, os.setValue(BlockStateProperties.OPEN, open), Block.UPDATE_ALL);
+                }
+            } else if (state.hasProperty(BlockStateProperties.OPEN)) {
+                // trapdoors, fence gates, etc.
+                sl.setBlock(pos, state.cycle(BlockStateProperties.OPEN), Block.UPDATE_ALL);
+            }
+            entity.swing(InteractionHand.MAIN_HAND);
+        } catch (Exception ignored) {
+            // Never let a quirky block break the whole plan.
+        }
+        return true;
+    }
+
+    /** Commands not allowed even at the configured permission level. */
+    private static final Set<String> DENIED_COMMANDS = Set.of(
+            "stop", "save-off", "save-all", "op", "deop", "ban", "ban-ip",
+            "pardon", "pardon-ip", "kick", "whitelist", "reload", "datapack",
+            "debug", "perf", "jfr", "setidletimeout", "publish");
+
+    /** Runs a Minecraft command as the assistant — its key to "doing almost anything". */
+    private boolean execRunCommand(ActionStep step) {
+        String command = step.getString("command", "").trim();
+        if (command.startsWith("/")) command = command.substring(1);
+        if (command.isEmpty()) return true;
+
+        ModConfig cfg = ModConfig.get();
+        if (!cfg.allowCommands) {
+            entity.broadcastMessage("I'm not allowed to run commands — enable it in /ai menu.");
+            return true;
+        }
+        if (isDeniedCommand(command)) {
+            entity.broadcastMessage("I won't run that one.");
+            return true;
+        }
+        MinecraftServer server = entity.getServer();
+        if (server == null) return true;
+        try {
+            CommandSourceStack source = entity.createCommandSourceStack()
+                    .withPermission(cfg.commandPermissionLevel)
+                    .withSuppressedOutput();
+            server.getCommands().performPrefixedCommand(source, command);
+        } catch (Exception e) {
+            entity.broadcastMessage("That command didn't work.");
+        }
+        return true;
+    }
+
+    private boolean isDeniedCommand(String command) {
+        String first = command.split("\\s+", 2)[0].toLowerCase(Locale.ROOT);
+        if (first.startsWith("minecraft:")) first = first.substring("minecraft:".length());
+        return DENIED_COMMANDS.contains(first);
+    }
+
+    private boolean execJump(ActionStep step) {
+        if (entity.onGround()) entity.doJump();
+        return true;
+    }
+
+    private boolean execSetSneak(ActionStep step) {
+        entity.setShiftKeyDown(step.getBool("value", true));
         return true;
     }
 

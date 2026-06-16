@@ -30,10 +30,25 @@ turn a sentence into a sequence of in-game actions.
   "where are you" work immediately, even with no API token.
 - **AI-planned tasks** — anything else ("build a 5×5 floor", "mine this tree")
   is sent to a language model that returns a step-by-step plan.
+- **Never just stands there** — combat and retreat are handled by an instant
+  **reflex layer that runs in every mode, with no API call**. Planning is fully
+  asynchronous, so the assistant keeps fighting and dodging *while* it thinks —
+  it won't freeze mid-generation while a creeper walks up to it.
+- **Runs commands** — with command execution on, plans can use `/setblock`,
+  `/fill`, `/give`, `/summon`, `/clone`, `/effect`… This is its key to doing
+  *almost anything*, including precise **redstone** (block states via
+  `/setblock`). Safely gated — see [Letting it run commands](#-letting-it-run-commands).
+- **Solves puzzles & escape rooms** — it sees nearby **levers, buttons, doors,
+  pressure plates and redstone** in its context and can flip/press/open them
+  (`USE_BLOCK`), or walk onto plates, to progress.
+- **Keeps going (live activities)** — ongoing jobs like *patrol*, *guard the
+  area*, *keep mining* or *explore* loop continuously, re-planning each round
+  with fresh context instead of stopping after one batch.
 - **Follows you** — keeps pace and teleports to you if it falls too far behind.
-- **Fights for you** — automatically engages hostile mobs near you, and retreats
-  when badly hurt.
-- **Builds & breaks** — places and breaks blocks to carry out building tasks.
+- **Fights & flees** — engages hostile mobs near you and your assistant, and
+  retreats toward you when badly hurt instead of dying in place.
+- **Builds, breaks, digs & parkours** — places/breaks blocks, clears areas
+  (`MINE_AREA`), jumps (`JUMP`) and crouches (`SET_SNEAK`).
 - **Find it anywhere** — `/ai locate` reports distance, direction, and coords.
 - **Friendly errors** — connection problems give clear, actionable advice
   instead of raw `java.net.ConnectException` stack traces.
@@ -116,6 +131,7 @@ listening but turn off the proactive AI with `/ai active off`.
 | `/ai token <token>`    | Set your AI service API token                            |
 | `/ai listen on\|off`   | Turn chat listening on or off                            |
 | `/ai active on\|off`   | Turn proactive AI analysis of every message on or off    |
+| `/ai commands on\|off` | Allow/forbid the assistant running Minecraft commands    |
 | `/ai settings`         | Show advanced configuration                              |
 
 ---
@@ -127,9 +143,10 @@ listening but turn off the proactive AI with `/ai active off`.
 Press **K** in-game (rebindable under *Options → Controls → AI Assistant*) or
 run `/ai menu` to open a proper settings screen with:
 
-- **Toggles** — chat listening, active analysis, debug logging
+- **Toggles** — chat listening, active analysis, debug logging, allow commands
 - **Text fields** — assistant name, API token, API URL, model
-- **Sliders** — temperature, max tokens, follow distance, guard radius
+- **Sliders** — temperature, max tokens, follow distance, guard radius,
+  command permission level
 
 Hit **Save** to apply, **Cancel** (or **Esc**) to discard. The token field stays
 blank when one is already set — leave it blank to keep the current token, or type
@@ -160,10 +177,52 @@ Settings are saved to `config/ai-assistant.json` in your game directory.
 ## 🧠 What the AI can do (actions)
 
 When you give a task, the language model replies with a plan made of these
-building-block actions, which the assistant then performs in order:
+building-block actions, which the assistant performs in order:
 
-`MOVE_TO`, `PLACE_BLOCK`, `BREAK_BLOCK`, `ATTACK_NEAREST`, `FOLLOW_PLAYER`,
-`LOOK_AT`, `CHAT`, `WAIT`, `COLLECT_ITEM`, `STOP`.
+| Action | What it does |
+|--------|--------------|
+| `MOVE_TO` | Walk/path to a position |
+| `PLACE_BLOCK` / `BREAK_BLOCK` | Place or break a single block |
+| `MINE_AREA` | Clear every block in a small box (digging, tunnels) |
+| `USE_BLOCK` | Flip a lever, press a button, open a door/trapdoor/gate |
+| `RUN_COMMAND` | Execute a Minecraft command (redstone, fills, gives, summons…) |
+| `ATTACK_NEAREST` | Strike the nearest hostile |
+| `FOLLOW_PLAYER` | Path to and follow a player |
+| `LOOK_AT` | Face a position |
+| `JUMP` / `SET_SNEAK` | Hop (parkour) / crouch |
+| `CHAT` | Say something |
+| `WAIT` / `COLLECT_ITEM` / `STOP` | Pause / pick up / end the plan |
+
+The planner can also set **`"loop": true`** on a plan to mark an *ongoing*
+activity (patrol, guard, keep building) — the assistant then re-plans and keeps
+going with fresh context each round. Combat is **not** something it has to plan:
+the reflex layer handles it automatically, in every mode, so plans focus on the
+actual task.
+
+---
+
+## ⚡ Letting it run commands
+
+`RUN_COMMAND` is what turns the assistant from "places blocks one by one" into
+"can build a working redstone contraption" — the model can emit, e.g.,
+`/setblock ~ ~ ~ minecraft:repeater[facing=east,delay=2]` or `/fill` a whole
+structure at once.
+
+Because that's powerful, it's gated:
+
+- **Toggle:** on by default. Turn off with `/ai commands off` or the **Allow
+  commands** switch in the menu.
+- **Permission level (default 2):** the assistant runs commands at this vanilla
+  level. Level 2 is the *command-block tier* — it allows `/setblock`, `/fill`,
+  `/clone`, `/give`, `/summon`, `/tp`, `/effect`, `/time`, `/weather`, but **not**
+  server-admin commands (`/op`, `/stop`, `/ban`… need level 3–4). Adjust with the
+  **Command perm level** slider in the menu.
+- **Denylist:** a handful of dangerous commands (`stop`, `op`, `ban`, `whitelist`,
+  `reload`, …) are always refused, regardless of level.
+
+On a shared server, set the level to taste (or turn it off) — and remember the
+assistant is driven by an LLM, so only grant what you're comfortable with it
+improvising.
 
 ---
 

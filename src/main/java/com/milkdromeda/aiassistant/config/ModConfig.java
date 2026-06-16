@@ -24,9 +24,20 @@ public class ModConfig {
     public int maxNewTokens = 512;
     public double temperature = 0.7;
     public boolean debugLogging = false;
-    public int actionTickDelay = 20;
+    // Lower = faster, snappier action execution (ticks between plan steps).
+    public int actionTickDelay = 8;
     public double followDistance = 4.0;
     public double guardRadius = 16.0;
+    // Self-preservation: flee/heal-up when health drops below this fraction.
+    public double fleeHealthPercent = 0.25;
+    // When true the assistant may execute Minecraft commands as part of a plan
+    // (e.g. /setblock for redstone, /fill, /give). This is what lets it "do
+    // almost anything". Gated to a permission level and a denylist for safety.
+    public boolean allowCommands = true;
+    // Permission level for commands the assistant runs (vanilla: 2 = command
+    // block tier — allows /setblock, /fill, /summon, /give, /tp, /effect, but
+    // NOT server-admin commands like /op or /stop, which need level 3-4).
+    public int commandPermissionLevel = 2;
     // When true the assistant listens to normal chat and reacts to commands
     // like "Ethan, follow me" or "help me mine this tree" without needing /ai.
     public boolean chatListening = true;

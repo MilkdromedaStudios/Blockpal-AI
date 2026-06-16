@@ -65,6 +65,11 @@ public class AiCommands {
                                 .then(Commands.literal("on").executes(ctx -> setActive(ctx, true)))
                                 .then(Commands.literal("off").executes(ctx -> setActive(ctx, false))))
 
+                        .then(Commands.literal("commands")
+                                .executes(AiCommands::showCommandsSetting)
+                                .then(Commands.literal("on").executes(ctx -> setAllowCommands(ctx, true)))
+                                .then(Commands.literal("off").executes(ctx -> setAllowCommands(ctx, false))))
+
                         // open the real settings screen (client must have the mod)
                         .then(Commands.literal("menu").executes(AiCommands::openMenu))
                         .then(Commands.literal("config").executes(AiCommands::openMenu))
@@ -129,7 +134,8 @@ public class AiCommands {
                 "§6=== Your AI Assistant ===\n" +
                 "§eJust talk in chat (no slash, no exact words needed):\n" +
                 "§7  \"follow me\"   \"come here\"   \"stay\"   \"stop\"   \"where are you\"\n" +
-                "§7  \"can you clear these trees?\"   \"I need a shelter\"\n" +
+                "§7  \"clear these trees\"   \"build a redstone door\"   \"solve this puzzle\"\n" +
+                "§7It fights back while it thinks, runs commands, and keeps going on patrols.\n" +
                 "§6\n" +
                 "§eCommands:\n" +
                 "§f/ai menu §7— open the settings screen (default key: K)\n" +
@@ -144,6 +150,7 @@ public class AiCommands {
                 "§f/ai token <token> §7— set your AI service token\n" +
                 "§f/ai listen on|off §7— toggle chat listening\n" +
                 "§f/ai active on|off §7— toggle proactive analysis of every message\n" +
+                "§f/ai commands on|off §7— let it run commands (/setblock, /fill, redstone…)\n" +
                 "§f/ai dismiss §7— send it away\n" +
                 "§f/ai settings §7— advanced configuration"
         ));
@@ -300,6 +307,29 @@ public class AiCommands {
         return 1;
     }
 
+    private static int showCommandsSetting(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        ModConfig cfg = ModConfig.get();
+        player.sendSystemMessage(Component.literal(
+                "§eRunning commands is " + (cfg.allowCommands ? "§aON" : "§cOFF")
+                        + "§e (permission level " + cfg.commandPermissionLevel
+                        + "). Use /ai commands on|off."));
+        return 1;
+    }
+
+    private static int setAllowCommands(CommandContext<CommandSourceStack> ctx, boolean on) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        ModConfig.get().allowCommands = on;
+        ModConfig.save();
+        player.sendSystemMessage(Component.literal(on
+                ? "§aCommand execution ON §7— I can now use /setblock, /fill, /give, etc. (level "
+                        + ModConfig.get().commandPermissionLevel + ")."
+                : "§cCommand execution OFF §7— I'll stick to moving, building and fighting by hand."));
+        return 1;
+    }
+
     // ── config menu ───────────────────────────────────────────────────────────
 
     private static int openMenu(CommandContext<CommandSourceStack> ctx) {
@@ -333,6 +363,7 @@ public class AiCommands {
                 "§eAssistant:      §f" + aiName + "  (mode: " + mode + ")\n" +
                 "§eChat listening: §f" + (cfg.chatListening ? "on" : "off") + "\n" +
                 "§eActive analysis:§f " + (cfg.activeMode ? "on" : "off") + "\n" +
+                "§eRun commands:   §f" + (cfg.allowCommands ? "on (level " + cfg.commandPermissionLevel + ")" : "off") + "\n" +
                 "§eModel:          §f" + cfg.hfModel + "\n" +
                 "§eAPI URL:        §f" + cfg.apiUrl + "\n" +
                 "§eAPI token:      §f" + (cfg.hasApiToken() ? "set ✓" : "§cnot set — /ai token <token>") + "\n" +
