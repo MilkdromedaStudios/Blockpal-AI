@@ -69,7 +69,11 @@ public final class ChatListener {
         if (!addressedByName && !startsWithTrigger(lower)) {
             // Active mode: let the language model judge whether you need it, so
             // you don't have to address it or use exact words. Quiet otherwise.
-            if (ModConfig.get().activeMode && ModConfig.get().hasApiToken()) {
+            // Skip trivial chatter and far-off players so we don't fire an API
+            // call (and the analysis rate-limit) on every little message.
+            if (ModConfig.get().activeMode && ModConfig.get().hasApiToken()
+                    && text.length() >= 5
+                    && ai.distanceToSqr(sender) < 48 * 48) {
                 ai.analyzeChat(sender, text);
             }
             return;

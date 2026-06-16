@@ -21,10 +21,15 @@ import java.util.List;
 public class CollectItemsGoal extends Goal {
 
     private static final double SEARCH_RADIUS = 10.0;
+    private static final int SCAN_INTERVAL = 20;    // ticks between searches for loot
+    private static final int REPATH_INTERVAL = 10;  // ticks between path recalculations
+    private static final int MAX_PURSUIT = 100;     // give up if it can't reach in ~5s
 
     private final AiAssistantEntity entity;
     private ItemEntity target;
     private int scanCooldown;
+    private int repathCooldown;
+    private int pursuitTicks;
 
     public CollectItemsGoal(AiAssistantEntity entity) {
         this.entity = entity;
@@ -42,26 +47,39 @@ public class CollectItemsGoal extends Goal {
     public boolean canUse() {
         if (!modeAllows()) return false;
         if (scanCooldown > 0) { scanCooldown--; return false; }
-        scanCooldown = 10;
+        scanCooldown = SCAN_INTERVAL;
         target = findItem();
-        return target != null;
+        if (target == null) return false;
+        repathCooldown = 0;          // path on the very first tick
+        pursuitTicks = MAX_PURSUIT;
+        return true;
     }
 
     @Override
     public boolean canContinueToUse() {
-        return modeAllows() && target != null && target.isAlive() && !target.getItem().isEmpty();
+        return modeAllows() && pursuitTicks > 0
+                && target != null && target.isAlive() && !target.getItem().isEmpty();
     }
 
     @Override
     public void tick() {
         if (target == null) return;
+        pursuitTicks--;
         entity.getLookControl().setLookAt(target, 30f, 30f);
-        entity.getNavigation().moveTo(target, 1.1);
+        // Re-path only periodically (or when the current path finishes) rather than
+        // every tick — recomputing a path every tick is a major performance cost.
+        if (repathCooldown > 0 && !entity.getNavigation().isDone()) {
+            repathCooldown--;
+        } else {
+            entity.getNavigation().moveTo(target, 1.1);
+            repathCooldown = REPATH_INTERVAL;
+        }
     }
 
     @Override
     public void stop() {
         target = null;
+        pursuitTicks = 0;
         entity.getNavigation().stop();
     }
 

@@ -37,6 +37,7 @@ public class ExecuteTaskGoal extends Goal {
     private ActionStep currentStep;
     private int stepTimer = 0;
     private int waitRemaining = 0;
+    private int pathCooldown = 0;
 
     public ExecuteTaskGoal(AiAssistantEntity entity) {
         this.entity = entity;
@@ -64,6 +65,7 @@ public class ExecuteTaskGoal extends Goal {
         if (currentStep == null) {
             currentStep = entity.getTaskManager().pollNextStep();
             stepTimer = 0;
+            pathCooldown = 0;   // let the new step issue its path immediately
             if (currentStep == null) { entity.finishTask(); return; }
         }
 
@@ -80,7 +82,25 @@ public class ExecuteTaskGoal extends Goal {
     }
 
     @Override
-    public void stop() { currentStep = null; stepTimer = 0; }
+    public void stop() { currentStep = null; stepTimer = 0; pathCooldown = 0; }
+
+    /**
+     * Issues a navigation path only periodically (or once the current one ends)
+     * rather than every tick. Pathfinding is one of the most expensive things an
+     * entity does, so recomputing it every tick during long moves/digs is a big
+     * source of lag; the entity keeps walking the existing path in between.
+     */
+    private void navTo(double x, double y, double z, double speed) {
+        if (pathCooldown > 0 && !entity.getNavigation().isDone()) { pathCooldown--; return; }
+        pathCooldown = 10;
+        entity.getNavigation().moveTo(x, y, z, speed);
+    }
+
+    private void navTo(net.minecraft.world.entity.Entity target, double speed) {
+        if (pathCooldown > 0 && !entity.getNavigation().isDone()) { pathCooldown--; return; }
+        pathCooldown = 10;
+        entity.getNavigation().moveTo(target, speed);
+    }
 
     private boolean executeStep(ActionStep step) {
         return switch (step.type()) {
@@ -119,7 +139,7 @@ public class ExecuteTaskGoal extends Goal {
         BlockPos pos = new BlockPos(x, y, z);
 
         if (entity.distanceToSqr(Vec3.atCenterOf(pos)) > 25) {
-            entity.getNavigation().moveTo(x, y, z, 1.0);
+            navTo(x, y, z, 1.0);
             return false;
         }
         Level level = entity.level();
@@ -142,7 +162,7 @@ public class ExecuteTaskGoal extends Goal {
         BlockPos pos = new BlockPos(x, y, z);
 
         if (entity.distanceToSqr(Vec3.atCenterOf(pos)) > 25) {
-            entity.getNavigation().moveTo(x, y, z, 1.0);
+            navTo(x, y, z, 1.0);
             return false;
         }
         Level level = entity.level();
@@ -169,7 +189,7 @@ public class ExecuteTaskGoal extends Goal {
 
         Vec3 center = new Vec3((minX + maxX) / 2.0, (minY + maxY) / 2.0, (minZ + maxZ) / 2.0);
         if (entity.distanceToSqr(center) > 64) {
-            entity.getNavigation().moveTo(center.x, center.y, center.z, 1.0);
+            navTo(center.x, center.y, center.z, 1.0);
             return false;
         }
         Level level = entity.level();
@@ -197,7 +217,7 @@ public class ExecuteTaskGoal extends Goal {
         BlockPos pos = new BlockPos(x, y, z);
 
         if (entity.distanceToSqr(Vec3.atCenterOf(pos)) > 25) {
-            entity.getNavigation().moveTo(x, y, z, 1.0);
+            navTo(x, y, z, 1.0);
             return false;
         }
         entity.getLookControl().setLookAt(x, y, z, 30f, 30f);
@@ -299,7 +319,7 @@ public class ExecuteTaskGoal extends Goal {
         if (target == null) return true;
 
         entity.getLookControl().setLookAt(target, 30f, 30f);
-        entity.getNavigation().moveTo(target, 1.2);
+        navTo(target, 1.2);
 
         if (entity.distanceToSqr(target) < 9 && entity.level() instanceof ServerLevel sl) {
             entity.swing(InteractionHand.MAIN_HAND);
@@ -321,7 +341,7 @@ public class ExecuteTaskGoal extends Goal {
         if (player == null) return true;
 
         if (entity.distanceToSqr(player) > dist * dist) {
-            entity.getNavigation().moveTo(player, 1.0);
+            navTo(player, 1.0);
             entity.getLookControl().setLookAt(player, 30f, 30f);
             return false;
         }
@@ -357,7 +377,7 @@ public class ExecuteTaskGoal extends Goal {
                y = step.getDouble("y", entity.getY()),
                z = step.getDouble("z", entity.getZ());
         if (entity.distanceToSqr(x, y, z) > 4) {
-            entity.getNavigation().moveTo(x, y, z, 1.0);
+            navTo(x, y, z, 1.0);
             return false;
         }
         return true;

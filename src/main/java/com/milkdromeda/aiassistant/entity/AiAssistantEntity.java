@@ -66,6 +66,8 @@ public class AiAssistantEntity extends PathfinderMob {
     private int idleMessageTimer = 0;
     /** True while an "active analysis" classification is in flight (prevents floods). */
     private boolean analyzing = false;
+    /** Earliest tick the next active-mode analysis may run (rate-limits API calls). */
+    private int nextAnalyzeTick = 0;
 
     /** Backpack-style storage — 10 slots like a player's hotbar — on top of the
      *  worn armour and held weapon. Picked-up loot lands here, and the best gear
@@ -195,6 +197,8 @@ public class AiAssistantEntity extends PathfinderMob {
     public void analyzeChat(ServerPlayer sender, String message) {
         if (analyzing || level().isClientSide()) return;
         if (!ModConfig.get().hasApiToken()) return;
+        if (tickCount < nextAnalyzeTick) return;   // rate-limit: don't analyze every message
+        nextAnalyzeTick = tickCount + 60;          // at most ~once every 3 seconds
         analyzing = true;
 
         String context = "Speaker: " + sender.getName().getString()

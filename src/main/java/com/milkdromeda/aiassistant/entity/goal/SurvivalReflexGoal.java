@@ -31,6 +31,7 @@ public class SurvivalReflexGoal extends Goal {
     private LivingEntity target;
     private int attackCooldown = 0;
     private int scanCooldown = 0;
+    private int repathCooldown = 0;
     private boolean wasFleeing = false;
 
     public SurvivalReflexGoal(AiAssistantEntity entity) {
@@ -68,8 +69,8 @@ public class SurvivalReflexGoal extends Goal {
             return;
         }
 
-        // Engage: close in and strike.
-        entity.getNavigation().moveTo(target, 1.3);
+        // Engage: close in (re-pathing only periodically) and strike.
+        if (shouldRepath()) entity.getNavigation().moveTo(target, 1.3);
         if (attackCooldown <= 0 && entity.distanceToSqr(target) < 9.0) {
             entity.swing(InteractionHand.MAIN_HAND);
             if (entity.level() instanceof ServerLevel sl) {
@@ -86,6 +87,7 @@ public class SurvivalReflexGoal extends Goal {
             entity.broadcastMessage("Too risky — pulling back!");
             wasFleeing = true;
         }
+        if (!shouldRepath()) return;
         Player owner = entity.getOwnerPlayer();
         Vec3 dest;
         if (owner != null && entity.distanceToSqr(owner) < 64 * 64) {
@@ -99,10 +101,18 @@ public class SurvivalReflexGoal extends Goal {
         entity.getNavigation().moveTo(dest.x, dest.y, dest.z, 1.45);
     }
 
+    /** Limits path recalculation to ~twice a second so combat doesn't repath every tick. */
+    private boolean shouldRepath() {
+        if (repathCooldown > 0 && !entity.getNavigation().isDone()) { repathCooldown--; return false; }
+        repathCooldown = 10;
+        return true;
+    }
+
     @Override
     public void stop() {
         target = null;
         attackCooldown = 0;
+        repathCooldown = 0;
         wasFleeing = false;
         entity.getNavigation().stop();
     }

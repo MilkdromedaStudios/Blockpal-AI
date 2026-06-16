@@ -12,6 +12,7 @@ public class FollowOwnerGoal extends Goal {
     private final double speed;
     private final double minDist;
     private final double maxDist;
+    private int repathCooldown = 0;
 
     public FollowOwnerGoal(AiAssistantEntity entity, double speed, double minDist, double maxDist) {
         this.entity = entity;
@@ -42,13 +43,17 @@ public class FollowOwnerGoal extends Goal {
 
         if (entity.distanceToSqr(owner) > maxDist * maxDist) {
             entity.setPos(owner.getX(), owner.getY(), owner.getZ());
+        } else if (repathCooldown > 0 && !entity.getNavigation().isDone()) {
+            repathCooldown--;   // keep walking the current path; don't repath every tick
         } else {
             entity.getNavigation().moveTo(owner, speed);
+            repathCooldown = 10;
         }
     }
 
     @Override
     public void stop() {
+        repathCooldown = 0;
         entity.getNavigation().stop();
     }
 }
