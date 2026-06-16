@@ -31,5 +31,5 @@ Whenever a jar is built and verified during testing, copy it into the repo's
 src/main/java        # common mod: entity, AI planner, commands, chat, networking
 src/client/java      # client-only: rendering and the settings GUI
 src/main/resources   # fabric.mod.json, lang files, skins, assets
-builds/              # tested, ready-to-use jars (full version history)
+builds/              # tested, ready-to-use jars (full version history, no deleting old builds.)
 ```
