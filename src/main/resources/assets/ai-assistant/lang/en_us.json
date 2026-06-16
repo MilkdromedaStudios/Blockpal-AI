@@ -11,5 +11,8 @@
   "chat.aiassistant.low_health":     "[%s] Taking heavy damage, retreating!",
   "chat.aiassistant.fighting":       "[%s] Engaging hostiles!",
 
+  "key.categories.ai-assistant": "AI Assistant",
+  "key.ai-assistant.open_menu": "Open Settings Menu",
+
   "item_group.ai-assistant": "AI Assistant"
 }

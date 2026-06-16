@@ -30,6 +30,10 @@ public class ModConfig {
     // When true the assistant listens to normal chat and reacts to commands
     // like "Ethan, follow me" or "help me mine this tree" without needing /ai.
     public boolean chatListening = true;
+    // When true the assistant analyses *every* chat message with the language
+    // model to decide if you need it — so you don't have to use its name or any
+    // exact command words. Requires an API token; ignored if chatListening off.
+    public boolean activeMode = true;
     // Default name given to a freshly summoned assistant.
     public String defaultName = "Ethan";
 

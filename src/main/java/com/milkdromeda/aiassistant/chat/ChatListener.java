@@ -15,6 +15,10 @@ import java.util.Set;
  * language — e.g. "Ethan, follow me" or "help me mine this tree" — without
  * having to type /ai. Quick intents (come, follow, stay, stop, locate) are
  * handled instantly with no API call; anything else becomes an AI task.
+ *
+ * <p>With "active analysis" on (the default), messages that aren't obviously
+ * addressed are still handed to the language model, which decides whether the
+ * player needs the assistant — so no name or exact command words are required.
  */
 public final class ChatListener {
 
@@ -61,8 +65,15 @@ public final class ChatListener {
             }
         }
 
-        // Only react if it was clearly aimed at the assistant.
-        if (!addressedByName && !startsWithTrigger(lower)) return;
+        // Not obviously aimed at the assistant by name or a command word?
+        if (!addressedByName && !startsWithTrigger(lower)) {
+            // Active mode: let the language model judge whether you need it, so
+            // you don't have to address it or use exact words. Quiet otherwise.
+            if (ModConfig.get().activeMode && ModConfig.get().hasApiToken()) {
+                ai.analyzeChat(sender, text);
+            }
+            return;
+        }
 
         if (handleQuickIntent(sender, ai, body.toLowerCase(Locale.ROOT))) return;
 

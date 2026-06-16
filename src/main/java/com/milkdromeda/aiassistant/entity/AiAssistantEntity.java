@@ -1,11 +1,14 @@
 package com.milkdromeda.aiassistant.entity;
 
 import com.milkdromeda.aiassistant.ai.AiTaskManager;
+import com.milkdromeda.aiassistant.ai.ChatIntent;
 import com.milkdromeda.aiassistant.config.ModConfig;
 import com.milkdromeda.aiassistant.entity.goal.*;
 import com.milkdromeda.aiassistant.entity.goal.FollowOwnerGoal;
+import com.milkdromeda.aiassistant.util.Locator;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.*;
@@ -37,6 +40,8 @@ public class AiAssistantEntity extends PathfinderMob {
     private final AiTaskManager taskManager;
     private BuildGoal buildGoal;
     private int idleMessageTimer = 0;
+    /** True while an "active analysis" classification is in flight (prevents floods). */
+    private boolean analyzing = false;
 
     public AiAssistantEntity(EntityType<? extends AiAssistantEntity> type, Level level) {
         super(type, level);
@@ -113,6 +118,50 @@ public class AiAssistantEntity extends PathfinderMob {
         broadcastMessage("Done: " + (pendingTask != null ? pendingTask : "task complete"));
         pendingTask = null;
         mode = Mode.FOLLOWING;
+    }
+
+    /**
+     * Reads a free-form chat message with the language model and, if it decides
+     * the player needs the assistant, acts on it — without requiring the
+     * assistant's name or any exact command words. Runs asynchronously; the
+     * resulting action is applied back on the server thread.
+     */
+    public void analyzeChat(ServerPlayer sender, String message) {
+        if (analyzing || level().isClientSide()) return;
+        if (!ModConfig.get().hasApiToken()) return;
+        analyzing = true;
+
+        String context = "Speaker: " + sender.getName().getString()
+                + "; distance to speaker: " + (int) Math.sqrt(distanceToSqr(sender)) + " blocks";
+
+        taskManager.classify(message, context, getAssistantName()).whenComplete((intent, ex) -> {
+            MinecraftServer server = getServer();
+            if (server == null) { analyzing = false; return; }
+            server.execute(() -> {
+                analyzing = false;
+                if (ex != null || intent == null || !intent.directed()) return;
+                dispatchIntent(sender, intent);
+            });
+        });
+    }
+
+    /** Carries out the action the language model inferred from a chat message. */
+    private void dispatchIntent(ServerPlayer sender, ChatIntent intent) {
+        if (!isAlive()) return;
+        switch (intent.action()) {
+            case "come"   -> comeTo(sender);
+            case "follow" -> followPlayer();
+            case "stay"   -> stayHere();
+            case "stop"   -> stopTask();
+            case "locate" -> sender.sendSystemMessage(Component.literal(
+                    "[" + assistantName + "] " + Locator.describe(sender, this)));
+            case "task"   -> {
+                if (intent.task() != null && !intent.task().isBlank()) {
+                    giveTask(intent.task(), sender);
+                }
+            }
+            default -> { /* none — stay quiet */ }
+        }
     }
 
     // ---- Quick (no-API) behaviours used by commands and chat ----

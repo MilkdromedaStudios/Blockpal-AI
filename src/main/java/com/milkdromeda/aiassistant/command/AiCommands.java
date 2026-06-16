@@ -3,12 +3,15 @@ package com.milkdromeda.aiassistant.command;
 import com.milkdromeda.aiassistant.ModEntities;
 import com.milkdromeda.aiassistant.config.ModConfig;
 import com.milkdromeda.aiassistant.entity.AiAssistantEntity;
+import com.milkdromeda.aiassistant.network.ConfigData;
+import com.milkdromeda.aiassistant.network.ConfigSyncPayload;
 import com.milkdromeda.aiassistant.util.Locator;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
@@ -56,6 +59,15 @@ public class AiCommands {
                                 .executes(AiCommands::showListen)
                                 .then(Commands.literal("on").executes(ctx -> setListen(ctx, true)))
                                 .then(Commands.literal("off").executes(ctx -> setListen(ctx, false))))
+
+                        .then(Commands.literal("active")
+                                .executes(AiCommands::showActive)
+                                .then(Commands.literal("on").executes(ctx -> setActive(ctx, true)))
+                                .then(Commands.literal("off").executes(ctx -> setActive(ctx, false))))
+
+                        // open the real settings screen (client must have the mod)
+                        .then(Commands.literal("menu").executes(AiCommands::openMenu))
+                        .then(Commands.literal("config").executes(AiCommands::openMenu))
 
                         // ── advanced settings ────────────────────────────────────────
                         .then(Commands.literal("settings")
@@ -115,11 +127,12 @@ public class AiCommands {
 
         player.sendSystemMessage(Component.literal(
                 "§6=== Your AI Assistant ===\n" +
-                "§eJust talk in chat (no slash needed):\n" +
+                "§eJust talk in chat (no slash, no exact words needed):\n" +
                 "§7  \"follow me\"   \"come here\"   \"stay\"   \"stop\"   \"where are you\"\n" +
-                "§7  \"help me mine this tree\"   \"Ethan, build a wall\"\n" +
+                "§7  \"can you clear these trees?\"   \"I need a shelter\"\n" +
                 "§6\n" +
                 "§eCommands:\n" +
+                "§f/ai menu §7— open the settings screen (default key: K)\n" +
                 "§f/ai summon [name] §7— bring a new assistant into the world\n" +
                 "§f/ai come §7— call it over to you\n" +
                 "§f/ai follow §7— have it follow you\n" +
@@ -130,6 +143,7 @@ public class AiCommands {
                 "§f/ai name <name> §7— rename it\n" +
                 "§f/ai token <token> §7— set your AI service token\n" +
                 "§f/ai listen on|off §7— toggle chat listening\n" +
+                "§f/ai active on|off §7— toggle proactive analysis of every message\n" +
                 "§f/ai dismiss §7— send it away\n" +
                 "§f/ai settings §7— advanced configuration"
         ));
@@ -265,6 +279,44 @@ public class AiCommands {
         return 1;
     }
 
+    private static int showActive(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        boolean on = ModConfig.get().activeMode;
+        player.sendSystemMessage(Component.literal(
+                "§eActive analysis is " + (on ? "§aON" : "§cOFF")
+                        + "§e. Use /ai active on|off to change it."));
+        return 1;
+    }
+
+    private static int setActive(CommandContext<CommandSourceStack> ctx, boolean on) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        ModConfig.get().activeMode = on;
+        ModConfig.save();
+        player.sendSystemMessage(Component.literal(on
+                ? "§aActive analysis ON §7— I'll read every message and help when it sounds like you need me."
+                : "§cActive analysis OFF §7— I'll only respond when addressed by name or a command word."));
+        return 1;
+    }
+
+    // ── config menu ───────────────────────────────────────────────────────────
+
+    private static int openMenu(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+
+        if (!ServerPlayNetworking.canSend(player, ConfigSyncPayload.TYPE)) {
+            player.sendSystemMessage(Component.literal(
+                    "§eThe settings menu needs the AI Assistant mod on your client. "
+                            + "Use §f/ai settings§e here instead."));
+            return 0;
+        }
+        ServerPlayNetworking.send(player, new ConfigSyncPayload(ConfigData.fromConfig()));
+        player.sendSystemMessage(Component.literal("§7Opening the AI Assistant menu… (default key: K)"));
+        return 1;
+    }
+
     // ── advanced settings ─────────────────────────────────────────────────────
 
     private static int showSettings(CommandContext<CommandSourceStack> ctx) {
@@ -278,16 +330,18 @@ public class AiCommands {
 
         player.sendSystemMessage(Component.literal(
                 "§6=== AI Assistant Settings ===\n" +
-                "§eAssistant:     §f" + aiName + "  (mode: " + mode + ")\n" +
-                "§eChat listening:§f " + (cfg.chatListening ? "on" : "off") + "\n" +
-                "§eModel:         §f" + cfg.hfModel + "\n" +
-                "§eAPI URL:       §f" + cfg.apiUrl + "\n" +
-                "§eAPI token:     §f" + (cfg.hasApiToken() ? "set ✓" : "§cnot set — /ai token <token>") + "\n" +
-                "§eTemperature:   §f" + cfg.temperature + "\n" +
-                "§eMax tokens:    §f" + cfg.maxNewTokens + "\n" +
-                "§eFollow dist:   §f" + cfg.followDistance + "\n" +
-                "§eGuard radius:  §f" + cfg.guardRadius + "\n" +
-                "§7Change with /ai settings <key> <value>."
+                "§eAssistant:      §f" + aiName + "  (mode: " + mode + ")\n" +
+                "§eChat listening: §f" + (cfg.chatListening ? "on" : "off") + "\n" +
+                "§eActive analysis:§f " + (cfg.activeMode ? "on" : "off") + "\n" +
+                "§eModel:          §f" + cfg.hfModel + "\n" +
+                "§eAPI URL:        §f" + cfg.apiUrl + "\n" +
+                "§eAPI token:      §f" + (cfg.hasApiToken() ? "set ✓" : "§cnot set — /ai token <token>") + "\n" +
+                "§eTemperature:    §f" + cfg.temperature + "\n" +
+                "§eMax tokens:     §f" + cfg.maxNewTokens + "\n" +
+                "§eFollow dist:    §f" + cfg.followDistance + "\n" +
+                "§eGuard radius:   §f" + cfg.guardRadius + "\n" +
+                "§7Tip: open the full menu with §f/ai menu§7 or the §fK§7 key. "
+                        + "Or change one value with /ai settings <key> <value>."
         ));
         return 1;
     }

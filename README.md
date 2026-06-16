@@ -2,8 +2,10 @@
 
 A Fabric mod that drops a friendly AI character into your world. Its name is
 **Ethan** by default, it wears a floating **nametag** so you always know who it
-is, and you can boss it around either with plain chat ("*Ethan, follow me*",
-"*help me mine this tree*") or with simple `/ai` commands.
+is, and it's **proactive** — it reads your chat and figures out when you need it,
+so you don't have to address it by name or memorise any commands. You can still
+boss it around with plain chat ("*Ethan, follow me*") or `/ai` commands, and
+everything is configurable from a **real in-game settings menu**.
 
 Tasks like building, mining, or fighting are planned by a large language model
 through an OpenAI-compatible API (HuggingFace by default), so the assistant can
@@ -15,6 +17,13 @@ turn a sentence into a sequence of in-game actions.
 
 - **Named & tagged** — spawns as **Ethan** with a visible nametag above its
   head. Rename it any time with `/ai name <name>` and the tag updates live.
+- **Proactive — reads the room** — with *active analysis* (on by default) it
+  runs **every** chat message past the language model to decide whether you need
+  it and what you want, so "*can you clear these trees?*" or "*I need a shelter*"
+  just work — no name, no exact command words. Toggle with `/ai active on|off`.
+- **In-game settings menu** — a real GUI (not just chat commands) for the token,
+  model, behaviour toggles and tuning sliders. Open it with the **K** key or
+  `/ai menu`.
 - **Talk to it in chat** — no slash command needed. It actively listens to chat
   and reacts to natural language (toggle with `/ai listen on|off`).
 - **Instant quick-commands** — "come here", "follow me", "stay", "stop", and
@@ -58,24 +67,34 @@ That's it. To use a different model or provider, see [Settings](#-settings).
 
 ## 🗣️ Talking to your assistant (no slash needed)
 
-If chat listening is on (it is by default), just type in chat. A message is
-treated as a command when it **starts with the assistant's name** or with a
-**command word** (help, come, follow, mine, build, attack, stop, …).
+If chat listening is on (it is by default), just type in chat.
+
+**Two layers of understanding:**
+
+1. **Instant matching (no API).** Messages that **start with the assistant's
+   name** or a **command word** (help, come, follow, mine, build, attack, stop, …)
+   are handled immediately, with no API call and no token needed.
+2. **Active analysis (uses the AI).** With *active analysis* on (the default) and
+   a token set, **every other message** is quietly run past the language model,
+   which decides whether you're talking to the assistant and what you want. You
+   don't have to use its name or any exact words.
 
 | You type in chat                     | What happens                                  |
 |--------------------------------------|-----------------------------------------------|
-| `follow me`                          | It follows you                                |
-| `come here`                          | It comes to you (teleports if far)            |
-| `stay` / `wait`                      | Holds position and keeps watch                |
-| `stop`                               | Cancels the current task                      |
-| `where are you?`                     | Tells you where it is                         |
+| `follow me`                          | It follows you (instant)                      |
+| `come here`                          | It comes to you, teleports if far (instant)   |
+| `stay` / `wait`                      | Holds position and keeps watch (instant)      |
+| `stop`                               | Cancels the current task (instant)            |
+| `where are you?`                     | Tells you where it is (instant)               |
 | `Ethan, build a wall`                | Sends "build a wall" to the AI planner        |
-| `help me mine this tree`             | Sends the request to the AI planner           |
+| `can you clear out these trees?`     | Active analysis → mines the trees             |
+| `ugh, I really need a shelter`       | Active analysis → builds you a shelter        |
 
 Addressing it by name (`Ethan, ...`) always works; the name prefix is stripped
 before the rest is run as a command or task.
 
-Prefer pure commands? Turn listening off with `/ai listen off`.
+Prefer pure commands? Turn chat listening off with `/ai listen off`, or keep
+listening but turn off the proactive AI with `/ai active off`.
 
 ---
 
@@ -84,6 +103,7 @@ Prefer pure commands? Turn listening off with `/ai listen off`.
 | Command                | Description                                              |
 |------------------------|----------------------------------------------------------|
 | `/ai help`             | Show the in-game command list                            |
+| `/ai menu` / `/ai config` | Open the in-game settings menu (or press **K**)       |
 | `/ai summon [name]`    | Spawn an assistant (defaults to **Ethan**)               |
 | `/ai dismiss`          | Send your assistant away (removes it)                    |
 | `/ai come`             | Call it to you (teleports if far away)                   |
@@ -95,12 +115,36 @@ Prefer pure commands? Turn listening off with `/ai listen off`.
 | `/ai name <name>`      | Rename it (nametag updates instantly)                    |
 | `/ai token <token>`    | Set your AI service API token                            |
 | `/ai listen on\|off`   | Turn chat listening on or off                            |
+| `/ai active on\|off`   | Turn proactive AI analysis of every message on or off    |
 | `/ai settings`         | Show advanced configuration                              |
 
-### Advanced settings
+---
+
+## 🔧 Settings
+
+### The settings menu (a real screen)
+
+Press **K** in-game (rebindable under *Options → Controls → AI Assistant*) or
+run `/ai menu` to open a proper settings screen with:
+
+- **Toggles** — chat listening, active analysis, debug logging
+- **Text fields** — assistant name, API token, API URL, model
+- **Sliders** — temperature, max tokens, follow distance, guard radius
+
+Hit **Save** to apply, **Cancel** (or **Esc**) to discard. The token field stays
+blank when one is already set — leave it blank to keep the current token, or type
+a new one to replace it. Changes are sent to the server, so the menu works in
+both singleplayer and on a server (where you also need the mod installed locally
+to open the screen).
+
+### Advanced settings via chat
+
+Every option is also available as a command:
 
 ```
 /ai settings                          # show everything
+/ai active on|off                     # proactive analysis of every message
+/ai listen on|off                     # react to chat at all
 /ai settings model <model-id>         # e.g. mistralai/Mistral-7B-Instruct-v0.2
 /ai settings api_url <url>            # any OpenAI-compatible chat endpoint
 /ai settings temperature <0.0–2.0>    # creativity of the planner
@@ -140,12 +184,87 @@ building-block actions, which the assistant then performs in order:
 - Pick a model your provider supports: `/ai settings model <model-id>`.
 
 **It doesn't react to chat.**
-- Make sure listening is on: `/ai listen on`. Start the message with its name
-  ("Ethan, …") or a command word ("help …", "build …", "follow …").
+- Make sure listening is on: `/ai listen on`. Instant commands work with no
+  token — start the message with its name ("Ethan, …") or a command word
+  ("help …", "build …", "follow …").
+- For free-form messages that don't use those words, you need **active analysis
+  on** (`/ai active on`) **and** an API token set (`/ai token <token>`), since
+  that path asks the language model what you meant.
 
 **Using a local model (Ollama, LM Studio, …)?**
 - Point the mod at it: `/ai settings api_url http://localhost:11434/v1/chat/completions`
   and `/ai settings model <local-model-name>`.
+
+---
+
+## 🏗️ Building from source
+
+The mod is a standard **Fabric + Gradle (Loom)** project, so you don't need to
+install Gradle yourself — the included wrapper (`gradlew`) downloads the right
+version for you.
+
+### Prerequisites
+
+- **JDK 25** (Temurin/Adoptium recommended). Check with `java -version`.
+- **Git** (to clone the repo).
+- An internet connection for the **first** build — Loom downloads Minecraft,
+  the Fabric toolchain, and dependencies, then caches them.
+
+### Build the jar
+
+```bash
+git clone https://github.com/MilkdromedaStudios/minecraft-ai-test.git
+cd minecraft-ai-test
+
+# Linux / macOS
+./gradlew build
+
+# Windows (PowerShell or cmd)
+gradlew.bat build
+```
+
+The finished mod lands in **`build/libs/`**:
+
+- `ai-assistant-<version>.jar` ← **this is the one** you drop into `mods/`
+- `ai-assistant-<version>-sources.jar` — source jar, not needed to play
+
+Copy the main jar into the `mods/` folder of a Fabric-enabled client or server
+(you also need **Fabric API** there).
+
+### Run it in a dev environment
+
+Loom generates ready-to-go run configurations — no separate install needed:
+
+```bash
+./gradlew runClient   # launch a dev client with the mod loaded
+./gradlew runServer   # launch a dev server (accept the EULA on first run)
+```
+
+### Handy Gradle tasks
+
+| Task                     | What it does                                            |
+|--------------------------|----------------------------------------------------------|
+| `./gradlew build`        | Compile, run checks, and produce the jars in `build/libs`|
+| `./gradlew runClient`    | Start a development Minecraft client                     |
+| `./gradlew runServer`    | Start a development Minecraft server                     |
+| `./gradlew clean`        | Delete `build/` for a from-scratch rebuild               |
+| `./gradlew --refresh-dependencies build` | Rebuild and re-resolve dependencies     |
+
+> **JDK note:** if Gradle can't find Java 25, point it at your JDK by adding
+> `org.gradle.java.home=/path/to/jdk-25` to `gradle.properties`, or set a
+> `JAVA_HOME` that targets JDK 25.
+
+### Project layout
+
+```
+src/main/java        # common mod: entity, AI planner, commands, chat, networking
+src/client/java      # client-only: rendering, keybind, the settings GUI
+src/main/resources   # fabric.mod.json, lang files, assets
+build.gradle         # Loom build script   ·   gradle.properties — versions
+```
+
+Key versions live in [`gradle.properties`](gradle.properties) (Minecraft, Fabric
+Loader, Fabric API, Loom).
 
 ---
 

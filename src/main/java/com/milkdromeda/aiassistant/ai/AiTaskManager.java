@@ -29,6 +29,11 @@ public class AiTaskManager {
         pendingFuture = CLIENT.requestPlan(task, buildContext());
     }
 
+    /** Asks the language model to interpret a free-form chat message. */
+    public CompletableFuture<ChatIntent> classify(String message, String context, String assistantName) {
+        return CLIENT.classifyMessage(message, context, assistantName);
+    }
+
     public void tick() {
         if (waitingForApi && pendingFuture != null && pendingFuture.isDone()) {
             waitingForApi = false;

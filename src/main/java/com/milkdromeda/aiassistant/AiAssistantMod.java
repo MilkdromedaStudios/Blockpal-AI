@@ -4,6 +4,7 @@ import com.milkdromeda.aiassistant.chat.ChatListener;
 import com.milkdromeda.aiassistant.command.AiCommands;
 import com.milkdromeda.aiassistant.config.ModConfig;
 import com.milkdromeda.aiassistant.entity.AiAssistantEntity;
+import com.milkdromeda.aiassistant.network.AiNetworking;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import org.slf4j.Logger;
@@ -18,6 +19,8 @@ public class AiAssistantMod implements ModInitializer {
         ModConfig.load();
         ModEntities.register();
         FabricDefaultAttributeRegistry.register(ModEntities.AI_ASSISTANT, AiAssistantEntity.createAttributes());
+        AiNetworking.registerPayloads();
+        AiNetworking.registerServerReceivers();
         AiCommands.register();
         ChatListener.register();
 

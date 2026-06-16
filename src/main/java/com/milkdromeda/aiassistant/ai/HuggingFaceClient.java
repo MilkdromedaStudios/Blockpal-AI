@@ -59,6 +59,25 @@ public class HuggingFaceClient {
             - Respond with ONLY the JSON object, no extra text
             """;
 
+    private static final String CLASSIFIER_PROMPT = """
+            You decide whether a single Minecraft chat message is aimed at an in-game
+            AI helper named "%s", and if so what the player wants. Players usually will
+            NOT say the helper's name, so judge from meaning and context.
+            Respond with ONLY this JSON, nothing else:
+            {"directed": true|false, "action": "come|follow|stay|stop|locate|task|none", "task": "<imperative or empty>"}
+            Action meanings:
+              come   - asking the helper to come over / come back / return to them
+              follow - asking it to follow or come along
+              stay   - asking it to wait / hold position / stand guard
+              stop   - asking it to stop, cancel, or quit what it's doing
+              locate - asking where the helper is
+              task   - any other doable request (build, mine, dig, chop, fight, gather,
+                       craft, explore, farm...). Put a short imperative in "task".
+              none   - the message needs no action from the helper
+            Set directed=false for player-to-player chatter or small talk, and whenever
+            you are unsure. Keep "task" concise, e.g. "build a 5x5 stone floor".
+            """;
+
     public CompletableFuture<ActionPlan> requestPlan(String task, String context) {
         ModConfig cfg = ModConfig.get();
 
@@ -71,6 +90,77 @@ public class HuggingFaceClient {
         }
 
         return sendWithRetry(request, task, 2);
+    }
+
+    /**
+     * Asks the language model whether a chat message is aimed at the assistant
+     * and what it should do. Never throws and never produces chat noise — any
+     * problem resolves to {@link ChatIntent#none()}.
+     */
+    public CompletableFuture<ChatIntent> classifyMessage(String message, String context, String assistantName) {
+        ModConfig cfg = ModConfig.get();
+        if (!cfg.hasApiToken()) {
+            return CompletableFuture.completedFuture(ChatIntent.none());
+        }
+
+        HttpRequest request;
+        try {
+            request = buildClassifierRequest(cfg, message, context, assistantName);
+        } catch (IllegalArgumentException e) {
+            return CompletableFuture.completedFuture(ChatIntent.none());
+        }
+
+        return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                .handle((resp, ex) -> {
+                    if (ex != null || resp.statusCode() != 200) return ChatIntent.none();
+                    return parseIntent(resp.body());
+                });
+    }
+
+    private HttpRequest buildClassifierRequest(ModConfig cfg, String message, String context, String name) {
+        JsonObject body = new JsonObject();
+        body.addProperty("model", cfg.hfModel);
+        body.addProperty("temperature", 0.0);   // deterministic classification
+        body.addProperty("max_tokens", 120);
+        body.addProperty("stream", false);
+
+        JsonArray messages = new JsonArray();
+        messages.add(message("system", String.format(CLASSIFIER_PROMPT, name)));
+        String user = (context == null || context.isBlank() ? "" : "Context: " + context + "\n")
+                + "Message: " + message;
+        messages.add(message("user", user));
+        body.add("messages", messages);
+
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(cfg.apiUrl))
+                .header("Content-Type", "application/json")
+                .timeout(Duration.ofSeconds(30))
+                .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body)));
+
+        if (cfg.hasApiToken()) {
+            builder.header("Authorization", "Bearer " + cfg.hfToken);
+        }
+        return builder.build();
+    }
+
+    private ChatIntent parseIntent(String rawBody) {
+        try {
+            String content = extractContent(rawBody);
+            if (content == null) return ChatIntent.none();
+
+            int start = content.indexOf('{');
+            int end = content.lastIndexOf('}');
+            if (start == -1 || end == -1 || end < start) return ChatIntent.none();
+
+            JsonObject o = JsonParser.parseString(content.substring(start, end + 1)).getAsJsonObject();
+            boolean directed = o.has("directed") && o.get("directed").getAsBoolean();
+            String action = o.has("action")
+                    ? o.get("action").getAsString().toLowerCase(Locale.ROOT).trim() : "none";
+            String task = o.has("task") ? o.get("task").getAsString().trim() : "";
+            return new ChatIntent(directed, action, task);
+        } catch (Exception e) {
+            return ChatIntent.none();
+        }
     }
 
     private HttpRequest buildRequest(ModConfig cfg, String task, String context) {
