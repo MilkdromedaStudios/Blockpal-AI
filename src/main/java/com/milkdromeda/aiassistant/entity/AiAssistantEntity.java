@@ -9,6 +9,7 @@ import com.milkdromeda.aiassistant.network.AiNetworking;
 import com.milkdromeda.aiassistant.util.Locator;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.UUIDUtil;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -27,7 +28,10 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.*;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.item.component.Consumable;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
@@ -38,6 +42,7 @@ import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.function.ToDoubleFunction;
 
 public class AiAssistantEntity extends PathfinderMob {
@@ -289,8 +294,9 @@ public class AiAssistantEntity extends PathfinderMob {
 
     public SimpleContainer getInventory() { return inventory; }
 
-    /** True if an item is worth grabbing: we have room for it, or it's an upgrade. */
+    /** True if an item is worth grabbing: not junk, and we have room or it's an upgrade. */
     public boolean canTake(ItemStack stack) {
+        if (ItemSorter.isJunk(stack)) return false;   // refuse poison-foods like spider eyes
         return inventory.canAddItem(stack) || isEquipUpgrade(stack);
     }
 
@@ -383,28 +389,88 @@ public class AiAssistantEntity extends PathfinderMob {
         }
     }
 
-    /** Server-side upkeep: keep the best gear on, and snack from the backpack to heal when hurt. */
+    /** Server-side upkeep: keep the best gear on, toss junk, and eat/drink to heal when hurt. */
     private void manageGear(ServerLevel level) {
         if (--equipReviewTimer <= 0) {
             equipReviewTimer = 40;
             optimizeEquipment(level);
+            dropJunk(level);
         }
         if (--eatTimer <= 0) {
-            eatTimer = 40;
-            eatToHealIfHurt();
+            eatTimer = 30;
+            consumeWhenHurt(level);
         }
     }
 
-    /** Eats one food item to recover health when below 60%. */
-    private void eatToHealIfHurt() {
+    /** When hurt, uses a consumable like a player would: a healing potion if it has one,
+     *  otherwise the best non-harmful food — applying the item's real effects. */
+    private void consumeWhenHurt(ServerLevel level) {
         if (getHealth() >= getMaxHealth() * 0.6f) return;
+        int potion = findInInventory(ItemSorter::isBeneficialPotion);
+        if (potion >= 0) { drink(level, potion); return; }
+        int food = bestEdibleFood();
+        if (food >= 0) eat(level, food);
+    }
+
+    /** Slot of the most nourishing food it can safely eat (skips spider eyes etc.), or -1. */
+    private int bestEdibleFood() {
+        int best = -1;
+        double bestValue = 0;
         for (int i = 0; i < inventory.getContainerSize(); i++) {
             ItemStack s = inventory.getItem(i);
-            if (!ItemSorter.isFood(s)) continue;
-            heal(2.0f + ItemSorter.nutrition(s) * 0.5f);
-            inventory.removeItem(i, 1);
-            swing(InteractionHand.MAIN_HAND);
-            return;
+            if (!ItemSorter.isFood(s) || ItemSorter.isHarmfulToEat(s)) continue;
+            double v = ItemSorter.foodValue(s);
+            if (v > bestValue) { bestValue = v; best = i; }
+        }
+        return best;
+    }
+
+    private int findInInventory(Predicate<ItemStack> match) {
+        for (int i = 0; i < inventory.getContainerSize(); i++) {
+            if (match.test(inventory.getItem(i))) return i;
+        }
+        return -1;
+    }
+
+    /** Eats one food from a slot: heals (its hunger analog) and applies its real effects. */
+    private void eat(ServerLevel level, int slot) {
+        ItemStack one = inventory.getItem(slot).copyWithCount(1);
+        FoodProperties food = one.get(DataComponents.FOOD);
+        if (food != null) heal(Math.max(1.0f, food.nutrition() * 0.6f + 1.0f));
+        applyConsumeEffects(level, one);   // e.g. a golden apple's regeneration + absorption
+        inventory.removeItem(slot, 1);
+        swing(InteractionHand.MAIN_HAND);
+    }
+
+    /** Drinks one potion from a slot, applying its (beneficial) effects. */
+    private void drink(ServerLevel level, int slot) {
+        ItemStack one = inventory.getItem(slot).copyWithCount(1);
+        PotionContents contents = one.get(DataComponents.POTION_CONTENTS);
+        if (contents != null) contents.applyToLivingEntity(this, 1.0f);
+        applyConsumeEffects(level, one);
+        inventory.removeItem(slot, 1);
+        swing(InteractionHand.MAIN_HAND);
+    }
+
+    /** Runs an item's on-consume effects on the assistant, exactly as eating/drinking would. */
+    private void applyConsumeEffects(ServerLevel level, ItemStack one) {
+        Consumable consumable = one.get(DataComponents.CONSUMABLE);
+        if (consumable == null) return;
+        try {
+            consumable.onConsume(level, this, one);
+        } catch (Exception ignored) {
+            // Never let a quirky consumable break the tick.
+        }
+    }
+
+    /** Throws out items it judges useless — e.g. spider eyes and other poison-foods. */
+    private void dropJunk(ServerLevel level) {
+        for (int i = 0; i < inventory.getContainerSize(); i++) {
+            ItemStack s = inventory.getItem(i);
+            if (!s.isEmpty() && ItemSorter.isJunk(s)) {
+                broadcastMessage("Tossing out " + s.getDisplayName().getString() + " — useless to me.");
+                spawnAtLocation(level, inventory.removeItemNoUpdate(i));
+            }
         }
     }
 
