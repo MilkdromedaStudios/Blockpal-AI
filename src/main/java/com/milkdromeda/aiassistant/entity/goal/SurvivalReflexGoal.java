@@ -41,9 +41,10 @@ public class SurvivalReflexGoal extends Goal {
 
     @Override
     public boolean canUse() {
-        // Throttle threat scans (every ~0.2s) so the reflex stays cheap and snappy.
+        // Throttle threat scans (every ~0.4s) so the reflex stays cheap. Being hit
+        // is still caught promptly via getLastHurtByMob on the next scan.
         if (scanCooldown > 0) { scanCooldown--; return false; }
-        scanCooldown = 4;
+        scanCooldown = 8;
         target = findThreat();
         return target != null;
     }
@@ -133,8 +134,12 @@ public class SurvivalReflexGoal extends Goal {
         double radius = ModConfig.get().guardRadius;
         AABB box = AABB.ofSize(entity.position(), radius * 2, 10, radius * 2);
         List<Monster> hostiles = entity.level().getEntitiesOfClass(Monster.class, box, Monster::isAlive);
-        return hostiles.stream()
-                .min((a, b) -> Double.compare(entity.distanceToSqr(a), entity.distanceToSqr(b)))
-                .orElse(null);
+        Monster nearest = null;
+        double nearestSqr = Double.MAX_VALUE;
+        for (Monster m : hostiles) {
+            double d = entity.distanceToSqr(m);
+            if (d < nearestSqr) { nearestSqr = d; nearest = m; }
+        }
+        return nearest;
     }
 }

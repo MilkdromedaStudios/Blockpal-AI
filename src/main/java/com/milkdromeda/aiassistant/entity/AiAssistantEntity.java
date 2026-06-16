@@ -397,8 +397,10 @@ public class AiAssistantEntity extends PathfinderMob {
     private void manageGear(ServerLevel level) {
         if (--equipReviewTimer <= 0) {
             equipReviewTimer = 40;
-            optimizeEquipment(level);
-            dropJunk(level);
+            if (!inventory.isEmpty()) {   // nothing to re-equip or toss when empty
+                optimizeEquipment(level);
+                dropJunk(level);
+            }
         }
         if (--eatTimer <= 0) {
             eatTimer = 30;

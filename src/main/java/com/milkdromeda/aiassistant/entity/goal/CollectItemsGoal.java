@@ -5,7 +5,6 @@ import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.phys.AABB;
 
-import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 
@@ -21,7 +20,7 @@ import java.util.List;
 public class CollectItemsGoal extends Goal {
 
     private static final double SEARCH_RADIUS = 10.0;
-    private static final int SCAN_INTERVAL = 20;    // ticks between searches for loot
+    private static final int SCAN_INTERVAL = 30;    // ticks between searches for loot
     private static final int REPATH_INTERVAL = 10;  // ticks between path recalculations
     private static final int MAX_PURSUIT = 100;     // give up if it can't reach in ~5s
 
@@ -87,8 +86,12 @@ public class CollectItemsGoal extends Goal {
         AABB box = AABB.ofSize(entity.position(), SEARCH_RADIUS * 2, 6, SEARCH_RADIUS * 2);
         List<ItemEntity> items = entity.level().getEntitiesOfClass(ItemEntity.class, box,
                 it -> it.isAlive() && !it.getItem().isEmpty() && entity.canTake(it.getItem()));
-        return items.stream()
-                .min(Comparator.comparingDouble(entity::distanceToSqr))
-                .orElse(null);
+        ItemEntity nearest = null;
+        double nearestSqr = Double.MAX_VALUE;
+        for (ItemEntity it : items) {
+            double d = entity.distanceToSqr(it);
+            if (d < nearestSqr) { nearestSqr = d; nearest = it; }
+        }
+        return nearest;
     }
 }
