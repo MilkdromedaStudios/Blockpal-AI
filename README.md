@@ -13,6 +13,8 @@ turn a sentence into a sequence of in-game actions.
 
 ---
 
+## Download
+Go [to here](https://github.com/MilkdromedaStudios/minecraft-ai-test/tree/main/builds) and find the latest versions of the mod to use. 
 ## ✨ Features
 
 - **Named & tagged** — spawns as **Ethan** with a visible nametag above its
