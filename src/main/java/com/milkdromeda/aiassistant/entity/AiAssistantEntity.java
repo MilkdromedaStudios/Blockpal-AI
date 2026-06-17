@@ -77,6 +77,9 @@ public class AiAssistantEntity extends PathfinderMob {
     private boolean autonomousMode = true;
     /** Countdown until the next autonomous self-plan. */
     private int autoThinkTimer = 2 * 20; // start planning 2 seconds after spawn
+    /** Earliest server tick at which another plan request may be sent (prevents API floods). */
+    private int nextPlanTick = 0;
+    private static final int MIN_PLAN_INTERVAL = 30 * 20; // minimum 30 s between plan requests
 
     /** Backpack-style storage — 10 slots like a player's hotbar — on top of the
      *  worn armour and held weapon. Picked-up loot lands here, and the best gear
@@ -188,12 +191,12 @@ public class AiAssistantEntity extends PathfinderMob {
         }
 
         if (mode == Mode.EXECUTING && !taskManager.isWaiting() && !taskManager.hasPlan()) {
-            if (taskManager.isLooping()) {
-                // Ongoing activity (patrol/guard/explore/keep-building): re-plan and continue.
+            if (taskManager.isLooping() && tickCount >= nextPlanTick) {
                 taskManager.loopAgain();
-            } else {
+            } else if (!taskManager.isLooping()) {
                 finishTask();
             }
+            // else: still inside the rate-limit window — wait for the timer
         }
     }
 
@@ -319,8 +322,15 @@ public class AiAssistantEntity extends PathfinderMob {
     /**
      * Kicks off a survival-loop task: chop wood, mine, gather, explore — whatever
      * makes the most sense given the current context. Silent — no chat message.
+     * Rate-limited: will not send another API request within MIN_PLAN_INTERVAL ticks.
      */
     private void startSurvivalLoop() {
+        if (tickCount < nextPlanTick) {
+            // Too soon — back off and try again later.
+            autoThinkTimer = nextPlanTick - tickCount + 20;
+            mode = Mode.FOLLOWING;
+            return;
+        }
         String task = "You are a Minecraft survival player who never sits idle. "
                 + "Look at the context and pick the single best task to do RIGHT NOW. "
                 + "Priority: 1) chop the nearest tree for wood (MINE_AREA on wood logs), "
@@ -329,13 +339,14 @@ public class AiAssistantEntity extends PathfinderMob {
                 + "4) dig down to find ores, "
                 + "5) explore in a new direction. "
                 + "Always output a concrete 5-10 step plan. Never output a WAIT or STOP as the only action.";
+        nextPlanTick = tickCount + MIN_PLAN_INTERVAL;
         mode = Mode.EXECUTING;
         taskStartTick = tickCount;
         taskManager.clearPlan();
         taskManager.requestPlan(task);
-        autoThinkTimer = ModConfig.get().maxTaskSeconds > 0
-                ? ModConfig.get().maxTaskSeconds * 20
-                : 5 * 60 * 20; // fallback: re-plan every 5 minutes if watchdog is off
+        // autoThinkTimer is only used when mode falls back out of EXECUTING;
+        // set it long so we don't hammer the API if the plan arrives instantly.
+        autoThinkTimer = MIN_PLAN_INTERVAL;
     }
 
     /** True if the given player is allowed to give this assistant orders. */

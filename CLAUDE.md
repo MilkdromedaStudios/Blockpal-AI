@@ -127,6 +127,14 @@ can do and how it evolved.
 
 ## Changelog
 
+### 2.8.1
+- **Performance fix** — rate-limit plan requests to a minimum of 30 s apart;
+  hard backstop of 5 s inside `AiTaskManager.requestPlan()` prevents API floods
+  even if multiple code paths fire at once.
+- Loop tasks throttled from every ~2 s to every 10 s.
+- Fixed tight loop: failed API responses (null plan) no longer trigger
+  immediate re-requests every tick.
+
 ### 2.8.0
 - **Always busy** — the assistant is in autonomous/survival mode by default from
   spawn. It immediately starts planning tasks: chop trees → mine → collect items

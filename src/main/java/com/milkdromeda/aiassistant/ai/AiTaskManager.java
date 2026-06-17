@@ -29,8 +29,14 @@ public class AiTaskManager {
         this.entity = entity;
     }
 
+    private int lastRequestTick = -600;
+
     public void requestPlan(String task) {
         if (waitingForApi) return;
+        // Hard rate-limit: never fire two plan requests within 5 seconds regardless of caller.
+        int now = (int)(entity.level().getGameTime() & Integer.MAX_VALUE);
+        if (now - lastRequestTick < 100) return; // 100 ticks = 5 s
+        lastRequestTick = now;
         lastTask = task;
         waitingForApi = true;
         pendingFuture = CLIENT.requestPlan(task, buildContext());
@@ -45,7 +51,7 @@ public class AiTaskManager {
     public void loopAgain() {
         if (waitingForApi || lastTask == null) return;
         if (loopCooldown > 0) { loopCooldown--; return; }
-        loopCooldown = 40; // ~2s between rounds so it stays lively but not spammy
+        loopCooldown = 10 * 20; // 10 s minimum between loop iterations
         String task = lastTask;
         currentPlan = null;
         waitingForApi = true;
