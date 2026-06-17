@@ -74,9 +74,9 @@ public class AiAssistantEntity extends PathfinderMob {
     /** Earliest tick the next active-mode analysis may run (rate-limits API calls). */
     private int nextAnalyzeTick = 0;
     /** When true the bot self-directs: picks its own tasks without being asked. */
-    private boolean autonomousMode = false;
+    private boolean autonomousMode = true;
     /** Countdown until the next autonomous self-plan. */
-    private int autoThinkTimer = 0;
+    private int autoThinkTimer = 2 * 20; // start planning 2 seconds after spawn
 
     /** Backpack-style storage — 10 slots like a player's hotbar — on top of the
      *  worn armour and held weapon. Picked-up loot lands here, and the best gear
@@ -160,46 +160,30 @@ public class AiAssistantEntity extends PathfinderMob {
             manageGear(serverLevel);
         }
 
-        if (idleMessageTimer == 20 && mode == Mode.IDLE) {
-            messageOwner(pick("Hey! I'm ready whenever you need me.",
-                    "All set — just say the word.",
-                    "I'm here! Say \"" + assistantName + ", follow me\" or use /ai help.",
-                    "Ready to go. What do you need?"));
-        }
         idleMessageTimer++;
 
-        // Autonomous self-direction: when the owner hands off control, re-plan on a timer.
+        // Autonomous self-direction: always running — immediately re-plan when idle.
         if (autonomousMode && mode != Mode.EXECUTING && ModConfig.get().hasApiToken()) {
             if (--autoThinkTimer <= 0) {
-                autoThinkTimer = 30 * 20; // re-evaluate every 30 seconds
-                String selfTask = "You're on your own — survey your surroundings and decide what useful "
-                        + "thing to do next (gather resources, explore, patrol, help nearby players, etc.).";
-                broadcastMessage(pick("Alright, let me see what I can do around here...",
-                        "I'll find something useful to work on.",
-                        "On it — I'll use my own judgment.",
-                        "Let me look around and figure out what needs doing."));
-                mode = Mode.EXECUTING;
-                taskStartTick = tickCount;
-                taskManager.clearPlan();
-                taskManager.requestPlan(selfTask);
+                autoThinkTimer = 60; // safety gap in case the API is slow; resets properly below
+                startSurvivalLoop();
             }
         }
 
         // Combat and retreat are handled reflexively by SurvivalReflexGoal in
         // every mode, so the assistant stays responsive even mid-plan.
 
-        // Watchdog: stop a task that's been running too long — a plan stuck
-        // repeating, or an ongoing loop that never ends — so it can't lag forever.
+        // Watchdog: if stuck too long, silently re-plan instead of going idle.
         if (mode == Mode.EXECUTING) {
             int limitTicks = ModConfig.get().maxTaskSeconds * 20;
             if (limitTicks > 0 && tickCount - taskStartTick > limitTicks) {
-                broadcastMessage(pick("I've been at this a while and I'm not getting anywhere... I'm giving up. Ask me again if you still need it.",
-                        "Okay, this is taking forever — I'm calling it. Just ask me again.",
-                        "I don't seem to be making progress on this. I'll stop for now.",
-                        "This task is taking too long. Stopping — let me know if you still need it."));
                 taskManager.clearPlan();
                 pendingTask = null;
-                mode = Mode.FOLLOWING;
+                if (autonomousMode && ModConfig.get().hasApiToken()) {
+                    startSurvivalLoop();
+                } else {
+                    mode = Mode.FOLLOWING;
+                }
             }
         }
 
@@ -223,23 +207,14 @@ public class AiAssistantEntity extends PathfinderMob {
         mode = Mode.EXECUTING;
         taskStartTick = tickCount;
         taskManager.clearPlan();
-        broadcastMessage(pick("On it! Let me work on: " + task,
-                "Alright, I'll get started on " + task + ".",
-                "Leave it to me — " + task + ".",
-                "Sure thing, working on " + task + " now."));
         taskManager.requestPlan(task);
     }
 
     public void finishTask() {
-        String task = pendingTask != null ? pendingTask : "the task";
-        broadcastMessage(pick("All done! Finished " + task + ".",
-                "Done with " + task + "!",
-                "Finished " + task + " — what's next?",
-                "That's " + task + " sorted."));
         pendingTask = null;
-        if (autonomousMode) {
-            mode = Mode.FOLLOWING;
-            autoThinkTimer = 10 * 20; // short pause before picking the next thing
+        if (autonomousMode && ModConfig.get().hasApiToken()) {
+            // Jump straight into the next survival task with no gap.
+            startSurvivalLoop();
         } else {
             mode = Mode.FOLLOWING;
         }
@@ -334,11 +309,33 @@ public class AiAssistantEntity extends PathfinderMob {
     /** Enters autonomous mode — the bot self-directs and picks its own tasks. */
     public void enterAutonomousMode() {
         autonomousMode = true;
-        autoThinkTimer = 3 * 20; // start thinking after 3 seconds
         broadcastMessage(pick("Alright, I'll use my own judgment from here.",
                 "Sure, I'll keep myself busy.",
                 "Got it — I'll figure something out on my own!",
-                "Okay, leaving it to me then. I'll find something useful to do."));
+                "Okay, leaving it to me then."));
+        autoThinkTimer = 20; // start immediately
+    }
+
+    /**
+     * Kicks off a survival-loop task: chop wood, mine, gather, explore — whatever
+     * makes the most sense given the current context. Silent — no chat message.
+     */
+    private void startSurvivalLoop() {
+        String task = "You are a Minecraft survival player who never sits idle. "
+                + "Look at the context and pick the single best task to do RIGHT NOW. "
+                + "Priority: 1) chop the nearest tree for wood (MINE_AREA on wood logs), "
+                + "2) mine stone or ore underground, "
+                + "3) collect any dropped items nearby, "
+                + "4) dig down to find ores, "
+                + "5) explore in a new direction. "
+                + "Always output a concrete 5-10 step plan. Never output a WAIT or STOP as the only action.";
+        mode = Mode.EXECUTING;
+        taskStartTick = tickCount;
+        taskManager.clearPlan();
+        taskManager.requestPlan(task);
+        autoThinkTimer = ModConfig.get().maxTaskSeconds > 0
+                ? ModConfig.get().maxTaskSeconds * 20
+                : 5 * 60 * 20; // fallback: re-plan every 5 minutes if watchdog is off
     }
 
     /** True if the given player is allowed to give this assistant orders. */

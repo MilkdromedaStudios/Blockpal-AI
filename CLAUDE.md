@@ -127,6 +127,16 @@ can do and how it evolved.
 
 ## Changelog
 
+### 2.8.0
+- **Always busy** — the assistant is in autonomous/survival mode by default from
+  spawn. It immediately starts planning tasks: chop trees → mine → collect items
+  → explore, looping forever with no idle gaps.
+- **Silent task execution** — no "thinking..." or "on it" messages when starting
+  a task; the bot just acts. Chat is reserved for meaningful moments (gear,
+  combat, replies to commands).
+- **Instant re-plan** — when a task finishes or the watchdog fires, the bot
+  immediately picks the next survival task rather than stopping.
+
 ### 2.7.0
 - **Owner-only obedience** — only the player who spawned the assistant can give
   it orders via chat; others are politely turned away with a varied dismissal.
