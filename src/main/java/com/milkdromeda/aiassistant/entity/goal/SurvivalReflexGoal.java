@@ -33,6 +33,7 @@ public class SurvivalReflexGoal extends Goal {
     private int scanCooldown = 0;
     private int repathCooldown = 0;
     private boolean wasFleeing = false;
+    private boolean calledForHelp = false;
 
     public SurvivalReflexGoal(AiAssistantEntity entity) {
         this.entity = entity;
@@ -85,7 +86,12 @@ public class SurvivalReflexGoal extends Goal {
 
     private void retreat() {
         if (!wasFleeing) {
-            entity.broadcastMessage("Too risky — pulling back!");
+            if (!calledForHelp) {
+                entity.broadcastMessage("Help! I'm getting overwhelmed — someone help me!");
+                calledForHelp = true;
+            } else {
+                entity.broadcastMessage("I need to fall back, this is too dangerous!");
+            }
             wasFleeing = true;
         }
         if (!shouldRepath()) return;
@@ -115,6 +121,7 @@ public class SurvivalReflexGoal extends Goal {
         attackCooldown = 0;
         repathCooldown = 0;
         wasFleeing = false;
+        calledForHelp = false;
         entity.getNavigation().stop();
     }
 

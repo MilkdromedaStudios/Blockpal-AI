@@ -154,7 +154,7 @@ public class AiAssistantEntity extends PathfinderMob {
         }
 
         if (idleMessageTimer == 20 && mode == Mode.IDLE) {
-            messageOwner("Ready! Say \"" + assistantName + ", follow me\" in chat, or use /ai help.");
+            messageOwner("Hey! I'm ready. Say \"" + assistantName + ", follow me\" or use /ai help.");
         }
         idleMessageTimer++;
 
@@ -166,7 +166,7 @@ public class AiAssistantEntity extends PathfinderMob {
         if (mode == Mode.EXECUTING) {
             int limitTicks = ModConfig.get().maxTaskSeconds * 20;
             if (limitTicks > 0 && tickCount - taskStartTick > limitTicks) {
-                broadcastMessage("That task ran too long without finishing — stopping it. Ask again if you still need it.");
+                broadcastMessage("I've been at this a while and I'm not getting anywhere... I'm giving up. Ask me again if you still need it.");
                 taskManager.clearPlan();
                 pendingTask = null;
                 mode = Mode.FOLLOWING;
@@ -186,19 +186,19 @@ public class AiAssistantEntity extends PathfinderMob {
     public void giveTask(String task, ServerPlayer issuer) {
         if (!ModConfig.get().hasApiToken()) {
             issuer.sendSystemMessage(Component.literal(
-                    "[" + assistantName + "] I need an API token before I can do that. Set one with /ai token <token>."));
+                    assistantName + ": \"I can't do that without an API token. Could you set one with /ai token <token>?\""));
             return;
         }
         pendingTask = task;
         mode = Mode.EXECUTING;
         taskStartTick = tickCount;
         taskManager.clearPlan();
-        broadcastMessage("On it — working on: " + task);
+        broadcastMessage("On it! Let me work on: " + task);
         taskManager.requestPlan(task);
     }
 
     public void finishTask() {
-        broadcastMessage("Done: " + (pendingTask != null ? pendingTask : "task complete"));
+        broadcastMessage("All done! Finished: " + (pendingTask != null ? pendingTask : "the task"));
         pendingTask = null;
         mode = Mode.FOLLOWING;
     }
@@ -239,7 +239,7 @@ public class AiAssistantEntity extends PathfinderMob {
             case "stay"   -> stayHere();
             case "stop"   -> stopTask();
             case "locate" -> sender.sendSystemMessage(Component.literal(
-                    "[" + assistantName + "] " + Locator.describe(sender, this)));
+                    assistantName + ": \"" + Locator.describe(sender, this) + "\""));
             case "task"   -> {
                 if (intent.task() != null && !intent.task().isBlank()) {
                     giveTask(intent.task(), sender);
@@ -262,13 +262,13 @@ public class AiAssistantEntity extends PathfinderMob {
         } else {
             getNavigation().moveTo(player, 1.2);
         }
-        broadcastMessage("Coming!");
+        broadcastMessage("On my way!");
     }
 
     public void followPlayer() {
         taskManager.clearPlan();
         mode = Mode.FOLLOWING;
-        broadcastMessage("Following you.");
+        broadcastMessage("Sure, I'll stick with you.");
     }
 
     /** Stops moving and guards the current spot (still defends against hostiles). */
@@ -276,14 +276,14 @@ public class AiAssistantEntity extends PathfinderMob {
         taskManager.clearPlan();
         getNavigation().stop();
         mode = Mode.GUARDING;
-        broadcastMessage("Staying here and keeping watch.");
+        broadcastMessage("Got it, I'll keep watch here.");
     }
 
     public void stopTask() {
         taskManager.clearPlan();
         getNavigation().stop();
         mode = Mode.FOLLOWING;
-        broadcastMessage("Stopped. Standing by.");
+        broadcastMessage("Okay, stopping.");
     }
 
     /** Public hop — used by the JUMP action and for getting unstuck on parkour. */
@@ -296,14 +296,14 @@ public class AiAssistantEntity extends PathfinderMob {
     public void broadcastMessage(String msg) {
         if (!level().isClientSide()) {
             level().players().forEach(p ->
-                    p.sendSystemMessage(Component.literal("[" + assistantName + "] " + msg)));
+                    p.sendSystemMessage(Component.literal(assistantName + ": \"" + msg + "\"")));
         }
     }
 
     private void messageOwner(String msg) {
         Player owner = getOwnerPlayer();
         if (owner != null) {
-            owner.sendSystemMessage(Component.literal("[" + assistantName + "] " + msg));
+            owner.sendSystemMessage(Component.literal(assistantName + ": \"" + msg + "\""));
         } else {
             broadcastMessage(msg);
         }
@@ -401,7 +401,7 @@ public class AiAssistantEntity extends PathfinderMob {
         ItemStack displaced = getItemBySlot(slot);
         setItemSlot(slot, stack);
         setGuaranteedDrop(slot);
-        broadcastMessage("Equipped " + stack.getDisplayName().getString() + ".");
+        broadcastMessage("Nice, putting on " + stack.getDisplayName().getString() + ".");
         if (!displaced.isEmpty()) {
             ItemStack overflow = inventory.addItem(displaced);
             if (!overflow.isEmpty()) spawnAtLocation(level, overflow);
@@ -489,7 +489,7 @@ public class AiAssistantEntity extends PathfinderMob {
         for (int i = 0; i < inventory.getContainerSize(); i++) {
             ItemStack s = inventory.getItem(i);
             if (!s.isEmpty() && ItemSorter.isJunk(s)) {
-                broadcastMessage("Tossing out " + s.getDisplayName().getString() + " — useless to me.");
+                broadcastMessage("I don't need this " + s.getDisplayName().getString() + ", tossing it.");
                 spawnAtLocation(level, inventory.removeItemNoUpdate(i));
             }
         }

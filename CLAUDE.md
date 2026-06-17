@@ -48,6 +48,8 @@ can do and how it evolved.
   `where are you`) handled instantly with no API call.
 - **Active analysis** — LLM classifies every 5+ char message within 48 blocks;
   rate-limited to ~once per 3 seconds to avoid API spam.
+- **Expressive responses** — all chat messages use natural first-person dialogue
+  in `Name: "message"` format; calls for help when overwhelmed in combat.
 
 ### Commands (`/ai …`)
 | Command | Effect |
@@ -117,6 +119,14 @@ can do and how it evolved.
 ---
 
 ## Changelog
+
+### 2.6.0
+- **Expressive chat** — all assistant messages now use natural first-person
+  dialogue in `Name: "message"` format instead of `[Name] message`.
+- **Calls for help** — when health drops critically low during combat, the
+  assistant broadcasts a call for help before retreating.
+- Softened and personalised all response strings (follow, stay, come, tasks,
+  equipment, junk disposal, errors) to feel more like a character.
 
 ### 2.5.0
 - **Task watchdog** — tasks that exceed `maxTaskSeconds` (default 5 min) are

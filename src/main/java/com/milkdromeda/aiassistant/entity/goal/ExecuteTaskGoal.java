@@ -265,11 +265,11 @@ public class ExecuteTaskGoal extends Goal {
 
         ModConfig cfg = ModConfig.get();
         if (!cfg.allowCommands) {
-            entity.broadcastMessage("I'm not allowed to run commands — enable it in /ai menu.");
+            entity.broadcastMessage("I can't run commands right now — you can enable that in /ai menu.");
             return true;
         }
         if (isDeniedCommand(command)) {
-            entity.broadcastMessage("I won't run that one.");
+            entity.broadcastMessage("Hmm, I'm not going to run that one.");
             return true;
         }
         if (!(entity.level() instanceof ServerLevel sl)) return true;
@@ -286,7 +286,7 @@ public class ExecuteTaskGoal extends Goal {
                     .withSuppressedOutput();
             server.getCommands().performPrefixedCommand(source, command);
         } catch (Exception e) {
-            entity.broadcastMessage("That command didn't work.");
+            entity.broadcastMessage("Hmm, that command didn't work.");
         }
         return true;
     }
@@ -360,7 +360,7 @@ public class ExecuteTaskGoal extends Goal {
         String msg = step.getString("message", "...");
         if (!entity.level().isClientSide()) {
             entity.level().players().forEach(p ->
-                    p.sendSystemMessage(Component.literal("[" + entity.getAssistantName() + "] " + msg)));
+                    p.sendSystemMessage(Component.literal(entity.getAssistantName() + ": \"" + msg + "\"")));
         }
         return true;
     }

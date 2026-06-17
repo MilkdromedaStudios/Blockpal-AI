@@ -189,7 +189,7 @@ public class AiCommands {
         level.addFreshEntity(entity);
 
         player.sendSystemMessage(Component.literal(
-                "§a[" + name + "] §fReady to help! Just talk to me in chat, or use §e/ai help§f for commands."));
+                "§a" + name + ": §f\"Hey, I'm here! Talk to me in chat or use §e/ai help§f for commands.\""));
         return 1;
     }
 
@@ -253,7 +253,7 @@ public class AiCommands {
                     "§cI can't find your assistant nearby. It may be in an unloaded area — try /ai summon."));
             return 0;
         }
-        player.sendSystemMessage(Component.literal("§b[" + ai.getAssistantName() + "] §f" + Locator.describe(player, ai)));
+        player.sendSystemMessage(Component.literal("§b" + ai.getAssistantName() + ": §f\"" + Locator.describe(player, ai) + "\""));
         return 1;
     }
 

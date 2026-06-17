@@ -60,7 +60,7 @@ public final class ChatListener {
         if (addressedByName) {
             body = text.substring(name.length()).replaceFirst("^[,:\\s]+", "").trim();
             if (body.isEmpty()) {
-                ai.broadcastMessage("Yes? Tell me what to do — e.g. \"follow me\" or \"help me mine this tree\".");
+                ai.broadcastMessage("Yeah? What do you need? Try something like \"follow me\" or \"help me mine this tree\".");
                 return;
             }
         }
@@ -84,7 +84,7 @@ public final class ChatListener {
         // Anything else is a real task for the AI planner.
         if (!ModConfig.get().hasApiToken()) {
             sender.sendSystemMessage(Component.literal(
-                    "[" + ai.getAssistantName() + "] I need an API token for that. Set one with /ai token <token>."));
+                    ai.getAssistantName() + ": \"I'd love to help, but I need an API token first. Use /ai token <token>.\""));
             return;
         }
         ai.giveTask(body, sender);
@@ -103,8 +103,8 @@ public final class ChatListener {
 
         if (body.equals("help") || body.equals("help me") || body.equals("commands")) {
             player.sendSystemMessage(Component.literal(
-                    "[" + ai.getAssistantName() + "] Try: \"follow me\", \"come here\", \"stay\", \"stop\", "
-                            + "\"where are you\", or \"help me <build/mine/fight...>\". Full list: /ai help"));
+                    ai.getAssistantName() + ": \"Sure! You can say things like \"follow me\", \"come here\", \"stay\", \"stop\", "
+                            + "\"where are you\", or \"help me build/mine/fight...\". Full list: /ai help\""));
             return true;
         }
         if (matches(body, "come", "come here", "come back", "over here", "to me", "here boy")) {
@@ -124,7 +124,7 @@ public final class ChatListener {
             return true;
         }
         if (matches(body, "where are you", "where r u", "where you at", "locate", "your location", "where")) {
-            player.sendSystemMessage(Component.literal("[" + ai.getAssistantName() + "] " + Locator.describe(player, ai)));
+            player.sendSystemMessage(Component.literal(ai.getAssistantName() + ": \"" + Locator.describe(player, ai) + "\""));
             return true;
         }
         return false;
