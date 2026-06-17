@@ -13,6 +13,7 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Random;
 
 /**
  * Top-priority survival instinct that runs in <em>every</em> mode — including
@@ -27,6 +28,7 @@ import java.util.List;
  */
 public class SurvivalReflexGoal extends Goal {
 
+    private static final Random RAND = new Random();
     private final AiAssistantEntity entity;
     private LivingEntity target;
     private int attackCooldown = 0;
@@ -84,13 +86,25 @@ public class SurvivalReflexGoal extends Goal {
         }
     }
 
+    private static String pick(String... options) {
+        return options[RAND.nextInt(options.length)];
+    }
+
     private void retreat() {
         if (!wasFleeing) {
             if (!calledForHelp) {
-                entity.broadcastMessage("Help! I'm getting overwhelmed — someone help me!");
+                entity.broadcastMessage(pick(
+                        "Help! I'm getting overwhelmed — someone help me!",
+                        "A little help here?! I can't handle this alone!",
+                        "I'm in trouble — anyone nearby, please help!",
+                        "This is bad — I need backup!"));
                 calledForHelp = true;
             } else {
-                entity.broadcastMessage("I need to fall back, this is too dangerous!");
+                entity.broadcastMessage(pick(
+                        "I need to fall back, this is too dangerous!",
+                        "Retreating — this isn't worth dying over.",
+                        "Way too risky — pulling back!",
+                        "I'm getting out of here!"));
             }
             wasFleeing = true;
         }

@@ -41,6 +41,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.function.ToDoubleFunction;
@@ -57,6 +58,8 @@ public class AiAssistantEntity extends PathfinderMob {
     private static final EntityDataAccessor<String> DATA_SKIN =
             SynchedEntityData.defineId(AiAssistantEntity.class, EntityDataSerializers.STRING);
 
+    private static final Random RAND = new Random();
+
     private Mode mode = Mode.IDLE;
     private String assistantName = DEFAULT_NAME;
     private UUID ownerUuid;
@@ -70,6 +73,10 @@ public class AiAssistantEntity extends PathfinderMob {
     private boolean analyzing = false;
     /** Earliest tick the next active-mode analysis may run (rate-limits API calls). */
     private int nextAnalyzeTick = 0;
+    /** When true the bot self-directs: picks its own tasks without being asked. */
+    private boolean autonomousMode = false;
+    /** Countdown until the next autonomous self-plan. */
+    private int autoThinkTimer = 0;
 
     /** Backpack-style storage — 10 slots like a player's hotbar — on top of the
      *  worn armour and held weapon. Picked-up loot lands here, and the best gear
@@ -154,9 +161,29 @@ public class AiAssistantEntity extends PathfinderMob {
         }
 
         if (idleMessageTimer == 20 && mode == Mode.IDLE) {
-            messageOwner("Hey! I'm ready. Say \"" + assistantName + ", follow me\" or use /ai help.");
+            messageOwner(pick("Hey! I'm ready whenever you need me.",
+                    "All set — just say the word.",
+                    "I'm here! Say \"" + assistantName + ", follow me\" or use /ai help.",
+                    "Ready to go. What do you need?"));
         }
         idleMessageTimer++;
+
+        // Autonomous self-direction: when the owner hands off control, re-plan on a timer.
+        if (autonomousMode && mode != Mode.EXECUTING && ModConfig.get().hasApiToken()) {
+            if (--autoThinkTimer <= 0) {
+                autoThinkTimer = 30 * 20; // re-evaluate every 30 seconds
+                String selfTask = "You're on your own — survey your surroundings and decide what useful "
+                        + "thing to do next (gather resources, explore, patrol, help nearby players, etc.).";
+                broadcastMessage(pick("Alright, let me see what I can do around here...",
+                        "I'll find something useful to work on.",
+                        "On it — I'll use my own judgment.",
+                        "Let me look around and figure out what needs doing."));
+                mode = Mode.EXECUTING;
+                taskStartTick = tickCount;
+                taskManager.clearPlan();
+                taskManager.requestPlan(selfTask);
+            }
+        }
 
         // Combat and retreat are handled reflexively by SurvivalReflexGoal in
         // every mode, so the assistant stays responsive even mid-plan.
@@ -166,7 +193,10 @@ public class AiAssistantEntity extends PathfinderMob {
         if (mode == Mode.EXECUTING) {
             int limitTicks = ModConfig.get().maxTaskSeconds * 20;
             if (limitTicks > 0 && tickCount - taskStartTick > limitTicks) {
-                broadcastMessage("I've been at this a while and I'm not getting anywhere... I'm giving up. Ask me again if you still need it.");
+                broadcastMessage(pick("I've been at this a while and I'm not getting anywhere... I'm giving up. Ask me again if you still need it.",
+                        "Okay, this is taking forever — I'm calling it. Just ask me again.",
+                        "I don't seem to be making progress on this. I'll stop for now.",
+                        "This task is taking too long. Stopping — let me know if you still need it."));
                 taskManager.clearPlan();
                 pendingTask = null;
                 mode = Mode.FOLLOWING;
@@ -193,14 +223,26 @@ public class AiAssistantEntity extends PathfinderMob {
         mode = Mode.EXECUTING;
         taskStartTick = tickCount;
         taskManager.clearPlan();
-        broadcastMessage("On it! Let me work on: " + task);
+        broadcastMessage(pick("On it! Let me work on: " + task,
+                "Alright, I'll get started on " + task + ".",
+                "Leave it to me — " + task + ".",
+                "Sure thing, working on " + task + " now."));
         taskManager.requestPlan(task);
     }
 
     public void finishTask() {
-        broadcastMessage("All done! Finished: " + (pendingTask != null ? pendingTask : "the task"));
+        String task = pendingTask != null ? pendingTask : "the task";
+        broadcastMessage(pick("All done! Finished " + task + ".",
+                "Done with " + task + "!",
+                "Finished " + task + " — what's next?",
+                "That's " + task + " sorted."));
         pendingTask = null;
-        mode = Mode.FOLLOWING;
+        if (autonomousMode) {
+            mode = Mode.FOLLOWING;
+            autoThinkTimer = 10 * 20; // short pause before picking the next thing
+        } else {
+            mode = Mode.FOLLOWING;
+        }
     }
 
     /**
@@ -262,13 +304,14 @@ public class AiAssistantEntity extends PathfinderMob {
         } else {
             getNavigation().moveTo(player, 1.2);
         }
-        broadcastMessage("On my way!");
+        broadcastMessage(pick("On my way!", "Coming!", "Be right there.", "Heading over now."));
     }
 
     public void followPlayer() {
         taskManager.clearPlan();
         mode = Mode.FOLLOWING;
-        broadcastMessage("Sure, I'll stick with you.");
+        autonomousMode = false;
+        broadcastMessage(pick("Sure, I'll stick with you.", "Right behind you!", "Lead the way.", "On it, staying close."));
     }
 
     /** Stops moving and guards the current spot (still defends against hostiles). */
@@ -276,14 +319,31 @@ public class AiAssistantEntity extends PathfinderMob {
         taskManager.clearPlan();
         getNavigation().stop();
         mode = Mode.GUARDING;
-        broadcastMessage("Got it, I'll keep watch here.");
+        autonomousMode = false;
+        broadcastMessage(pick("Got it, I'll keep watch here.", "I'll hold this position.", "Staying put.", "Alright, keeping an eye on things."));
     }
 
     public void stopTask() {
         taskManager.clearPlan();
         getNavigation().stop();
         mode = Mode.FOLLOWING;
-        broadcastMessage("Okay, stopping.");
+        autonomousMode = false;
+        broadcastMessage(pick("Okay, stopping.", "Alright, I'll wait here.", "Got it.", "Sure, taking a break."));
+    }
+
+    /** Enters autonomous mode — the bot self-directs and picks its own tasks. */
+    public void enterAutonomousMode() {
+        autonomousMode = true;
+        autoThinkTimer = 3 * 20; // start thinking after 3 seconds
+        broadcastMessage(pick("Alright, I'll use my own judgment from here.",
+                "Sure, I'll keep myself busy.",
+                "Got it — I'll figure something out on my own!",
+                "Okay, leaving it to me then. I'll find something useful to do."));
+    }
+
+    /** True if the given player is allowed to give this assistant orders. */
+    public boolean isOwner(Player player) {
+        return ownerUuid != null && ownerUuid.equals(player.getUUID());
     }
 
     /** Public hop — used by the JUMP action and for getting unstuck on parkour. */
@@ -307,6 +367,11 @@ public class AiAssistantEntity extends PathfinderMob {
         } else {
             broadcastMessage(msg);
         }
+    }
+
+    /** Picks a random option from the supplied strings. */
+    private static String pick(String... options) {
+        return options[RAND.nextInt(options.length)];
     }
 
     // ---- Inventory & gear ----
@@ -401,7 +466,11 @@ public class AiAssistantEntity extends PathfinderMob {
         ItemStack displaced = getItemBySlot(slot);
         setItemSlot(slot, stack);
         setGuaranteedDrop(slot);
-        broadcastMessage("Nice, putting on " + stack.getDisplayName().getString() + ".");
+        String item = stack.getDisplayName().getString();
+        broadcastMessage(pick("Nice, putting on " + item + ".",
+                "Ooh, " + item + " — that's an upgrade.",
+                "I'll wear this " + item + ".",
+                item + "? Don't mind if I do."));
         if (!displaced.isEmpty()) {
             ItemStack overflow = inventory.addItem(displaced);
             if (!overflow.isEmpty()) spawnAtLocation(level, overflow);
@@ -489,7 +558,11 @@ public class AiAssistantEntity extends PathfinderMob {
         for (int i = 0; i < inventory.getContainerSize(); i++) {
             ItemStack s = inventory.getItem(i);
             if (!s.isEmpty() && ItemSorter.isJunk(s)) {
-                broadcastMessage("I don't need this " + s.getDisplayName().getString() + ", tossing it.");
+                String junk = s.getDisplayName().getString();
+                broadcastMessage(pick("I don't need this " + junk + ", tossing it.",
+                        "No thanks, " + junk + " is useless to me.",
+                        "Dropping the " + junk + " — not worth carrying.",
+                        junk + "? Trash. Gone."));
                 spawnAtLocation(level, inventory.removeItemNoUpdate(i));
             }
         }
@@ -560,6 +633,7 @@ public class AiAssistantEntity extends PathfinderMob {
         output.putString("Mode", mode.name());
         if (ownerUuid != null) output.store("OwnerUuid", UUIDUtil.STRING_CODEC, ownerUuid);
         if (pendingTask != null) output.putString("PendingTask", pendingTask);
+        output.putBoolean("AutonomousMode", autonomousMode);
         ContainerHelper.saveAllItems(output.child("Inventory"), inventorySnapshot());
     }
 
@@ -572,6 +646,7 @@ public class AiAssistantEntity extends PathfinderMob {
         try { mode = Mode.valueOf(modeStr); } catch (IllegalArgumentException ignored) { mode = Mode.FOLLOWING; }
         input.read("OwnerUuid", UUIDUtil.STRING_CODEC).ifPresent(uuid -> ownerUuid = uuid);
         pendingTask = input.getString("PendingTask").orElse(null);
+        autonomousMode = input.getBooleanOr("AutonomousMode", false);
         NonNullList<ItemStack> items = NonNullList.withSize(INVENTORY_SIZE, ItemStack.EMPTY);
         ContainerHelper.loadAllItems(input.childOrEmpty("Inventory"), items);
         for (int i = 0; i < INVENTORY_SIZE; i++) inventory.setItem(i, items.get(i));
