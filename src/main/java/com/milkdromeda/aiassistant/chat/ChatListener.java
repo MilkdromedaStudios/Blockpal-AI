@@ -8,6 +8,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.Locale;
+import java.util.Random;
 import java.util.Set;
 
 /**
@@ -16,6 +17,9 @@ import java.util.Set;
  * having to type /ai. Quick intents (come, follow, stay, stop, locate) are
  * handled instantly with no API call; anything else becomes an AI task.
  *
+ * <p>Only the player who spawned the assistant (its owner) can give it orders.
+ * Non-owners are politely turned away.
+ *
  * <p>With "active analysis" on (the default), messages that aren't obviously
  * addressed are still handed to the language model, which decides whether the
  * player needs the assistant — so no name or exact command words are required.
@@ -23,6 +27,8 @@ import java.util.Set;
 public final class ChatListener {
 
     private ChatListener() {}
+
+    private static final Random RAND = new Random();
 
     /** First words that mark a chat message as a request aimed at the assistant. */
     private static final Set<String> TRIGGER_WORDS = Set.of(
@@ -56,11 +62,32 @@ public final class ChatListener {
         boolean addressedByName = lower.equals(name) || lower.startsWith(name + " ")
                 || lower.startsWith(name + ",") || lower.startsWith(name + ":");
 
+        // Owner-only enforcement: only the player who spawned this assistant can command it.
+        // We still check if addressed by name so non-owners get a reply rather than silence.
+        if (!ai.isOwner(sender)) {
+            if (addressedByName) {
+                String ownerName = ai.getOwnerPlayer() != null
+                        ? ai.getOwnerPlayer().getName().getString() : "someone else";
+                String[] dismissals = {
+                    "Sorry, I only take orders from " + ownerName + ".",
+                    "You're not my boss — " + ownerName + " is.",
+                    "I answer to " + ownerName + ", not you.",
+                    "I appreciate the enthusiasm, but " + ownerName + " is the one who gives me orders."
+                };
+                ai.broadcastMessage(dismissals[RAND.nextInt(dismissals.length)]);
+            }
+            return;
+        }
+
         String body = text;
         if (addressedByName) {
             body = text.substring(name.length()).replaceFirst("^[,:\\s]+", "").trim();
             if (body.isEmpty()) {
-                ai.broadcastMessage("Yeah? What do you need? Try something like \"follow me\" or \"help me mine this tree\".");
+                ai.broadcastMessage(pick(
+                        "Yeah? What do you need?",
+                        "What's up?",
+                        "I'm listening.",
+                        "You called?"));
                 return;
             }
         }
@@ -103,8 +130,8 @@ public final class ChatListener {
 
         if (body.equals("help") || body.equals("help me") || body.equals("commands")) {
             player.sendSystemMessage(Component.literal(
-                    ai.getAssistantName() + ": \"Sure! You can say things like \"follow me\", \"come here\", \"stay\", \"stop\", "
-                            + "\"where are you\", or \"help me build/mine/fight...\". Full list: /ai help\""));
+                    ai.getAssistantName() + ": \"Sure! Try: \"follow me\", \"come here\", \"stay\", \"stop\", "
+                            + "\"where are you\", \"do it yourself\", or just describe a task. Full list: /ai help\""));
             return true;
         }
         if (matches(body, "come", "come here", "come back", "over here", "to me", "here boy")) {
@@ -127,6 +154,14 @@ public final class ChatListener {
             player.sendSystemMessage(Component.literal(ai.getAssistantName() + ": \"" + Locator.describe(player, ai) + "\""));
             return true;
         }
+        if (matches(body,
+                "do it yourself", "figure it out", "handle it", "handle it yourself",
+                "use your judgment", "use your own judgment", "you decide",
+                "go ahead", "be autonomous", "act on your own", "do your own thing",
+                "you re on your own", "youre on your own", "you are on your own")) {
+            ai.enterAutonomousMode();
+            return true;
+        }
         return false;
     }
 
@@ -135,5 +170,9 @@ public final class ChatListener {
             if (body.equals(option)) return true;
         }
         return false;
+    }
+
+    private static String pick(String... options) {
+        return options[RAND.nextInt(options.length)];
     }
 }

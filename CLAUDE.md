@@ -49,7 +49,14 @@ can do and how it evolved.
 - **Active analysis** — LLM classifies every 5+ char message within 48 blocks;
   rate-limited to ~once per 3 seconds to avoid API spam.
 - **Expressive responses** — all chat messages use natural first-person dialogue
-  in `Name: "message"` format; calls for help when overwhelmed in combat.
+  in `Name: "message"` format; randomised response pools so replies vary naturally.
+- **Calls for help** — when health drops critically low in combat, the assistant
+  calls out to nearby players for help before retreating.
+- **Owner-only** — only the player who spawned the assistant can give it orders;
+  other players are politely turned away.
+- **Autonomous mode** — owner can say "do it yourself" to hand off control; the
+  bot self-directs, picks its own tasks, and narrates its decisions every ~30 s.
+  Cancelled by "stop", "follow me", or "stay".
 
 ### Commands (`/ai …`)
 | Command | Effect |
@@ -119,6 +126,16 @@ can do and how it evolved.
 ---
 
 ## Changelog
+
+### 2.7.0
+- **Owner-only obedience** — only the player who spawned the assistant can give
+  it orders via chat; others are politely turned away with a varied dismissal.
+- **Autonomous mode** — owner can say "do it yourself" (or similar) to hand off
+  control; the bot self-directs, picks its own tasks via the LLM, and narrates
+  its decisions. Cancelled by "stop", "follow me", or "stay".
+- **Randomised responses** — all common replies (follow, come, stay, stop, gear,
+  junk, task start/done, combat) now draw from a pool of natural alternatives
+  so the bot never sounds like a broken record.
 
 ### 2.6.0
 - **Expressive chat** — all assistant messages now use natural first-person
