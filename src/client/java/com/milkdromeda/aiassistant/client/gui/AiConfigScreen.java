@@ -15,29 +15,24 @@ import net.minecraft.network.chat.Component;
  * laid out in two columns. Opened with {@code /ai menu}. Saving sends the values
  * to the server, so it works in both singleplayer and multiplayer.
  *
- * <p>The layout is intentionally compact and the action bar (Save / Apply /
- * Cancel) is pinned just below the content but never past the bottom of the
- * screen, so the buttons stay reachable at every GUI scale. To avoid silently
- * losing edits, closing the screen — including with ESC — saves any pending
- * changes; <b>Cancel</b> is the explicit "discard" action. <b>Apply</b> saves
- * without closing.
- *
- * <p>Text is drawn with {@link StringWidget}s (added as render-only widgets)
- * rather than immediate-mode draw calls, to suit the retained-mode GUI.
+ * <p>A collapsible <b>Developer Mode</b> section at the bottom exposes low-level
+ * settings (action tick delay, task watchdog, flee threshold) that can cause lag
+ * or crashes if misused. Each field shows a brief inline warning.
  */
 public class AiConfigScreen extends Screen {
 
     private static final int COL_W = 154;
     private static final int COL_GAP = 14;
     private static final int FIELD_H = 18;
-    private static final int ROW = 22;      // vertical step for a toggle/slider row
-    private static final int BOX_ROW = 30;  // vertical step for a captioned text box
+    private static final int ROW = 22;
+    private static final int BOX_ROW = 30;
     private static final int TOP = 32;
     private static final Component SAVED_MSG =
             Component.literal("Settings applied ✓").withStyle(s -> s.withColor(0x55FF55));
 
     private final ConfigData initial;
 
+    // Standard widgets
     private CycleButton<Boolean> listenButton;
     private CycleButton<Boolean> activeButton;
     private CycleButton<Boolean> debugButton;
@@ -53,10 +48,16 @@ public class AiConfigScreen extends Screen {
     private OptionSlider guardSlider;
     private OptionSlider commandLevelSlider;
 
-    /** Snapshot of the last-saved values; edits are compared against this. */
+    // Developer mode widgets (null when dev mode is off)
+    private OptionSlider actionTickDelaySlider;
+    private OptionSlider maxTaskSecondsSlider;
+    private OptionSlider fleeHealthSlider;
+
+    /** Whether the developer section is currently expanded. Survives rebuilds. */
+    private boolean devMode = false;
+
     private ConfigData baseline;
     private boolean tokenSet;
-    /** When false, closing the screen does not auto-save (used by Save/Cancel). */
     private boolean saveOnClose = true;
     private int actionBarY;
     private StringWidget appliedLabel;
@@ -76,7 +77,7 @@ public class AiConfigScreen extends Screen {
 
         addRenderableOnly(new StringWidget(0, 6, this.width, 12, this.title, this.font));
 
-        // ── left column: identity & connection (text fields) + one toggle ──
+        // ── left column: identity & connection ──
         int ly = TOP;
         nameBox = labeledBox(left, ly, "Assistant name", initial.defaultName(), 32);
         ly += BOX_ROW;
@@ -92,7 +93,7 @@ public class AiConfigScreen extends Screen {
         debugButton = addToggle(left, ly, "Debug logging", initial.debugLogging());
         ly += ROW;
 
-        // ── right column: behaviour toggles + numeric sliders ──
+        // ── right column: behaviour toggles + sliders ──
         int ry = TOP;
         listenButton = addToggle(right, ry, "Chat listening", initial.chatListening());
         ry += ROW;
@@ -111,8 +112,49 @@ public class AiConfigScreen extends Screen {
         commandLevelSlider = addSlider(right, ry, "Command perm level", 0, 4, initial.commandPermissionLevel(), true);
         ry += ROW;
 
-        // ── action bar: pinned just below the content, but never off the bottom ──
-        actionBarY = Math.min(Math.max(ly, ry) + 12, this.height - FIELD_H - 8);
+        int contentBottom = Math.max(ly, ry) + 4;
+
+        // ── developer mode toggle ──
+        int devToggleY = contentBottom + 6;
+        addRenderableWidget(Button.builder(
+                        Component.literal(devMode ? "▼ Developer Mode  [ON]" : "▶ Developer Mode  [OFF]"),
+                        b -> { devMode = !devMode; rebuildWidgets(); })
+                .bounds(left, devToggleY, totalW, FIELD_H)
+                .build());
+
+        int devSectionBottom = devToggleY + ROW;
+
+        if (devMode) {
+            int dw = (totalW - COL_GAP) / 2;
+            int dl = left;
+            int dr = left + dw + COL_GAP;
+            int dy = devToggleY + ROW;
+
+            // Warning label
+            addRenderableOnly(new StringWidget(left, dy, totalW, 9,
+                    Component.literal("⚠  These settings can cause lag or crash the game. See developer.md.")
+                            .withStyle(s -> s.withColor(0xFF5555)),
+                    this.font));
+            dy += 12;
+
+            actionTickDelaySlider = addSlider(dl, dy, "Action tick delay (0=every tick!)", 0, 40,
+                    initial.actionTickDelay(), true, dw);
+            maxTaskSecondsSlider = addSlider(dr, dy, "Task watchdog sec (0=disabled!)", 0, 600,
+                    initial.maxTaskSeconds(), true, dw);
+            dy += ROW;
+            fleeHealthSlider = addSlider(dl, dy, "Flee health % (0=never flees!)", 0.0, 1.0,
+                    initial.fleeHealthPercent(), false, dw);
+            dy += ROW;
+
+            devSectionBottom = dy;
+        } else {
+            actionTickDelaySlider = null;
+            maxTaskSecondsSlider = null;
+            fleeHealthSlider = null;
+        }
+
+        // ── action bar ──
+        actionBarY = Math.min(devSectionBottom + 8, this.height - FIELD_H - 8);
         int bw = 100;
         int gap = 8;
         int barW = bw * 3 + gap * 2;
@@ -124,14 +166,12 @@ public class AiConfigScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Cancel"), b -> cancel())
                 .bounds(bx + (bw + gap) * 2, actionBarY, bw, FIELD_H).build());
 
-        // Transient "applied" confirmation, shown just above the action bar.
         appliedLabel = new StringWidget(0, actionBarY - 12, this.width, 9, Component.empty(), this.font);
         addRenderableOnly(appliedLabel);
 
         baseline = buildData();
     }
 
-    /** Adds an EditBox with a small caption above it (as a render-only StringWidget). */
     private EditBox labeledBox(int x, int y, String label, String value, int maxLen) {
         addRenderableOnly(new StringWidget(x, y - 10, COL_W, 9, Component.literal(label), this.font));
         EditBox box = new EditBox(this.font, x, y, COL_W, FIELD_H, Component.literal(label));
@@ -150,19 +190,23 @@ public class AiConfigScreen extends Screen {
 
     private OptionSlider addSlider(int x, int y, String label, double min, double max,
                                    double value, boolean integer) {
-        OptionSlider slider = new OptionSlider(x, y, COL_W, FIELD_H, label, min, max, value, integer);
+        return addSlider(x, y, label, min, max, value, integer, COL_W);
+    }
+
+    private OptionSlider addSlider(int x, int y, String label, double min, double max,
+                                   double value, boolean integer, int width) {
+        OptionSlider slider = new OptionSlider(x, y, width, FIELD_H, label, min, max, value, integer);
         addRenderableWidget(slider);
         return slider;
     }
 
-    /** Builds a snapshot of the values currently shown in the widgets. */
     private ConfigData buildData() {
         return new ConfigData(
                 listenButton.getValue(),
                 activeButton.getValue(),
                 debugButton.getValue(),
                 nameBox.getValue(),
-                tokenBox.getValue(),          // blank = keep existing, handled server-side
+                tokenBox.getValue(),
                 tokenSet,
                 modelBox.getValue(),
                 apiUrlBox.getValue(),
@@ -172,15 +216,18 @@ public class AiConfigScreen extends Screen {
                 guardSlider.current(),
                 commandsButton.getValue(),
                 (int) Math.round(commandLevelSlider.current()),
-                skinBox.getValue());
+                skinBox.getValue(),
+                actionTickDelaySlider != null ? (int) Math.round(actionTickDelaySlider.current())
+                        : initial.actionTickDelay(),
+                maxTaskSecondsSlider != null ? (int) Math.round(maxTaskSecondsSlider.current())
+                        : initial.maxTaskSeconds(),
+                fleeHealthSlider != null ? fleeHealthSlider.current()
+                        : initial.fleeHealthPercent());
     }
 
-    /** Sends the current values to the server and refreshes the saved baseline. */
     private void sendCurrent() {
         ClientPlayNetworking.send(new ConfigUpdatePayload(buildData()));
         if (!tokenBox.getValue().isBlank()) {
-            // The token has been delivered; clear the field so it isn't resent and
-            // reflect that one is now stored ("blank keeps it" on the next save).
             tokenSet = true;
             tokenBox.setValue("");
             tokenBox.setHint(Component.literal("set — blank keeps it"));
@@ -188,7 +235,6 @@ public class AiConfigScreen extends Screen {
         baseline = buildData();
     }
 
-    /** True when any widget differs from the last-saved baseline. */
     private boolean isDirty() {
         if (!tokenBox.getValue().isBlank()) return true;
         ConfigData c = buildData();
@@ -204,28 +250,28 @@ public class AiConfigScreen extends Screen {
                 || !eq(c.defaultName(), baseline.defaultName())
                 || !eq(c.model(), baseline.model())
                 || !eq(c.apiUrl(), baseline.apiUrl())
-                || !eq(c.defaultSkin(), baseline.defaultSkin());
+                || !eq(c.defaultSkin(), baseline.defaultSkin())
+                || c.actionTickDelay() != baseline.actionTickDelay()
+                || c.maxTaskSeconds() != baseline.maxTaskSeconds()
+                || Double.compare(c.fleeHealthPercent(), baseline.fleeHealthPercent()) != 0;
     }
 
     private static boolean eq(String a, String b) {
         return (a == null ? "" : a).equals(b == null ? "" : b);
     }
 
-    /** Apply button: save and stay open, with a brief on-screen confirmation. */
     private void apply() {
         sendCurrent();
         appliedLabel.setMessage(SAVED_MSG);
         appliedFeedbackUntil = System.currentTimeMillis() + 1500;
     }
 
-    /** Save button: save and close (the auto-save in onClose is skipped). */
     private void saveAndClose() {
         sendCurrent();
         saveOnClose = false;
         onClose();
     }
 
-    /** Cancel button: close and discard any unsaved edits. */
     private void cancel() {
         saveOnClose = false;
         onClose();
@@ -233,7 +279,6 @@ public class AiConfigScreen extends Screen {
 
     @Override
     public void onClose() {
-        // Closing (including via ESC) saves pending edits rather than dropping them.
         if (saveOnClose && isDirty()) {
             sendCurrent();
         }

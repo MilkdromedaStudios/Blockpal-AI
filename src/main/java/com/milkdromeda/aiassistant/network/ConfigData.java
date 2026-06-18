@@ -12,6 +12,11 @@ import net.minecraft.network.codec.StreamCodec;
  * snapshots carry an empty {@link #token} plus {@link #tokenSet} so the menu can
  * show "set / not set". When the menu saves, a blank token means "keep the
  * existing one".
+ *
+ * <p>Developer-mode fields ({@link #actionTickDelay}, {@link #maxTaskSeconds},
+ * {@link #fleeHealthPercent}) are included in every packet but only shown in the
+ * GUI when developer mode is enabled. Setting them incorrectly can cause lag or
+ * crashes — see {@code developer.md} for details.
  */
 public record ConfigData(
         boolean chatListening,
@@ -28,7 +33,11 @@ public record ConfigData(
         double guardRadius,
         boolean allowCommands,
         int commandPermissionLevel,
-        String defaultSkin
+        String defaultSkin,
+        // Developer-mode fields
+        int actionTickDelay,
+        int maxTaskSeconds,
+        double fleeHealthPercent
 ) {
     public static final StreamCodec<FriendlyByteBuf, ConfigData> STREAM_CODEC =
             StreamCodec.of(ConfigData::write, ConfigData::read);
@@ -51,7 +60,10 @@ public record ConfigData(
                 c.guardRadius,
                 c.allowCommands,
                 c.commandPermissionLevel,
-                c.defaultSkin);
+                c.defaultSkin,
+                c.actionTickDelay,
+                c.maxTaskSeconds,
+                c.fleeHealthPercent);
     }
 
     /** Applies this snapshot onto the live config, clamping and keeping blanks. */
@@ -70,6 +82,10 @@ public record ConfigData(
         c.allowCommands = allowCommands;
         c.commandPermissionLevel = (int) clamp(commandPermissionLevel, 0, 4);
         if (notBlank(defaultSkin)) c.defaultSkin = defaultSkin.trim();
+        // Developer fields — applied as-is (intentionally no tight clamping)
+        c.actionTickDelay = (int) clamp(actionTickDelay, 0, 40);
+        c.maxTaskSeconds = (int) clamp(maxTaskSeconds, 0, 3600);
+        c.fleeHealthPercent = clamp(fleeHealthPercent, 0.0, 1.0);
     }
 
     private static boolean notBlank(String s) {
@@ -96,6 +112,9 @@ public record ConfigData(
         buf.writeBoolean(d.allowCommands);
         buf.writeInt(d.commandPermissionLevel);
         buf.writeUtf(d.defaultSkin == null ? "default" : d.defaultSkin);
+        buf.writeInt(d.actionTickDelay);
+        buf.writeInt(d.maxTaskSeconds);
+        buf.writeDouble(d.fleeHealthPercent);
     }
 
     private static ConfigData read(FriendlyByteBuf buf) {
@@ -114,6 +133,9 @@ public record ConfigData(
                 buf.readDouble(),
                 buf.readBoolean(),
                 buf.readInt(),
-                buf.readUtf());
+                buf.readUtf(),
+                buf.readInt(),
+                buf.readInt(),
+                buf.readDouble());
     }
 }
