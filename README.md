@@ -1,86 +1,90 @@
-# AI Assistant — a Minecraft companion that builds, fights, and helps
+<div align="center">
 
-A Fabric mod that drops a friendly AI character into your world. Its name is
-**Ethan** by default, it wears a floating **nametag** so you always know who it
-is, and it's **proactive** — it reads your chat and figures out when you need it,
-so you don't have to address it by name or memorise any commands. You can still
-boss it around with plain chat ("*Ethan, follow me*") or `/ai` commands, and
-everything is configurable from a **real in-game settings menu**.
+# ⬡ AI ASSISTANT
 
-Tasks like building, mining, or fighting are planned by a large language model
-through an OpenAI-compatible API (HuggingFace by default), so the assistant can
-turn a sentence into a sequence of in-game actions.
+**A Minecraft AI companion that builds, fights, and thinks**
 
----
+[![Mod Version](https://img.shields.io/badge/mod-v2.13.0-6c63ff?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyTDIgN2wxMCA1IDEwLTV6TTIgMTdsOSA1IDktNXYtN0wxMiAxMiAyIDd6Ii8+PC9zdmc+)](builds/)
+[![Minecraft](https://img.shields.io/badge/Minecraft-26.1.2-62b96e?style=for-the-badge)](https://fabricmc.net/)
+[![Fabric](https://img.shields.io/badge/Fabric_Loader-0.19.3+-dbb74b?style=for-the-badge)](https://fabricmc.net/)
+[![Java](https://img.shields.io/badge/Java-25+-e76f51?style=for-the-badge)](https://adoptium.net/)
+[![License](https://img.shields.io/badge/License-MIT-264653?style=for-the-badge)](LICENSE)
 
-## 📥 Download
-- Go [to here](https://github.com/MilkdromedaStudios/minecraft-ai-test/tree/main/builds) and find the latest versions of the mod to use.
-- I recommend you to read all the instructions and features to have it set-up properly, sorry for all the work required to set this bot up, but it's all worth it in the end. 
+*Drop a friendly AI character named **Ethan** into your world. It reads your chat,
+plans tasks through an LLM, fights back on reflex, and configures itself from a
+real in-game settings screen — no mods folder archaeology required.*
 
----
-
-
-## ✨ Features
-
-- **Named & tagged** — spawns as **Ethan** with a visible nametag above its
-  head. Rename it any time with `/ai name <name>` and the tag updates live.
-- **Proactive — reads the room** — with *active analysis* (on by default) it
-  runs **every** chat message past the language model to decide whether you need
-  it and what you want, so "*can you clear these trees?*" or "*I need a shelter*"
-  just work — no name, no exact command words. Toggle with `/ai active on|off`.
-- **In-game settings menu** — a real GUI (not just chat commands) for the token,
-  model, behaviour toggles and tuning sliders. Open it with the **K** key or
-  `/ai menu`.
-- **Talk to it in chat** — no slash command needed. It actively listens to chat
-  and reacts to natural language (toggle with `/ai listen on|off`).
-- **Instant quick-commands** — "come here", "follow me", "stay", "stop", and
-  "where are you" work immediately, even with no API token.
-- **AI-planned tasks** — anything else ("build a 5×5 floor", "mine this tree")
-  is sent to a language model that returns a step-by-step plan.
-- **Never just stands there** — combat and retreat are handled by an instant
-  **reflex layer that runs in every mode, with no API call**. Planning is fully
-  asynchronous, so the assistant keeps fighting and dodging *while* it thinks —
-  it won't freeze mid-generation while a creeper walks up to it.
-- **Runs commands** — with command execution on, plans can use `/setblock`,
-  `/fill`, `/give`, `/summon`, `/clone`, `/effect`… This is its key to doing
-  *almost anything*, including precise **redstone** (block states via
-  `/setblock`). Safely gated — see [Letting it run commands](#-letting-it-run-commands).
-- **Solves puzzles & escape rooms** — it sees nearby **levers, buttons, doors,
-  pressure plates and redstone** in its context and can flip/press/open them
-  (`USE_BLOCK`), or walk onto plates, to progress.
-- **Keeps going (live activities)** — ongoing jobs like *patrol*, *guard the
-  area*, *keep mining* or *explore* loop continuously, re-planning each round
-  with fresh context instead of stopping after one batch.
-- **Follows you** — keeps pace and teleports to you if it falls too far behind.
-- **Fights & flees** — engages hostile mobs near you and your assistant, and
-  retreats toward you when badly hurt instead of dying in place.
-- **Builds, breaks, digs & parkours** — places/breaks blocks, clears areas
-  (`MINE_AREA`), jumps (`JUMP`) and crouches (`SET_SNEAK`).
-- **Custom skins** — give it any look with `/ai skin <name>`: a built-in skin,
-  a `namespace:path.png` texture, or your own PNG. Two skins ship in the box.
-- **Works in every gamemode** — survival, **adventure** and **creative**.
-  Right-click to toggle follow/stay and sneak-right-click to open its menu, so
-  you can command it hands-free even where you can't place or break blocks.
-- **Find it anywhere** — `/ai locate` reports distance, direction, and coords.
-- **Friendly errors** — connection problems give clear, actionable advice
-  instead of raw `java.net.ConnectException` stack traces.
+</div>
 
 ---
 
-## 📦 Requirements
+## ⬇ Download & Install
 
-- Minecraft **26.1.2**
-- **Fabric Loader** ≥ 0.19.0 and **Fabric API**
-- Java **25+**
+> **Latest stable build: `v2.13.0`** — tabbed settings GUI, custom skin support, versioned config, FPS kill-switch
 
-Drop the built jar into your `mods/` folder (server and/or client).
+### Option A — Pre-built jar (recommended)
+
+| Step | Action |
+|------|--------|
+| 1 | **[Browse `builds/`](https://github.com/MilkdromedaStudios/minecraft-ai-test/tree/main/builds)** and click the latest `ai-assistant-<version>.jar` |
+| 2 | Hit **Download raw file** (the download icon) |
+| 3 | Copy the jar into your `mods/` folder |
+| 4 | Make sure **[Fabric Loader 0.19+](https://fabricmc.net/use/installer/)** and **[Fabric API](https://modrinth.com/mod/fabric-api)** are also in `mods/` |
+| 5 | Launch Minecraft — run `/ai summon` to meet Ethan |
+
+```
+mods/
+├── ai-assistant-2.13.0.jar   ← this mod
+├── fabric-api-0.151.0+26.1.2.jar
+└── ...
+```
+
+> **Server install:** drop the same jar into the server's `mods/` folder alongside Fabric API. Players also need it client-side to open the settings screen.
+
+### Option B — Build from source
+
+```bash
+git clone https://github.com/MilkdromedaStudios/minecraft-ai-test.git
+cd minecraft-ai-test
+./gradlew build          # Linux / macOS
+gradlew.bat build        # Windows
+```
+
+Output lands in `build/libs/ai-assistant-<version>.jar`. JDK 25 is auto-downloaded by Gradle if you don't have it. Full build docs → [Building from source](#-building-from-source).
+
+### Version compatibility
+
+| Mod version | Minecraft | Fabric Loader | Fabric API |
+|-------------|-----------|---------------|------------|
+| **2.13.0** *(latest)* | 26.1.2 | 0.19.3+ | 0.151.0+ |
+| 2.12.x | 26.1.2 | 0.19.3+ | 0.151.0+ |
+| 2.11.x | 26.1.2 | 0.19.3+ | 0.151.0+ |
+
+> Pre-built jars in [`builds/`](builds/) are kept for every released version — older builds are never deleted.
+
+---
+
+## ✦ Features
+
+- **Named & tagged** — spawns as **Ethan** with a visible nametag above its head. Rename any time with `/ai name <name>` and the tag updates live.
+- **Proactive — reads the room** — with *active analysis* on (default), it runs **every** chat message past the language model to decide whether you need it and what you want, so "*can you clear these trees?*" or "*I need a shelter*" just work — no name, no exact command words. Toggle with `/ai active on|off`.
+- **Real settings GUI** — tabbed in-game screen (Identity · Behavior · AI · Combat · Developer) for all tokens, model params, toggles and sliders. Open with `/ai menu` or sneak-right-click.
+- **Talk to it in chat** — no slash command needed. It actively listens and reacts to natural language (`/ai listen on|off`).
+- **Instant quick-commands** — "come here", "follow me", "stay", "stop", "where are you" work immediately, with no API token.
+- **AI-planned tasks** — anything else ("build a 5×5 floor", "mine this tree") is sent to a language model that returns a structured step-by-step plan.
+- **Never just stands there** — combat and retreat run on an instant **reflex layer in every mode, with no API call**. Planning is fully async, so the assistant keeps fighting while it thinks.
+- **Runs commands** — with command execution on, plans can use `/setblock`, `/fill`, `/give`, `/summon`, `/clone`, `/effect`… safely gated → [Letting it run commands](#-letting-it-run-commands).
+- **Solves puzzles & escape rooms** — sees nearby levers, buttons, doors, pressure plates and redstone in its context and can flip/press/open them (`USE_BLOCK`).
+- **Looping activities** — patrol, guard, keep mining or explore loop continuously, re-planning each round with fresh context.
+- **Custom skins** — built-in palette skins (`robot`, `void`, `slate`, `ember`, `forest`, `amethyst`), or drop your own 64×64 PNG into `config/ai-assistant/skins/` and apply with `/ai skin <name>`. No rebuild needed.
+- **Emergency FPS kill-switch** — auto-disables the whole mod when framerate collapses; re-enable with `/ai resume`.
+- **Works in every gamemode** — survival, adventure and creative.
 
 ---
 
 ## 🔑 One-time setup: add an AI token
 
-Quick commands work out of the box, but **AI-planned tasks need an API token.**
-The mod uses HuggingFace's router (an OpenAI-compatible endpoint) by default.
+Quick commands work out of the box, but **AI-planned tasks need an API token.** The mod uses HuggingFace's router (OpenAI-compatible) by default.
 
 1. Create a free token at <https://huggingface.co/settings/tokens>.
 2. In-game, run:
@@ -92,113 +96,99 @@ That's it. To use a different model or provider, see [Settings](#-settings).
 
 ---
 
-## 🗣️ Talking to your assistant (no slash needed)
+## 🗣 Talking to your assistant
 
-If chat listening is on (it is by default), just type in chat.
+| You type in chat | What happens |
+|------------------|--------------|
+| `follow me` | Follows you *(instant, no token)* |
+| `come here` | Comes to you, teleports if far *(instant)* |
+| `stay` / `wait` | Holds position *(instant)* |
+| `stop` | Cancels current task *(instant)* |
+| `where are you?` | Reports location *(instant)* |
+| `Ethan, build a wall` | Sends "build a wall" to the AI planner |
+| `can you clear out these trees?` | Active analysis → mines the trees |
+| `ugh, I really need a shelter` | Active analysis → builds a shelter |
 
-**Two layers of understanding:**
-
-1. **Instant matching (no API).** Messages that **start with the assistant's
-   name** or a **command word** (help, come, follow, mine, build, attack, stop, …)
-   are handled immediately, with no API call and no token needed.
-2. **Active analysis (uses the AI).** With *active analysis* on (the default) and
-   a token set, **every other message** is quietly run past the language model,
-   which decides whether you're talking to the assistant and what you want. You
-   don't have to use its name or any exact words.
-
-| You type in chat                     | What happens                                  |
-|--------------------------------------|-----------------------------------------------|
-| `follow me`                          | It follows you (instant)                      |
-| `come here`                          | It comes to you, teleports if far (instant)   |
-| `stay` / `wait`                      | Holds position and keeps watch (instant)      |
-| `stop`                               | Cancels the current task (instant)            |
-| `where are you?`                     | Tells you where it is (instant)               |
-| `Ethan, build a wall`                | Sends "build a wall" to the AI planner        |
-| `can you clear out these trees?`     | Active analysis → mines the trees             |
-| `ugh, I really need a shelter`       | Active analysis → builds you a shelter        |
-
-Addressing it by name (`Ethan, ...`) always works; the name prefix is stripped
-before the rest is run as a command or task.
-
-Prefer pure commands? Turn chat listening off with `/ai listen off`, or keep
-listening but turn off the proactive AI with `/ai active off`.
+Addressing it by name (`Ethan, ...`) always works; the prefix is stripped before the rest is run.
 
 ---
 
-## ⌨️ Commands
+## ⌨ Commands
 
-| Command                | Description                                              |
-|------------------------|----------------------------------------------------------|
-| `/ai help`             | Show the in-game command list                            |
-| `/ai menu` / `/ai config` | Open the in-game settings menu (or sneak-right-click it) |
-| `/ai summon [name]`    | Spawn an assistant (defaults to **Ethan**)               |
-| `/ai dismiss`          | Send your assistant away (removes it)                    |
-| `/ai come`             | Call it to you (teleports if far away)                   |
-| `/ai follow`           | Have it follow you                                       |
-| `/ai stay`             | Hold position and keep watch                             |
-| `/ai stop`             | Cancel the current task, stand by                        |
-| `/ai locate` / `/ai where` | Report its distance, direction, and coordinates      |
-| `/ai <task>`           | Give it a task in plain language (e.g. `/ai build a 3x3 platform`) |
-| `/ai name <name>`      | Rename it (nametag updates instantly)                    |
-| `/ai skin <name>`      | Give it a custom skin (see [Skins](#-custom-skins))      |
-| `/ai token <token>`    | Set your AI service API token                            |
-| `/ai listen on\|off`   | Turn chat listening on or off                            |
-| `/ai active on\|off`   | Turn proactive AI analysis of every message on or off    |
-| `/ai commands on\|off` | Allow/forbid the assistant running Minecraft commands    |
-| `/ai settings`         | Show advanced configuration                              |
+| Command | Description |
+|---------|-------------|
+| `/ai help` | Show the in-game command list |
+| `/ai menu` · `/ai config` | Open the settings screen |
+| `/ai summon [name]` | Spawn an assistant (default: **Ethan**) |
+| `/ai dismiss` | Remove your assistant |
+| `/ai come` | Call it to you |
+| `/ai follow` | Have it follow you |
+| `/ai stay` | Hold position and keep watch |
+| `/ai stop` | Cancel the current task |
+| `/ai resume` · `/ai enable` | Re-enable after FPS kill-switch tripped |
+| `/ai locate` · `/ai where` | Distance, direction and coords |
+| `/ai name <name>` | Rename it |
+| `/ai skin <name>` | Change skin (built-in or custom PNG) |
+| `/ai token <token>` | Set API token |
+| `/ai listen on\|off` | Toggle chat listening |
+| `/ai active on\|off` | Toggle proactive AI analysis |
+| `/ai commands on\|off` | Allow/block command execution |
+| `/ai inventory` · `/ai inv` | Show carried items |
+| `/ai settings [key] [value]` | View or change any setting |
+| `/aiskins list\|reload` | *(client)* List or hot-reload skins folder |
+| `/ai <task>` | Give a natural-language task |
 
 ---
 
-## 🔧 Settings
+## ⚙ Settings
 
-### The settings menu (a real screen)
+### Settings screen — `/ai menu`
 
-Run `/ai menu` (or **sneak + right-click** the assistant) to open a proper
-settings screen with:
+A five-tab screen reachable via `/ai menu` or sneak-right-click on the assistant:
 
-- **Toggles** — chat listening, active analysis, debug logging, allow commands
-- **Text fields** — assistant name, API token, API URL, model, default skin
-- **Sliders** — temperature, max tokens, follow distance, guard radius,
-  command permission level
+| Tab | What's here |
+|-----|-------------|
+| **Identity** | Name, skin, open skins folder |
+| **Behavior** | Chat listening, active analysis, sneak-to-open-menu, follow distance, guard radius |
+| **AI** | API URL, model, token, temperature, max tokens |
+| **Combat** | Allow commands, permission level, flee health |
+| **Developer** | Action tick delay, task watchdog timeout *(high-risk settings)* |
 
-Hit **Save** to apply, **Cancel** (or **Esc**) to discard. The token field stays
-blank when one is already set — leave it blank to keep the current token, or type
-a new one to replace it. Changes are sent to the server, so the menu works in
-both singleplayer and on a server (where you also need the mod installed locally
-to open the screen).
+Hit **Save** to apply, **Cancel** (or **Esc**) to discard. Token field stays blank when one is set — leave blank to keep current, or type a new one.
 
-### Advanced settings via chat
+**Performance preset** (top of screen) — cycle through **Normal**, **Opus** (high-end), or **Potato** (low-end) to auto-fill all related sliders at once.
 
-Every option is also available as a command:
+### Command-line settings
+
+Every option is also addressable via `/ai settings <key> <value>`:
 
 ```
-/ai settings                          # show everything
-/ai active on|off                     # proactive analysis of every message
-/ai listen on|off                     # react to chat at all
-/ai settings model <model-id>         # e.g. mistralai/Mistral-7B-Instruct-v0.2
-/ai settings api_url <url>            # any OpenAI-compatible chat endpoint
-/ai settings temperature <0.0–2.0>    # creativity of the planner
-/ai settings max_tokens <32–2048>     # max response length
-/ai settings follow_distance <1–32>   # how close it follows
-/ai settings guard_radius <4–64>      # how far it looks for hostiles
+/ai settings                            # show all current values
+/ai settings model mistralai/Mistral-7B-Instruct-v0.2
+/ai settings api_url http://localhost:11434/v1/chat/completions
+/ai settings temperature 0.7
+/ai settings max_tokens 512
+/ai settings follow_distance 4
+/ai settings guard_radius 16
+/ai settings sneak_menu false           # disable sneak-right-click
+/ai settings preset potato              # apply a performance preset
 ```
 
-Settings are saved to `config/ai-assistant.json` in your game directory.
+Full list of keys: `name` · `skin` · `model` · `api_url` · `token` · `temperature` · `max_tokens` · `follow_distance` · `guard_radius` · `command_level` · `max_task_seconds` · `action_tick_delay` · `flee_health` · `chat_listening` · `active_mode` · `allow_commands` · `debug_logging` · `sneak_menu` · `preset`
+
+Settings persist in `config/ai-assistant/config.json`. The file is versioned — new fields are added with defaults on upgrade without wiping existing values (your API key survives).
 
 ---
 
-## 🧠 What the AI can do (actions)
-
-When you give a task, the language model replies with a plan made of these
-building-block actions, which the assistant performs in order:
+## 🧠 What the AI can do
 
 | Action | What it does |
 |--------|--------------|
 | `MOVE_TO` | Walk/path to a position |
 | `PLACE_BLOCK` / `BREAK_BLOCK` | Place or break a single block |
-| `MINE_AREA` | Clear every block in a small box (digging, tunnels) |
-| `USE_BLOCK` | Flip a lever, press a button, open a door/trapdoor/gate |
-| `RUN_COMMAND` | Execute a Minecraft command (redstone, fills, gives, summons…) |
+| `MINE_AREA` | Clear every block in a box (digging, tunnels) |
+| `USE_BLOCK` | Flip a lever, press a button, open a door/trapdoor |
+| `RUN_COMMAND` | Execute a Minecraft command |
 | `ATTACK_NEAREST` | Strike the nearest hostile |
 | `FOLLOW_PLAYER` | Path to and follow a player |
 | `LOOK_AT` | Face a position |
@@ -206,190 +196,104 @@ building-block actions, which the assistant performs in order:
 | `CHAT` | Say something |
 | `WAIT` / `COLLECT_ITEM` / `STOP` | Pause / pick up / end the plan |
 
-The planner can also set **`"loop": true`** on a plan to mark an *ongoing*
-activity (patrol, guard, keep building) — the assistant then re-plans and keeps
-going with fresh context each round. Combat is **not** something it has to plan:
-the reflex layer handles it automatically, in every mode, so plans focus on the
-actual task.
+Setting `"loop": true` on a plan makes it an ongoing activity — the assistant re-plans continuously with fresh context each round.
 
 ---
 
 ## ⚡ Letting it run commands
 
-`RUN_COMMAND` is what turns the assistant from "places blocks one by one" into
-"can build a working redstone contraption" — the model can emit, e.g.,
-`/setblock ~ ~ ~ minecraft:repeater[facing=east,delay=2]` or `/fill` a whole
-structure at once.
+`RUN_COMMAND` is what turns the assistant from "places blocks one by one" into "builds a working redstone contraption". It's gated:
 
-Because that's powerful, it's gated:
-
-- **Toggle:** on by default. Turn off with `/ai commands off` or the **Allow
-  commands** switch in the menu.
-- **Permission level (default 2):** the assistant runs commands at this vanilla
-  level. Level 2 is the *command-block tier* — it allows `/setblock`, `/fill`,
-  `/clone`, `/give`, `/summon`, `/tp`, `/effect`, `/time`, `/weather`, but **not**
-  server-admin commands (`/op`, `/stop`, `/ban`… need level 3–4). Adjust with the
-  **Command perm level** slider in the menu.
-- **Denylist:** a handful of dangerous commands (`stop`, `op`, `ban`, `whitelist`,
-  `reload`, …) are always refused, regardless of level.
-
-On a shared server, set the level to taste (or turn it off) — and remember the
-assistant is driven by an LLM, so only grant what you're comfortable with it
-improvising.
-
----
-
-## 🛠️ Troubleshooting
-
-**"I can't connect to the AI service" / it used to say `java.net.ConnectException`**
-- This almost always meant the old, deprecated HuggingFace endpoint. The mod now
-  targets the supported router endpoint by default. Make sure your `api_url` is
-  `https://router.huggingface.co/v1/chat/completions` (the default) — reset it
-  with `/ai settings api_url https://router.huggingface.co/v1/chat/completions`.
-- Check that the machine running the game/server actually has internet access
-  and isn't behind a firewall blocking outbound HTTPS.
-
-**"My API token is missing or invalid."**
-- Set a valid token with `/ai token <token>`.
-
-**"That model wasn't found."**
-- Pick a model your provider supports: `/ai settings model <model-id>`.
-
-**It doesn't react to chat.**
-- Make sure listening is on: `/ai listen on`. Instant commands work with no
-  token — start the message with its name ("Ethan, …") or a command word
-  ("help …", "build …", "follow …").
-- For free-form messages that don't use those words, you need **active analysis
-  on** (`/ai active on`) **and** an API token set (`/ai token <token>`), since
-  that path asks the language model what you meant.
-
-**Using a local model (Ollama, LM Studio, …)?**
-- Point the mod at it: `/ai settings api_url http://localhost:11434/v1/chat/completions`
-  and `/ai settings model <local-model-name>`.
+- **Toggle:** on by default. Turn off with `/ai commands off` or the **Allow commands** switch in the menu.
+- **Permission level (default 2):** the command-block tier — allows `/setblock`, `/fill`, `/clone`, `/give`, `/summon`, `/tp`, `/effect`, `/time`, `/weather`, but **not** server-admin commands. Adjust with the **Command perm level** slider.
+- **Denylist:** `stop`, `op`, `ban`, `whitelist`, `reload` and similar are always refused regardless of level.
 
 ---
 
 ## 🎨 Custom skins
 
-Give your assistant any look:
-
-```
-/ai skin robot           # a skin bundled with the mod (also: void)
-/ai skin default         # back to the vanilla Steve skin
+```bash
+/ai skin robot           # built-in (also: void, slate, ember, forest, amethyst)
+/ai skin default         # vanilla Steve
 /ai skin minecraft:textures/entity/player/wide/steve.png   # any texture id
-/ai skin my_skin         # assets/ai-assistant/textures/entity/skins/my_skin.png
+/ai skin my_skin         # PNG in config/ai-assistant/skins/my_skin.png
 ```
 
-A skin name resolves in this order:
+**Drop-in skins:** place a standard 64×64 player skin PNG in `config/ai-assistant/skins/` and apply with `/ai skin <filename-without-extension>`. Use the **Open skins folder** button in `/ai menu → Identity` to jump straight there. `/aiskins reload` hot-reloads the folder — no restart needed.
 
-1. `default` / `steve` (or empty) → the vanilla Steve skin.
-2. Contains a `:` → used directly as a `namespace:path` texture (great for skins
-   shipped in a **resource pack**).
-3. Otherwise → `ai-assistant:textures/entity/skins/<name>.png`.
-
-To add your own, drop a standard **64×64 player skin PNG** at
-`assets/ai-assistant/textures/entity/skins/<name>.png` (in the mod jar or a
-resource pack) and select it with `/ai skin <name>`. The skin is saved on the
-assistant and synced to everyone. Set the default for newly-summoned assistants
-with the **Default skin** field in `/ai menu`.
+Resolution order: `default`/`steve` → `namespace:path` → skins folder PNG → baked-in skin.
 
 ---
 
-## 🕹️ Gamemodes (survival · adventure · creative)
+## 🛠 Troubleshooting
 
-Everything works in all three gamemodes — the assistant is an entity, not a
-player, so its building, mining, fighting and commands aren't limited by
-adventure mode. Because you can't punch or place to interact in adventure (and
-might not want to in creative), it also responds to **direct clicks**:
+**"Can't connect to the AI service"**
+Reset the URL to the supported HuggingFace router endpoint:
+```
+/ai settings api_url https://router.huggingface.co/v1/chat/completions
+```
 
-- **Right-click** the assistant → toggle **follow ↔ stay**.
-- **Sneak + right-click** → open the **settings menu**.
+**"My API token is missing or invalid"**
+```
+/ai token <your_huggingface_token>
+```
 
-(Summoning still uses `/ai summon`, so enable cheats in singleplayer or grant
-command access on a server.)
+**"That model wasn't found"**
+```
+/ai settings model <model-id>
+```
+
+**It doesn't react to chat**
+- Check listening is on: `/ai listen on`
+- Free-form messages (not starting with a name/keyword) also need active analysis and a token: `/ai active on`, `/ai token <token>`
+
+**Using Ollama / LM Studio / other local model?**
+```
+/ai settings api_url http://localhost:11434/v1/chat/completions
+/ai settings model <local-model-name>
+```
+
+**FPS tanked and the assistant went silent**
+The emergency kill-switch tripped. Once framerate recovers, run `/ai resume`.
 
 ---
 
-## 🏗️ Building from source
+## 🏗 Building from source
 
-The mod is a standard **Fabric + Gradle (Loom)** project, so you don't need to
-install Gradle yourself — the included wrapper (`gradlew`) downloads the right
-version for you.
+Standard **Fabric + Gradle (Loom)** project — no separate Gradle install needed, the wrapper handles it.
 
-### Prerequisites
-
-- **JDK 25** (Temurin/Adoptium recommended). Check with `java -version`.
-- **Git** (to clone the repo).
-- An internet connection for the **first** build — Loom downloads Minecraft,
-  the Fabric toolchain, and dependencies, then caches them.
-
-### Build the jar
+**Prerequisites:** JDK 25 (auto-downloaded if missing), Git, internet access for the first build.
 
 ```bash
 git clone https://github.com/MilkdromedaStudios/minecraft-ai-test.git
 cd minecraft-ai-test
-
-# Linux / macOS
 ./gradlew build
-
-# Windows (PowerShell or cmd)
-gradlew.bat build
 ```
 
-The finished mod lands in **`build/libs/`**:
-
-- `ai-assistant-<version>.jar` ← **this is the one** you drop into `mods/`
-- `ai-assistant-<version>-sources.jar` — source jar, not needed to play
-
-Copy the main jar into the `mods/` folder of a Fabric-enabled client or server
-(you also need **Fabric API** there).
-
-Don't want to build it yourself? Tested, ready-to-use jars are kept in
-[`builds/`](builds/) — grab the latest one and drop it straight into `mods/`.
-
-### Run it in a dev environment
-
-Loom generates ready-to-go run configurations — no separate install needed:
+Output: `build/libs/ai-assistant-<version>.jar`
 
 ```bash
-./gradlew runClient   # launch a dev client with the mod loaded
-./gradlew runServer   # launch a dev server (accept the EULA on first run)
+./gradlew runClient   # dev client with mod loaded
+./gradlew runServer   # dev server
+./gradlew clean       # wipe build/ for fresh rebuild
 ```
-
-### Handy Gradle tasks
-
-| Task                     | What it does                                            |
-|--------------------------|----------------------------------------------------------|
-| `./gradlew build`        | Compile, run checks, and produce the jars in `build/libs`|
-| `./gradlew runClient`    | Start a development Minecraft client                     |
-| `./gradlew runServer`    | Start a development Minecraft server                     |
-| `./gradlew clean`        | Delete `build/` for a from-scratch rebuild               |
-| `./gradlew --refresh-dependencies build` | Rebuild and re-resolve dependencies     |
-
-> **JDK note:** the project targets **Java 25**. If you don't have it installed,
-> Gradle will **auto-download** it (via the Foojay toolchain resolver configured
-> in `settings.gradle`), so `./gradlew build` works out of the box. To use your
-> own JDK instead, set `JAVA_HOME` to a JDK 25, or add
-> `org.gradle.java.installations.paths=/path/to/jdk-25` to your *user*
-> `~/.gradle/gradle.properties`.
 
 ### Project layout
 
 ```
-src/main/java        # common mod: entity, AI planner, commands, chat, networking
-src/client/java      # client-only: rendering and the settings GUI
-src/main/resources   # fabric.mod.json, lang files, skins, assets
-build.gradle         # Loom build script   ·   gradle.properties — versions
+src/main/java     # entity, AI planner, commands, chat, networking
+src/client/java   # rendering, settings GUI
+src/main/resources # fabric.mod.json, lang, skins, assets
+builds/           # tested ready-to-use jars (full version history)
 ```
 
-Key versions live in [`gradle.properties`](gradle.properties) (Minecraft, Fabric
-Loader, Fabric API, Loom) and [`gradle/wrapper`](gradle/wrapper) (Gradle itself).
-CI builds the mod on every push (see [`.github/workflows`](.github/workflows)).
+Key versions: [`gradle.properties`](gradle.properties) (Minecraft, Fabric Loader, Fabric API, Loom) · [`gradle/wrapper`](gradle/wrapper) (Gradle itself)
 
 ---
 
-## ⚠️ Precautions
-This is now fully maintained by Claude Code, and it might not work. Working builds will be tagged when I get to test them. You can test any build yourself and pull a request to tag them as "working". 
+## ⚠ Precautions
+
+This mod is actively developed with Claude Code. Working builds are tagged when tested. You can test any build yourself and open a pull request to tag it as "working".
 
 ---
 
