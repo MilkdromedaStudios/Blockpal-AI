@@ -116,6 +116,9 @@ can do and how it evolved.
   right; everything fits on one screen.
 - **Save / Apply / Cancel** action bar pinned at the bottom; ESC auto-saves.
 - Changes sync to the server via `ConfigUpdatePayload`.
+- **Developer Mode** — collapsible section at the bottom exposes low-level
+  settings (`actionTickDelay`, `maxTaskSeconds`, `fleeHealthPercent`) with
+  inline warnings. Documented in `developer.md`.
 
 ### Command execution
 - Can run `/setblock`, `/fill`, `/give`, `/tp`, `/effect`, and similar
@@ -126,6 +129,23 @@ can do and how it evolved.
 ---
 
 ## Changelog
+
+### 2.9.0
+- **Developer Mode GUI** — collapsible section in `/ai menu` exposes three
+  advanced settings that can cause lag or crashes: `actionTickDelay` (0–40 ticks),
+  `maxTaskSeconds` (0–3600 s), and `fleeHealthPercent` (0–1.0). Each shows an
+  inline red warning. Hidden by default; toggle with the **▶ Developer Mode** button.
+- Added `developer.md` documenting each setting, its risks, safe ranges, and how
+  interactions between them compound danger.
+- `ConfigData` network record updated to carry the three developer fields in every
+  sync packet so the GUI can read and write them server-side.
+
+### 2.8.2
+- **Crash fix** — `MINE_AREA` now breaks one block per tick (queued) instead of
+  all 216 blocks at once. Breaking 216 blocks in a single server tick caused
+  massive lighting/update cascades that froze the server long enough for
+  Minecraft's own watchdog to kill the process.
+- `mineQueue` is cleared on step change and goal stop so state never bleeds.
 
 ### 2.8.1
 - **Performance fix** — rate-limit plan requests to a minimum of 30 s apart;

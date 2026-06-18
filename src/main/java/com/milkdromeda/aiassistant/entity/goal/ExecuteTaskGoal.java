@@ -27,9 +27,11 @@ import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.ArrayDeque;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Queue;
 import java.util.Set;
 
 public class ExecuteTaskGoal extends Goal {
@@ -37,6 +39,8 @@ public class ExecuteTaskGoal extends Goal {
     private ActionStep currentStep;
     private int stepTimer = 0;
     private int waitRemaining = 0;
+    /** Block queue for MINE_AREA — breaks one block per tick instead of all at once. */
+    private final Queue<BlockPos> mineQueue = new ArrayDeque<>();
     private int pathCooldown = 0;
 
     public ExecuteTaskGoal(AiAssistantEntity entity) {
@@ -74,15 +78,13 @@ public class ExecuteTaskGoal extends Goal {
 
         if (done || stepTimer > 200) {
             currentStep = null;
-            // Only apply inter-step delay for non-WAIT steps (WAIT sets its own delay)
-            if (currentStep == null) {
-                waitRemaining = com.milkdromeda.aiassistant.config.ModConfig.get().actionTickDelay;
-            }
+            mineQueue.clear();
+            waitRemaining = com.milkdromeda.aiassistant.config.ModConfig.get().actionTickDelay;
         }
     }
 
     @Override
-    public void stop() { currentStep = null; stepTimer = 0; pathCooldown = 0; }
+    public void stop() { currentStep = null; stepTimer = 0; pathCooldown = 0; mineQueue.clear(); }
 
     /**
      * Issues a navigation path only periodically (or once the current one ends)
@@ -175,38 +177,47 @@ public class ExecuteTaskGoal extends Goal {
 
     /** Clears every block in a small box (capped so it can't lag the server). */
     private boolean execMineArea(ActionStep step) {
-        int x1 = step.getInt("x1", (int) entity.getX()),
-            y1 = step.getInt("y1", (int) entity.getY()),
-            z1 = step.getInt("z1", (int) entity.getZ());
-        int x2 = step.getInt("x2", x1), y2 = step.getInt("y2", y1), z2 = step.getInt("z2", z1);
-        int minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
-        int minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
-        int minZ = Math.min(z1, z2), maxZ = Math.max(z1, z2);
-        // Hard cap the volume (≈ 6×6×6) so a runaway plan can't grind the world.
-        maxX = Math.min(maxX, minX + 5);
-        maxY = Math.min(maxY, minY + 5);
-        maxZ = Math.min(maxZ, minZ + 5);
+        // On the first call for this step, build the block queue.
+        if (mineQueue.isEmpty()) {
+            int x1 = step.getInt("x1", (int) entity.getX()),
+                y1 = step.getInt("y1", (int) entity.getY()),
+                z1 = step.getInt("z1", (int) entity.getZ());
+            int x2 = step.getInt("x2", x1), y2 = step.getInt("y2", y1), z2 = step.getInt("z2", z1);
+            int minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+            int minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+            int minZ = Math.min(z1, z2), maxZ = Math.max(z1, z2);
+            // Hard cap so a bad LLM plan can't queue thousands of blocks.
+            maxX = Math.min(maxX, minX + 5);
+            maxY = Math.min(maxY, minY + 5);
+            maxZ = Math.min(maxZ, minZ + 5);
+            Level level = entity.level();
+            for (int x = minX; x <= maxX; x++)
+                for (int y = minY; y <= maxY; y++)
+                    for (int z = minZ; z <= maxZ; z++) {
+                        BlockPos p = new BlockPos(x, y, z);
+                        if (!level.getBlockState(p).isAir()) mineQueue.add(p);
+                    }
+            if (mineQueue.isEmpty()) return true;
+        }
 
-        Vec3 center = new Vec3((minX + maxX) / 2.0, (minY + maxY) / 2.0, (minZ + maxZ) / 2.0);
+        // Walk to the area before starting if far away.
+        BlockPos next = mineQueue.peek();
+        Vec3 center = Vec3.atCenterOf(next);
         if (entity.distanceToSqr(center) > 64) {
             navTo(center.x, center.y, center.z, 1.0);
             return false;
         }
+
+        // Break one block per tick — player-like and server-safe.
         Level level = entity.level();
         if (!level.isClientSide()) {
-            for (int x = minX; x <= maxX; x++) {
-                for (int y = minY; y <= maxY; y++) {
-                    for (int z = minZ; z <= maxZ; z++) {
-                        BlockPos p = new BlockPos(x, y, z);
-                        if (!level.getBlockState(p).isAir()) {
-                            level.destroyBlock(p, true, entity);
-                        }
-                    }
-                }
+            BlockPos p = mineQueue.poll();
+            if (p != null && !level.getBlockState(p).isAir()) {
+                level.destroyBlock(p, true, entity);
+                entity.swing(InteractionHand.MAIN_HAND);
             }
-            entity.swing(InteractionHand.MAIN_HAND);
         }
-        return true;
+        return mineQueue.isEmpty();
     }
 
     /** Activates a lever / button / door / trapdoor / fence gate — the heart of escape-room puzzles. */
