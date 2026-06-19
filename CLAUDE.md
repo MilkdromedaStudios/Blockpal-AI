@@ -1,7 +1,14 @@
-# AI Assistant — project notes for Claude
+# Nexus AI — project notes for Claude
 
-A Minecraft **Fabric** mod that adds a friendly AI companion entity (default
-name **Ethan**). Tasks are planned by an LLM over an OpenAI-compatible API.
+**Nexus AI** is a Minecraft **Fabric** mod that adds a friendly AI companion
+entity (default name **Ethan**). Tasks are planned by an LLM over an
+OpenAI-compatible API.
+
+> **Naming note:** the user-facing/display name is **Nexus AI**. The internal
+> mod id (`ai-assistant`), Java package (`com.milkdromeda.aiassistant`), texture
+> namespace (`ai-assistant:`) and config folder (`config/ai-assistant/`) are
+> deliberately left unchanged so existing configs, skins and textures keep
+> working — only the human-readable name changed.
 
 ---
 
@@ -168,6 +175,16 @@ can do and how it evolved.
 ---
 
 ## Changelog
+
+### 2.14.0
+- **Rebranded to Nexus AI** — the mod's display name is now **Nexus AI**
+  (previously "AI Assistant"). Updated the `fabric.mod.json` name/description,
+  the `/ai menu` screen title ("Nexus AI Settings"), the `/ai help` and
+  `/ai settings` headers, the entity/item-group lang entries, the skins-folder
+  `README.txt` header, the init log line, and the repo `README.md`. The default
+  companion name stays **Ethan**. The internal mod id (`ai-assistant`), Java
+  package, texture namespace and `config/ai-assistant/` folder are intentionally
+  unchanged so existing configs, skins and textures keep working.
 
 ### 2.13.0
 - **Tabbed settings menu** — the `/ai menu` screen is now split into

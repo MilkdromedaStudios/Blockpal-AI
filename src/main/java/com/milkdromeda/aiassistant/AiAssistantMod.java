@@ -24,7 +24,7 @@ public class AiAssistantMod implements ModInitializer {
         AiCommands.register();
         ChatListener.register();
 
-        LOGGER.info("AI Assistant mod initialized.");
+        LOGGER.info("Nexus AI mod initialized.");
         if (!ModConfig.get().hasApiToken()) {
             LOGGER.warn("No AI API token set. Use /ai token <token> in-game to enable AI tasks.");
         }

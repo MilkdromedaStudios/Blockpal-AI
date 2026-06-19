@@ -1,5 +1,5 @@
 {
-  "entity.ai-assistant.ai_assistant": "AI Assistant",
+  "entity.ai-assistant.ai_assistant": "Nexus AI",
 
   "chat.aiassistant.ready":          "[%s] Ready to help! Talk to me in chat, or use /ai help.",
   "chat.aiassistant.thinking":       "[%s] On it...",
@@ -11,5 +11,5 @@
   "chat.aiassistant.low_health":     "[%s] Taking heavy damage, retreating!",
   "chat.aiassistant.fighting":       "[%s] Engaging hostiles!",
 
-  "item_group.ai-assistant": "AI Assistant"
+  "item_group.ai-assistant": "Nexus AI"
 }

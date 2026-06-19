@@ -118,7 +118,7 @@ public class AiCommands {
         if (player == null) return 0;
 
         player.sendSystemMessage(Component.literal(
-                "§6=== Your AI Assistant ===\n" +
+                "§6=== Your Nexus AI ===\n" +
                 "§eJust talk in chat (no slash, no exact words needed):\n" +
                 "§7  \"follow me\"   \"come here\"   \"stay\"   \"stop\"   \"where are you\"\n" +
                 "§7  \"clear these trees\"   \"build a redstone door\"   \"solve this puzzle\"\n" +
@@ -365,12 +365,12 @@ public class AiCommands {
 
         if (!ServerPlayNetworking.canSend(player, ConfigSyncPayload.TYPE)) {
             player.sendSystemMessage(Component.literal(
-                    "§eThe settings menu needs the AI Assistant mod on your client. "
+                    "§eThe settings menu needs the Nexus AI mod on your client. "
                             + "Use §f/ai settings§e here instead."));
             return 0;
         }
         ServerPlayNetworking.send(player, new ConfigSyncPayload(ConfigData.fromConfig()));
-        player.sendSystemMessage(Component.literal("§7Opening the AI Assistant menu…"));
+        player.sendSystemMessage(Component.literal("§7Opening the Nexus AI menu…"));
         return 1;
     }
 
@@ -386,7 +386,7 @@ public class AiCommands {
         String mode   = ai != null ? ai.getMode().name() : "-";
 
         player.sendSystemMessage(Component.literal(
-                "§6=== AI Assistant Settings ===\n" +
+                "§6=== Nexus AI Settings ===\n" +
                 "§eAssistant:      §f" + aiName + "  (mode: " + mode + ")\n" +
                 "§eChat listening: §f" + (cfg.chatListening ? "on" : "off") + "\n" +
                 "§eActive analysis:§f " + (cfg.activeMode ? "on" : "off") + "\n" +

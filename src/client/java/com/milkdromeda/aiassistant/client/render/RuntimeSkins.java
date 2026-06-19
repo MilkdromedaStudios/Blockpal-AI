@@ -126,7 +126,7 @@ public final class RuntimeSkins {
     }
 
     private static final String README =
-            "Custom AI Assistant skins\n"
+            "Custom Nexus AI skins\n"
           + "=========================\n\n"
           + "Drop a 64x64 Minecraft player skin (PNG, slim/classic both fine) into\n"
           + "this folder, then point the bot at it in game:\n\n"

@@ -76,7 +76,7 @@ public class AiConfigScreen extends Screen {
     private long appliedFeedbackUntil;
 
     public AiConfigScreen(ConfigData d) {
-        super(Component.literal("AI Assistant Settings"));
+        super(Component.literal("Nexus AI Settings"));
         this.initial = d;
         this.tokenSet = d.tokenSet();
         // Seed the draft from the snapshot the server sent.

@@ -1,10 +1,10 @@
 <div align="center">
 
-# ⬢ AI ASSISTANT ⬢
+# ⬢ NEXUS AI ⬢
 
 **A Minecraft AI companion that builds, fights, and thinks**
 
-[![Mod Version](https://img.shields.io/badge/mod-v2.13.0-6c63ff?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyTDIgN2wxMCA1IDEwLTV6TTIgMTdsOSA1IDktNXYtN0wxMiAxMiAyIDd6Ii8+PC9zdmc+)](builds/)
+[![Mod Version](https://img.shields.io/badge/mod-v2.14.0-6c63ff?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyTDIgN2wxMCA1IDEwLTV6TTIgMTdsOSA1IDktNXYtN0wxMiAxMiAyIDd6Ii8+PC9zdmc+)](builds/)
 [![Minecraft](https://img.shields.io/badge/Minecraft-26.1.2-62b96e?style=for-the-badge)](https://fabricmc.net/)
 [![Fabric](https://img.shields.io/badge/Fabric_Loader-0.19.3+-dbb74b?style=for-the-badge)](https://fabricmc.net/)
 [![Java](https://img.shields.io/badge/Java-25+-e76f51?style=for-the-badge)](https://adoptium.net/)
@@ -20,7 +20,7 @@ real in-game settings screen — no mods folder archaeology required.*
 
 ## ⬇ Download & Install
 
-> **Latest stable build: `v2.13.0`** — tabbed settings GUI, custom skin support, versioned config, FPS kill-switch
+> **Latest stable build: `v2.14.0`** — Nexus AI rebrand, tabbed settings GUI, custom skin support, versioned config, FPS kill-switch
 
 ### Option A — Pre-built jar (recommended)
 
@@ -34,7 +34,7 @@ real in-game settings screen — no mods folder archaeology required.*
 
 ```
 mods/
-├── ai-assistant-2.13.0.jar   ← this mod
+├── ai-assistant-2.14.0.jar   ← this mod
 ├── fabric-api-0.151.0+26.1.2.jar
 └── ...
 ```
@@ -56,9 +56,9 @@ Output lands in `build/libs/ai-assistant-<version>.jar`. JDK 25 is auto-download
 
 | Mod version | Minecraft | Fabric Loader | Fabric API |
 |-------------|-----------|---------------|------------|
-| **2.13.0** *(latest)* | 26.1.2 | 0.19.3+ | 0.151.0+ |
+| **2.14.0** *(latest)* | 26.1.2 | 0.19.3+ | 0.151.0+ |
+| 2.13.x | 26.1.2 | 0.19.3+ | 0.151.0+ |
 | 2.12.x | 26.1.2 | 0.19.3+ | 0.151.0+ |
-| 2.11.x | 26.1.2 | 0.19.3+ | 0.151.0+ |
 
 > Pre-built jars in [`builds/`](builds/) are kept for every released version — older builds are never deleted.
 
