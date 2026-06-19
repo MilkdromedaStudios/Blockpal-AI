@@ -13,3 +13,11 @@ build/
 # Fabric Loom cache (inside project)
 .loom-cache/
 run/
+
+# CI release staging (renamed jars for Modrinth upload)
+upload/
+
+# Secrets — never commit tokens/keys
+*.env
+.env
+secrets.properties

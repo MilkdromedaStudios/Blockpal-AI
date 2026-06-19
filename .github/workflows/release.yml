@@ -1,0 +1,73 @@
+name: Release to Modrinth
+
+# Publishes a build to Modrinth.
+#
+# Triggers:
+#   * Pushing a tag like  v3.1.0   (recommended — keeps tag == mod_version)
+#   * Manually from the Actions tab (workflow_dispatch)
+#
+# The uploaded jar is renamed to  Blockpal-<mod_version>-<minecraft_version>.jar
+# e.g.  Blockpal-3.1.0-26.2.jar
+#
+# ──────────────────────────────────────────────────────────────────────────
+# ONE-TIME SETUP (Settings ▸ Secrets and variables ▸ Actions):
+#   Secrets:
+#     MODRINTH_TOKEN        – a Modrinth PAT with the "Create versions" scope
+#                             (https://modrinth.com/settings/pats)
+#   Variables (or hard-code below):
+#     MODRINTH_PROJECT_ID   – the project's ID or slug (e.g. "blockpal")
+# ──────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Read versions from gradle.properties
+        id: ver
+        run: |
+          echo "mod=$(grep '^mod_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+          echo "mc=$(grep '^minecraft_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: ./gradlew build --no-daemon --stacktrace
+
+      - name: Rename jar to Blockpal-<version>-<mcversion>.jar
+        run: |
+          mkdir -p upload
+          cp "build/libs/blockpal-${{ steps.ver.outputs.mod }}.jar" \
+             "upload/Blockpal-${{ steps.ver.outputs.mod }}-${{ steps.ver.outputs.mc }}.jar"
+
+      - name: Publish to Modrinth
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          modrinth-id: ${{ vars.MODRINTH_PROJECT_ID }}
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          files: upload/Blockpal-*.jar
+          name: "Blockpal ${{ steps.ver.outputs.mod }} (MC ${{ steps.ver.outputs.mc }})"
+          version: "${{ steps.ver.outputs.mod }}+mc${{ steps.ver.outputs.mc }}"
+          version-type: release
+          loaders: fabric
+          game-versions: "${{ steps.ver.outputs.mc }}"
+          dependencies: |
+            fabric-api(required)

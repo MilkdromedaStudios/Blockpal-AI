@@ -179,6 +179,18 @@ can do and how it evolved.
 
 ## Changelog
 
+### 3.1.0
+- **Updated to Minecraft 26.2** (the "All En" update). `minecraft_version` →
+  `26.2`, `fabric_api_version` → `0.152.2+26.2`, and `fabric.mod.json` now
+  depends on `~26.2`. Loader (`0.19.3`) and Loom (`1.17.11`) unchanged.
+- **API fix for 26.2** — `Minecraft.setScreen(...)` was renamed to
+  `setScreenAndShow(...)`; updated the one call site in `AiAssistantClient`
+  (opening the `/ai menu` settings screen). No other source changes were needed.
+- **New `release.yml` workflow** — publishes to Modrinth on a `v*` tag push (or
+  manual run). The uploaded jar is renamed to
+  `Blockpal-<mod_version>-<minecraft_version>.jar` (e.g. `Blockpal-3.1.0-26.2.jar`).
+  Requires a `MODRINTH_TOKEN` secret and a `MODRINTH_PROJECT_ID` variable.
+
 ### 3.0.0
 - **Renamed the whole mod to Blockpal.** This is a full, breaking rename (not just a
   display-name change like 2.14.0):
