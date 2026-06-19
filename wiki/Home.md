@@ -1,13 +1,14 @@
-# Welcome to the Nexus AI Wiki
+# Welcome to the Blockpal Wiki
 
-**Nexus AI** is a Minecraft **Fabric** mod that drops a friendly AI companion entity
+**Blockpal** is a Minecraft **Fabric** mod that drops a friendly AI companion entity
 (default name **Ethan**) into your world. It reads your chat, plans multi-step tasks
 through a language model, fights back on reflex, manages its own inventory and gear,
 and configures itself from a real in-game settings screen.
 
-> The user-facing name is **Nexus AI**. The internal mod id (`ai-assistant`), Java
-> package, texture namespace and `config/ai-assistant/` folder are intentionally
-> unchanged so existing configs, skins and textures keep working.
+> **Blockpal** was previously released as *Nexus AI*. As of **3.0.0** everything was
+> renamed: the mod id is now `blockpal`, the texture namespace is `blockpal:`, and
+> settings live in `config/blockpal/`. Configs and skins from older `ai-assistant`
+> builds are **not** carried over — set 3.0.0 up fresh.
 
 ## New here? Start with these
 

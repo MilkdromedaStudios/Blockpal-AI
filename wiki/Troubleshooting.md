@@ -64,7 +64,7 @@ Sneak-right-click opening the menu can trip accidentally. Turn it off:
 
 ### My custom skin doesn't show up
 
-- It must be a **64×64** PNG in `config/ai-assistant/skins/`.
+- It must be a **64×64** PNG in `config/blockpal/skins/`.
 - Apply it by filename without extension: `/ai skin my_skin`.
 - After editing the file, run `/aiskins reload`.
 

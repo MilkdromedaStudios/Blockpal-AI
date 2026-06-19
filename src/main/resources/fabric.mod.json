@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
-  "id": "ai-assistant",
+  "id": "blockpal",
   "version": "${version}",
-  "name": "Nexus AI",
-  "description": "Nexus AI — a HuggingFace-powered AI companion that proactively reads chat, builds, fights, and helps — configurable from an in-game menu.",
+  "name": "Blockpal",
+  "description": "Blockpal — a HuggingFace-powered AI companion that proactively reads chat, builds, fights, and helps — configurable from an in-game menu.",
   "authors": ["MilkdromedaStudios"],
   "contact": {},
   "license": "MIT",
-  "icon": "assets/ai-assistant/icon.png",
+  "icon": "assets/blockpal/icon.png",
   "environment": "*",
   "entrypoints": {
-    "main": ["com.milkdromeda.aiassistant.AiAssistantMod"],
-    "client": ["com.milkdromeda.aiassistant.client.AiAssistantClient"]
+    "main": ["com.milkdromeda.blockpal.AiAssistantMod"],
+    "client": ["com.milkdromeda.blockpal.client.AiAssistantClient"]
   },
   "depends": {
     "fabricloader": ">=0.19.0",

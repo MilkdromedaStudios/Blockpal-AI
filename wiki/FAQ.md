@@ -32,10 +32,14 @@ Power-user settings that trade safety for speed/behavior — read
 [Developer Menu](Developer-Menu) before touching them.
 
 **Will updating the mod wipe my settings or API key?**
-No. The config is versioned and migrated; existing values (including your token) are
-preserved. See [Settings](Settings).
+For normal updates, no — the config is versioned and migrated; existing values
+(including your token) are preserved. The one exception is upgrading from the old
+**Nexus AI / `ai-assistant`** builds to **Blockpal 3.0.0**: the config folder was
+renamed to `config/blockpal/`, so you'll need to re-enter settings once. See
+[Settings](Settings).
 
-**Why is the mod id `ai-assistant` if it's called Nexus AI?**
-The display name changed; the internal id/package/namespace stayed the same so existing
-configs, skins and textures keep working. See [More Info](More-Info).
+**I used to have "Nexus AI" / "AI Assistant" — is this the same mod?**
+Yes. Blockpal is the same mod, renamed. As of **3.0.0** the mod id is `blockpal`, the
+config folder is `config/blockpal/`, and the texture namespace is `blockpal:`. Older
+builds used the `ai-assistant` id and aren't config-compatible. See [More Info](More-Info).
 </content>

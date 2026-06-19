@@ -1,7 +1,7 @@
 # Settings
 
 Every option can be changed two ways: the in-game **settings screen** or the
-**`/ai settings`** command. Both write to the same `config/ai-assistant/config.json`.
+**`/ai settings`** command. Both write to the same `config/blockpal/config.json`.
 
 ## Settings screen — `/ai menu`
 
@@ -50,8 +50,8 @@ assistant. It's a five-tab screen:
 
 ## Persistence & versioning
 
-Settings live in `config/ai-assistant/config.json` (auto-migrated from the old flat
-`config/ai-assistant.json`). The file carries a `configVersion` stamp:
+Settings live in `config/blockpal/config.json` (auto-migrated from the old flat
+`config/blockpal.json`). The file carries a `configVersion` stamp:
 
 - Missing or corrupt → regenerated from defaults.
 - From an older mod version → newly-added fields are filled with their intended

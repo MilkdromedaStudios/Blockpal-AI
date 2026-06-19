@@ -1,6 +1,6 @@
 # Talking to Your Assistant
 
-You don't need a slash command to give orders — Nexus AI listens to chat.
+You don't need a slash command to give orders — Blockpal listens to chat.
 
 | You type in chat | What happens |
 |------------------|--------------|

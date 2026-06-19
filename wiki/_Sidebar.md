@@ -1,4 +1,4 @@
-### Nexus AI
+### Blockpal
 
 **Start here**
 - [Home](Home)

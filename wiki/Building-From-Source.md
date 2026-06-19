@@ -20,7 +20,7 @@ cd Nexus-Minecraft-AI
 gradlew.bat build        # Windows
 ```
 
-Output: `build/libs/ai-assistant-<version>.jar`
+Output: `build/libs/blockpal-<version>.jar`
 
 ## Dev tasks
 
@@ -43,6 +43,6 @@ Always run a real `./gradlew clean build` before committing a jar.
 
 Tested jars are copied into the repo's `builds/` folder so they're available without
 compiling. History is kept — every released `mod_version` keeps its own
-`builds/ai-assistant-<version>.jar`; old builds are never deleted. (`builds/` is not
+`builds/blockpal-<version>.jar`; old builds are never deleted. (`builds/` is not
 gitignored; only `build/` is.)
 </content>

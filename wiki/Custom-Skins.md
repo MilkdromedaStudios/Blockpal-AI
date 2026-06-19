@@ -6,7 +6,7 @@ Change the assistant's look with `/ai skin <name>`.
 /ai skin robot           # built-in (also: void, slate, ember, forest, amethyst)
 /ai skin default         # vanilla Steve
 /ai skin minecraft:textures/entity/player/wide/steve.png   # any texture id
-/ai skin my_skin         # PNG in config/ai-assistant/skins/my_skin.png
+/ai skin my_skin         # PNG in config/blockpal/skins/my_skin.png
 ```
 
 ## Built-in skins
@@ -15,7 +15,7 @@ Change the assistant's look with `/ai skin <name>`.
 
 ## Drop-in custom skins (no rebuild)
 
-1. Place a standard **64×64** player-skin PNG in `config/ai-assistant/skins/`.
+1. Place a standard **64×64** player-skin PNG in `config/blockpal/skins/`.
    - In `/ai menu → Identity`, the **Open skins folder** button jumps straight there
      (it creates the folder first if needed).
 2. Apply it with `/ai skin <filename-without-extension>`.

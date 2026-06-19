@@ -16,7 +16,7 @@ with `/ai name <name>`.
 ## 2. Add an AI token (one-time)
 
 Quick commands (come, follow, stay…) work out of the box, but **AI-planned tasks need
-an API token.** Nexus AI uses HuggingFace's router (OpenAI-compatible) by default.
+an API token.** Blockpal uses HuggingFace's router (OpenAI-compatible) by default.
 
 1. Create a free token at <https://huggingface.co/settings/tokens>.
 2. In-game, run:
@@ -24,7 +24,7 @@ an API token.** Nexus AI uses HuggingFace's router (OpenAI-compatible) by defaul
    /ai token <your_token>
    ```
 
-That's it — your token persists in `config/ai-assistant/config.json` and survives
+That's it — your token persists in `config/blockpal/config.json` and survives
 mod updates.
 
 ## 3. Try it out

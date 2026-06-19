@@ -30,6 +30,6 @@ jobs:
       - name: Upload built jar
         uses: actions/upload-artifact@v4
         with:
-          name: ai-assistant-jar
+          name: blockpal-jar
           path: build/libs/*.jar
           if-no-files-found: error

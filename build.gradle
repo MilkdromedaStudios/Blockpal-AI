@@ -16,7 +16,7 @@ loom {
     splitEnvironmentSourceSets()
 
     mods {
-        "ai-assistant" {
+        "blockpal" {
             sourceSet sourceSets.main
             sourceSet sourceSets.client
         }

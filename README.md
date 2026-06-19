@@ -4,7 +4,7 @@
 
 **A Minecraft AI companion that builds, fights, and thinks.**
 
-[![Mod Version](https://img.shields.io/badge/mod-v2.14.0-6c63ff?style=for-the-badge)](builds/)
+[![Mod Version](https://img.shields.io/badge/mod-v3.0.0-6c63ff?style=for-the-badge)](builds/)
 [![Minecraft](https://img.shields.io/badge/Minecraft-26.1.2-62b96e?style=for-the-badge)](https://fabricmc.net/)
 [![Fabric](https://img.shields.io/badge/Fabric_Loader-0.19.3+-dbb74b?style=for-the-badge)](https://fabricmc.net/)
 [![Java](https://img.shields.io/badge/Java-25+-e76f51?style=for-the-badge)](https://adoptium.net/)
@@ -20,7 +20,7 @@ real in-game settings screen.*
 
 ## 📖 Documentation lives in the Wiki
 
-**All setup, usage, and configuration docs are on the [Nexus AI Wiki »](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki)**
+**All setup, usage, and configuration docs are on the [Blockpal Wiki »](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki)**
 
 | I want to… | Wiki page |
 |------------|-----------|

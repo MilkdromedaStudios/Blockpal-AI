@@ -1,14 +1,17 @@
-# Nexus AI — project notes for Claude
+# Blockpal — project notes for Claude
 
-**Nexus AI** is a Minecraft **Fabric** mod that adds a friendly AI companion
+**Blockpal** is a Minecraft **Fabric** mod that adds a friendly AI companion
 entity (default name **Ethan**). Tasks are planned by an LLM over an
 OpenAI-compatible API.
 
-> **Naming note:** the user-facing/display name is **Nexus AI**. The internal
-> mod id (`ai-assistant`), Java package (`com.milkdromeda.aiassistant`), texture
-> namespace (`ai-assistant:`) and config folder (`config/ai-assistant/`) are
-> deliberately left unchanged so existing configs, skins and textures keep
-> working — only the human-readable name changed.
+> **Naming note:** the mod is **Blockpal**. As of **3.0.0** the internal
+> identifiers were renamed to match: mod id `blockpal`, Java package
+> `com.milkdromeda.blockpal`, texture namespace `blockpal:` and config folder
+> `config/blockpal/`. It was previously released as **Nexus AI** (display-name
+> rebrand in 2.14.0) and originally "AI Assistant", both under the `ai-assistant`
+> id. The 3.0.0 rename is a **breaking change** — configs/skins from older
+> installs are not read. The default companion name is still **Ethan**.
+> Note: only the *mod* was renamed; the GitHub repo is still `Nexus-Minecraft-AI`.
 
 ---
 
@@ -35,7 +38,7 @@ can do and how it evolved.
 - Survives in all gamemodes; right-click toggles follow/stay in adventure mode.
 - Custom skin support: built-in `default`, `steve`, `robot`, `void`, `slate`,
   `ember`, `forest`, `amethyst`, or **your own PNG** dropped into
-  `config/ai-assistant/skins/` and applied with `/ai skin <name>` (loaded as a
+  `config/blockpal/skins/` and applied with `/ai skin <name>` (loaded as a
   dynamic texture at runtime — no rebuild needed). `/aiskins list` and
   `/aiskins reload` (client-side) manage the folder.
 
@@ -83,7 +86,7 @@ can do and how it evolved.
 | `/ai locate` / `/ai where` | Find assistant |
 | `/ai name <name>` | Rename |
 | `/ai skin <name>` | Change skin (built-in or your own PNG) |
-| `/aiskins list\|reload` | (client) list/reload skins in `config/ai-assistant/skins/` |
+| `/aiskins list\|reload` | (client) list/reload skins in `config/blockpal/skins/` |
 | `/ai token <token>` | Set API token |
 | `/ai inventory` / `/ai inv` | Show carried items |
 | `/ai listen on\|off` | Toggle chat listening |
@@ -122,8 +125,8 @@ can do and how it evolved.
 - Path recomputed at most every ~0.5 s (not every tick) to prevent lag.
 
 ### Settings & config
-- All settings persist in **`config/ai-assistant/config.json`**
-  (auto-migrated from the old flat `config/ai-assistant.json`).
+- All settings persist in **`config/blockpal/config.json`**
+  (auto-migrated from the old flat `config/blockpal.json`).
 - The file carries a **`configVersion`** stamp. If it's missing or corrupt it's
   regenerated from defaults; if it's from an older mod version, newly-added
   fields are filled with their intended defaults (rather than Java's
@@ -156,7 +159,7 @@ can do and how it evolved.
   scrollbar) so it fits on any screen size; title, tab bar and action bar stay pinned.
 - Changes sync to the server via `ConfigUpdatePayload`.
 - **Open skins folder** button (Identity tab, under the skin field) opens
-  `config/ai-assistant/skins/` in the OS file browser for drop-in custom skins.
+  `config/blockpal/skins/` in the OS file browser for drop-in custom skins.
 - **Developer tab** exposes low-level settings (`actionTickDelay`,
   `maxTaskSeconds`, `fleeHealthPercent`) with an inline warning. Documented on
   the **Developer Menu** wiki page (`wiki/Developer-Menu.md`).
@@ -175,6 +178,25 @@ can do and how it evolved.
 ---
 
 ## Changelog
+
+### 3.0.0
+- **Renamed the whole mod to Blockpal.** This is a full, breaking rename (not just a
+  display-name change like 2.14.0):
+  - mod id `ai-assistant` → `blockpal` (`fabric.mod.json` `id`, `MOD_ID`, all
+    `Identifier` namespaces for the entity, model layer, and network payloads).
+  - Java package `com.milkdromeda.aiassistant` → `com.milkdromeda.blockpal` (entrypoint
+    classes in `fabric.mod.json` updated to match). Internal class names like
+    `AiAssistantEntity`/`AiAssistantMod` were left as-is (not user-facing).
+  - Texture namespace `ai-assistant:` → `blockpal:`; asset folder
+    `assets/ai-assistant/` → `assets/blockpal/`.
+  - Config folder `config/ai-assistant/` → `config/blockpal/` (and legacy flat
+    `ai-assistant.json` → `blockpal.json`). Old configs/skins are **not** migrated.
+  - `archives_base_name` `ai-assistant` → `blockpal`, so new jars are
+    `builds/blockpal-<version>.jar`. Display strings ("Nexus AI" → "Blockpal") updated
+    across the GUI, `/ai help`/`/ai settings` headers, lang entries, init log, README
+    and the wiki.
+  - The GitHub repo (`MilkdromedaStudios/Nexus-Minecraft-AI`) was **not** renamed — only
+    the mod. The default companion name stays **Ethan**.
 
 ### 2.14.0
 - **Rebranded to Nexus AI** — the mod's display name is now **Nexus AI**
@@ -356,10 +378,11 @@ Whenever a jar is built and verified during testing, copy it into the repo's
 **`builds/`** folder so it's available without compiling from source.
 
 - **Keep a full history.** Never delete or overwrite older jars on a version
-  bump — every released `mod_version` keeps its own
-  `builds/ai-assistant-<version>.jar`. Bump `mod_version` in
-  `gradle.properties` when shipping a new build so the new jar lands alongside
-  the old ones instead of replacing them.
+  bump — every released `mod_version` keeps its own jar. New jars are named
+  `builds/blockpal-<version>.jar` (the `archives_base_name`); jars from before the
+  3.0.0 rename keep their original `builds/ai-assistant-<version>.jar` names — leave
+  them. Bump `mod_version` in `gradle.properties` when shipping a new build so the
+  new jar lands alongside the old ones instead of replacing them.
 - `builds/` is intentionally **not** gitignored (only `build/` is).
 
 ## Building

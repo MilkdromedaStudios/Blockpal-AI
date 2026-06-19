@@ -1,6 +1,6 @@
-# Nexus AI — Wiki sources
+# Blockpal — Wiki sources
 
-This folder holds the **source** for the [Nexus AI GitHub Wiki](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki).
+This folder holds the **source** for the [Blockpal GitHub Wiki](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki).
 Editing the wiki by hand in GitHub's UI is fine for quick fixes, but the canonical
 copy lives here so it's versioned alongside the code and reviewed in pull requests.
 

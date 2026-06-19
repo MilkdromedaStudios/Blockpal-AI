@@ -1,6 +1,6 @@
 # More Info
 
-A deeper look at how Nexus AI works under the hood, for the curious and for contributors.
+A deeper look at how Blockpal works under the hood, for the curious and for contributors.
 
 ## How a task becomes actions
 
@@ -60,10 +60,11 @@ wiki/               # source for this wiki
 
 ## Naming note
 
-The user-facing name is **Nexus AI**, but the internal mod id (`ai-assistant`), Java
-package (`com.milkdromeda.aiassistant`), texture namespace (`ai-assistant:`) and config
-folder (`config/ai-assistant/`) are deliberately unchanged so existing configs, skins
-and textures keep working.
+The mod is now **Blockpal**, and as of **3.0.0** the internal identifiers match: mod id
+`blockpal`, Java package `com.milkdromeda.blockpal`, texture namespace `blockpal:` and
+config folder `config/blockpal/`. It was previously released as **Nexus AI** (and before
+that "AI Assistant") under the `ai-assistant` id. Because 3.0.0 renamed all of those,
+configs/skins from older installs are not read — set it up fresh.
 
 ## Changelog
 
@@ -71,7 +72,9 @@ The full version history is maintained in
 [`CLAUDE.md`](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/blob/main/CLAUDE.md)
 in the repo. Highlights:
 
-- **2.14.0** — Rebranded to **Nexus AI**.
+- **3.0.0** — Renamed the whole mod to **Blockpal** (mod id, Java package, texture
+  namespace, config folder and jar name). Breaking change for existing installs.
+- **2.14.0** — Rebranded the display name to **Nexus AI**.
 - **2.13.0** — Tabbed settings menu; toggleable sneak-to-open; one generic settings
   command; versioned config.
 - **2.12.x** — Drop-in custom skins, `/aiskins` command, "Open skins folder" button,
