@@ -158,8 +158,8 @@ can do and how it evolved.
 - **Open skins folder** button (Identity tab, under the skin field) opens
   `config/ai-assistant/skins/` in the OS file browser for drop-in custom skins.
 - **Developer tab** exposes low-level settings (`actionTickDelay`,
-  `maxTaskSeconds`, `fleeHealthPercent`) with an inline warning. Documented in
-  `developer.md`.
+  `maxTaskSeconds`, `fleeHealthPercent`) with an inline warning. Documented on
+  the **Developer Menu** wiki page (`wiki/Developer-Menu.md`).
 - **Performance preset** — cycle button on the Behavior tab:
   **Normal** (default), **Opus** (high-end, full AI), **Potato** (low-end,
   reduced AI activity). Selecting a preset auto-fills temperature, max tokens,
@@ -379,4 +379,16 @@ src/main/java        # common mod: entity, AI planner, commands, chat, networkin
 src/client/java      # client-only: rendering and the settings GUI
 src/main/resources   # fabric.mod.json, lang files, skins, assets
 builds/              # tested, ready-to-use jars (full version history, no deleting old builds.)
+wiki/                # source for the GitHub Wiki (all user docs live here)
 ```
+
+## Documentation
+
+- The repo `README.md` is intentionally **minimal** — a short overview plus links
+  into the GitHub Wiki. All setup/usage/config docs live in `wiki/` and are
+  published to the GitHub Wiki automatically by `.github/workflows/wiki.yml`
+  (see `wiki/README.md` for the one-time wiki-init step).
+- **When a feature changes, update the matching `wiki/*.md` page** (e.g. new
+  command → `wiki/Commands.md`, new setting → `wiki/Settings.md`, dev-tab change
+  → `wiki/Developer-Menu.md`) in the same change. Keep `wiki/Home.md` and
+  `wiki/_Sidebar.md` in sync if you add or rename a page.

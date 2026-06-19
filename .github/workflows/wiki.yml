@@ -1,0 +1,34 @@
+name: Publish Wiki
+
+# Publishes the contents of the wiki/ folder to the repository's GitHub Wiki
+# whenever wiki sources change on main. The wiki must be enabled and have at
+# least one page created (a one-time step) before the first run — see wiki/README.md.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'wiki/**'
+      - '.github/workflows/wiki.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-wiki
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync wiki/ to the GitHub Wiki
+        uses: Andrew-Chen-Wang/github-wiki-action@v4
+        with:
+          path: wiki/
+          token: ${{ secrets.GITHUB_TOKEN }}
+</content>
