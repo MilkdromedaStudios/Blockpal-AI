@@ -188,11 +188,20 @@ can do and how it evolved.
   (opening the `/ai menu` settings screen). No other source changes were needed.
 - **New `release.yml` workflow** — publishes to Modrinth on every pull request,
   a `v*` tag push, or a manual run. The uploaded jar is renamed to
-  `Blockpal-<mod_version>-<minecraft_version>.jar` (e.g. `Blockpal-3.1.0-26.2.jar`).
-  It's **idempotent** — it queries Modrinth for `<mod_version>+mc<minecraft_version>`
-  first and skips the upload if that version already exists, so running on every PR
-  only publishes a given version once (bump `mod_version` to ship a new one).
-  Requires a `MODRINTH_TOKEN` secret and a `MODRINTH_PROJECT_ID` variable.
+  `Blockpal-<mod_version>-<minecraft_version>.jar` (e.g. `Blockpal-3.1.0-26.2.jar`),
+  published for the **Fabric and Quilt** loaders as a **`beta`** release, with the
+  matching `CHANGELOG.md` section used as the Modrinth version description, and the
+  project kept in the **`technology`** category (a post-publish API call; needs a
+  project-write-scoped token, else it warns).
+- **Idempotent publishing** — a version is uploaded at most once. Modrinth does
+  *not* enforce unique version numbers, so the workflow guards itself: after a
+  successful publish it pushes a `modrinth-published/<version>` git tag, and the
+  gate skips if that tag already exists (it also does a best-effort Modrinth API
+  check for hand-uploaded versions). Earlier the gate trusted a `curl -sf` query
+  whose 404/error was silently read as "not found", so it re-published every run —
+  the tag marker fixes that. Requires a `MODRINTH_TOKEN` secret and a
+  `MODRINTH_PROJECT_ID` variable; the workflow needs `contents: write` to push the
+  marker tag.
 
 ### 3.0.0
 - **Renamed the whole mod to Blockpal.** This is a full, breaking rename (not just a

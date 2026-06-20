@@ -54,9 +54,18 @@ the mod, renames the jar to
 `Blockpal-<mod_version>-<minecraft_version>.jar` (e.g. `Blockpal-3.1.0-26.2.jar`)
 and uploads it to Modrinth via `Kir-Antipov/mc-publish`.
 
-It is **idempotent**: before uploading it asks Modrinth whether
-`<mod_version>+mc<minecraft_version>` already exists and, if so, skips the
-publish. So running on every PR only ever uploads a given version once — bump
+Each release is published:
+
+- for the **Fabric and Quilt** loaders (Quilt runs Fabric mods, so it's just tagged compatible),
+- as a **`beta`** version type,
+- with the matching `## <version>` section of [`CHANGELOG.md`](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/blob/main/CHANGELOG.md) as the version description, and
+- with the project kept in the **`technology`** category.
+
+It is **idempotent** — a given version uploads at most once. Modrinth itself does
+*not* enforce unique version numbers, so the workflow keeps its own marker: after
+a successful publish it pushes a `modrinth-published/<version>` git tag, and the
+gate skips the publish whenever that tag already exists (it also does a
+best-effort Modrinth API check to catch versions uploaded by hand). Bump
 `mod_version` in `gradle.properties` to ship a new one. (Publishing is also
 skipped automatically on fork PRs, where the secrets aren't available.)
 
@@ -64,8 +73,12 @@ One-time setup (repo **Settings ▸ Secrets and variables ▸ Actions**):
 
 | Kind | Name | Value |
 |------|------|-------|
-| Secret | `MODRINTH_TOKEN` | a Modrinth PAT with the *Create versions* scope |
-| Variable | `MODRINTH_PROJECT_ID` | the Modrinth project's ID or slug |
+| Secret | `MODRINTH_TOKEN` | a Modrinth PAT with the *Create versions* scope (add *Read/Write projects* too if you want the workflow to set the `technology` category) |
+| Variable | `MODRINTH_PROJECT_ID` | the Modrinth project's ID or slug — must match the real project |
+
+> The `MODRINTH_PROJECT_ID` must be the **actual** project slug/ID on Modrinth. If
+> it's wrong, the existence check can't find anything and the marker tag becomes
+> the only thing stopping duplicate uploads.
 
 ```bash
 git tag v3.1.0

@@ -3,25 +3,37 @@ name: Release to Modrinth
 # Publishes a build to Modrinth.
 #
 # Triggers:
-#   * Every pull request               (auto-publishes once per mod_version)
+#   * Every pull request               (auto-publishes once per version)
 #   * Pushing a tag like  v3.1.0        (recommended for tagged releases)
 #   * Manually from the Actions tab     (workflow_dispatch)
 #
-# Idempotent: before uploading it asks Modrinth whether this exact version
-# (<mod_version>+mc<minecraft_version>) already exists. If it does, the publish
-# step is skipped — so re-running on every PR only ever uploads a given version
-# once. Bump `mod_version` in gradle.properties to ship a new one.
+# Idempotent — a given version is published at most once:
+#   1. Authoritative marker: after a successful publish the workflow pushes a git
+#      tag  modrinth-published/<version>. Subsequent runs see that tag and skip.
+#      (Modrinth itself does NOT enforce unique version numbers, so without this
+#      it would happily upload the same version again and again.)
+#   2. Best-effort: it also asks the Modrinth API whether <version> already
+#      exists and skips if so — this catches versions uploaded by hand. The API
+#      check is advisory only; if it can't be reached the git tag still guards us.
+# Bump `mod_version` in gradle.properties to ship a new version.
 #
 # The uploaded jar is renamed to  Blockpal-<mod_version>-<minecraft_version>.jar
 # e.g.  Blockpal-3.1.0-26.2.jar
 #
+# Published for the Fabric and Quilt loaders, as a "beta" release, with the
+# matching CHANGELOG.md section as the version description, and the project is
+# kept in the "technology" category.
+#
 # ──────────────────────────────────────────────────────────────────────────
 # ONE-TIME SETUP (Settings ▸ Secrets and variables ▸ Actions):
 #   Secrets:
-#     MODRINTH_TOKEN        – a Modrinth PAT with the "Create versions" scope
+#     MODRINTH_TOKEN        – a Modrinth PAT. Needs "Create versions"; add
+#                             "Read/Write projects" too if you want the workflow
+#                             to set the category for you.
 #                             (https://modrinth.com/settings/pats)
 #   Variables (or hard-code below):
-#     MODRINTH_PROJECT_ID   – the project's ID or slug (e.g. "blockpal")
+#     MODRINTH_PROJECT_ID   – the project's ID or slug (must match the real
+#                             Modrinth project, e.g. "blockpal").
 #
 # Note: secrets are NOT available to pull requests opened from forks, so the
 # publish is automatically skipped there (build still runs).
@@ -35,7 +47,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # needed to push the modrinth-published/<version> marker tag
 
 jobs:
   publish:
@@ -43,6 +55,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # fetch tags so the dedup marker check works
 
       - name: Set up JDK 25
         uses: actions/setup-java@v4
@@ -68,33 +82,68 @@ jobs:
           cp "build/libs/blockpal-${{ steps.ver.outputs.mod }}.jar" \
              "upload/Blockpal-${{ steps.ver.outputs.mod }}-${{ steps.ver.outputs.mc }}.jar"
 
+      - name: Extract changelog for this version
+        run: |
+          awk -v ver="${{ steps.ver.outputs.mod }}" '
+            $0 ~ "^## " ver "([ \t]|$)" {flag=1; next}
+            /^## / {flag=0}
+            flag {print}
+          ' CHANGELOG.md > version-changelog.md
+          # Fall back to a generic line if the version has no CHANGELOG entry.
+          if [ ! -s version-changelog.md ]; then
+            echo "Blockpal ${{ steps.ver.outputs.mod }} for Minecraft ${{ steps.ver.outputs.mc }}." > version-changelog.md
+          fi
+          echo "----- version changelog -----"
+          cat version-changelog.md
+
       - name: Decide whether to publish
         id: gate
         env:
           PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
         run: |
+          set -euo pipefail
           VERSION="${{ steps.ver.outputs.mod }}+mc${{ steps.ver.outputs.mc }}"
+          TAG="modrinth-published/${VERSION//+/_}"   # '+' -> '_' to keep the ref clean
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-          if [ -z "$PROJECT_ID" ] || [ -z "$MODRINTH_TOKEN" ]; then
+          if [ -z "${PROJECT_ID:-}" ] || [ -z "${MODRINTH_TOKEN:-}" ]; then
             echo "publish=false" >> "$GITHUB_OUTPUT"
             echo "::notice::MODRINTH_PROJECT_ID and/or MODRINTH_TOKEN not set (or unavailable on a fork PR) — skipping publish."
             exit 0
           fi
 
-          # Ask Modrinth whether this version already exists.
-          EXISTING=$(curl -sf "https://api.modrinth.com/v2/project/${PROJECT_ID}/version" 2>/dev/null \
-            | jq -r --arg v "$VERSION" 'if type=="array" then (map(.version_number) | index($v)) else null end' 2>/dev/null \
-            || echo "null")
-
-          if [ "$EXISTING" != "null" ] && [ -n "$EXISTING" ]; then
+          # (1) Authoritative: have we already published this version?
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
             echo "publish=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Version $VERSION already exists on Modrinth — skipping publish."
-          else
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Version $VERSION not found on Modrinth — will publish."
+            echo "::notice::Marker tag $TAG already exists — $VERSION was already published. Skipping."
+            exit 0
           fi
+
+          # (2) Best-effort: ask Modrinth directly (catches manual uploads).
+          # Capture body + HTTP status separately so a 404/error is NOT mistaken
+          # for "version absent" (the previous bug).
+          RESP="$(curl -s -w $'\n%{http_code}' \
+            -H "Authorization: $MODRINTH_TOKEN" \
+            "https://api.modrinth.com/v2/project/${PROJECT_ID}/version" || true)"
+          CODE="$(printf '%s' "$RESP" | tail -n1)"
+          BODY="$(printf '%s' "$RESP" | sed '$d')"
+
+          if [ "$CODE" = "200" ]; then
+            echo "Existing version numbers on Modrinth:"
+            printf '%s' "$BODY" | jq -r '.[].version_number' 2>/dev/null || echo "(could not parse)"
+            if printf '%s' "$BODY" | jq -e --arg v "$VERSION" 'map(.version_number) | index($v) != null' >/dev/null 2>&1; then
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+              echo "::notice::Version $VERSION already on Modrinth — skipping publish."
+              exit 0
+            fi
+            echo "::notice::Version $VERSION not found on Modrinth — will publish."
+          else
+            echo "::warning::Could not query Modrinth for existing versions (HTTP $CODE). Relying on the git marker tag; will publish since no marker exists for $VERSION."
+          fi
+
+          echo "publish=true" >> "$GITHUB_OUTPUT"
 
       - name: Publish to Modrinth
         if: steps.gate.outputs.publish == 'true'
@@ -105,8 +154,50 @@ jobs:
           files: upload/Blockpal-*.jar
           name: "Blockpal ${{ steps.ver.outputs.mod }} (MC ${{ steps.ver.outputs.mc }})"
           version: "${{ steps.gate.outputs.version }}"
-          version-type: release
-          loaders: fabric
+          version-type: beta
+          changelog-file: version-changelog.md
+          loaders: |
+            fabric
+            quilt
           game-versions: "${{ steps.ver.outputs.mc }}"
           dependencies: |
             fabric-api(required)
+
+      # Categories are a project-level property on Modrinth (not part of a
+      # version upload), so set "technology" via the API after publishing.
+      # Requires the token to also have project-write scope; otherwise this
+      # logs a warning and you can set the category on the project page instead.
+      - name: Ensure "technology" category on Modrinth project
+        if: steps.gate.outputs.publish == 'true'
+        continue-on-error: true
+        env:
+          PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        run: |
+          CURRENT=$(curl -sf -H "Authorization: $MODRINTH_TOKEN" \
+            "https://api.modrinth.com/v2/project/${PROJECT_ID}" | jq -c '.categories // []' || echo '[]')
+          UPDATED=$(echo "${CURRENT:-[]}" | jq -c '. + ["technology"] | unique')
+          echo "categories: ${CURRENT:-[]} -> $UPDATED"
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" -X PATCH \
+            -H "Authorization: $MODRINTH_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"categories\": $UPDATED}" \
+            "https://api.modrinth.com/v2/project/${PROJECT_ID}")
+          if [ "$CODE" = "204" ]; then
+            echo "::notice::Ensured 'technology' category on the Modrinth project."
+          else
+            echo "::warning::Could not set category (HTTP $CODE). MODRINTH_TOKEN may lack project-write scope — set the 'technology' category on the project page instead."
+          fi
+
+      # Record that this version is published so future runs skip it. This is the
+      # authoritative dedup marker checked by the gate above.
+      - name: Mark version as published
+        if: steps.gate.outputs.publish == 'true'
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.gate.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "$TAG"
+          git push origin "refs/tags/$TAG"
+          echo "::notice::Tagged $TAG to mark ${{ steps.gate.outputs.version }} as published."
