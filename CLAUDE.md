@@ -53,6 +53,26 @@ can do and how it evolved.
 - Looping tasks (patrol, guard, farm) re-plan continuously with fresh context.
 - Planning is async — entity stays responsive and fights back during planning.
 
+### Per-player API keys & selectable models (3.3.0+)
+- **Bring-your-own-key** — `requireOwnApiKey` (off by default) makes each bot use
+  *its owner's* personal key instead of the shared server key, so one server owner
+  isn't stuck with everyone's API bill. Players set their key with `/ai mykey
+  <token>` (or privately in `/ai mymenu`); it's stored **obfuscated per-UUID**
+  (`playerApiKeysObf`), never shown or logged.
+- **Exemption whitelist** — `ownKeyWhitelist` lists players who may keep using the
+  shared key even when `requireOwnApiKey` is on (`/ai admin keylist add|remove|list
+  <player>`; stored as lowercased usernames). Resolution: a player's personal key
+  always wins; else if BYOK is required and they're not whitelisted → no AI (a
+  friendly "set your own key" prompt); else the shared key.
+- **Selectable models** — `allowedModels` is an admin-curated list (a model
+  "whitelist") players pick from via `/ai model <id>`, `/ai mymenu`, or the picker
+  (`playerModels`, keyed by UUID; falls back to `hfModel`). `allowPlayerModelChoice`
+  toggles player choice off (everyone uses the server default). Admins manage the
+  list with `/ai admin models add|remove|list`; the server default is always kept in
+  it. Resolution happens per-bot from the owner in `ModConfig.resolveTokenFor` /
+  `resolveModelFor`, threaded through `HuggingFaceClient.ApiAuth`. Player prefs ride
+  `PlayerPrefsSyncPayload` (S→C) / `PlayerPrefsPayload` (C→S).
+
 ### Chat system
 - **Chat listening** — monitors all server chat; trigger words activate the
   assistant without using its name.
@@ -94,6 +114,9 @@ can do and how it evolved.
 | `/ai commands on\|off` | Allow/block command execution |
 | `/ai settings` | List all current settings |
 | `/ai settings <key> <value>` | Change any one setting (tab-complete the key) |
+| `/ai mykey <token>\|clear` | Set/clear **your own** API key (any player) |
+| `/ai model [<id>]` / `/ai models` | Pick your bot's model / list the allowed models |
+| `/ai mymenu` | Personal settings screen (model + your own key) |
 | `/ai admin …` | **(ops only)** admin panel — see *Admin menu* below |
 | `/ai <task>` | Give a natural-language task |
 
@@ -118,6 +141,10 @@ and `/ai help` stay open too.
   `PlayerStatsTracker`), plus token/command status.
 - **Bot cap** — `/ai admin maxbots <0-50>` (or the −/＋ buttons / `/ai settings
   max_bots`) sets `maxBotsPerServer`; `/ai summon` refuses past the cap. 0 = unlimited.
+- **Per-player keys & models** — `/ai admin requirekey on|off` makes players bring
+  their own API key; `/ai admin keylist add|remove|list <player>` manages the
+  exemption whitelist; `/ai admin models add|remove|list <id>` curates the model
+  list players may pick from. (See *Per-player API keys & selectable models*.)
 - Who counts as admin is `adminPermissionLevel` (vanilla tiers 0/2/4), changed with
   `/ai settings admin_level <0-4>`. Data flows over `AdminSyncPayload` (S→C) and
   `AdminActionPayload` (C→S), re-checked server-side in `AiNetworking`.
@@ -179,6 +206,8 @@ and `/ai help` stay open too.
   `temperature`, `debugLogging`, `actionTickDelay`, `followDistance`,
   `guardRadius`, `fleeHealthPercent`, `allowCommands`,
   `commandPermissionLevel`, `adminPermissionLevel`, `maxBotsPerServer`,
+  `requireOwnApiKey`, `ownKeyWhitelist`, `playerApiKeysObf`, `allowPlayerModelChoice`,
+  `allowedModels`, `playerModels`,
   `chatListening`, `activeMode`, `defaultName`,
   `defaultSkin`, `maxTaskSeconds`, `performancePreset`, `sneakToOpenMenu`,
   `configVersion`.
@@ -225,6 +254,31 @@ and `/ai help` stay open too.
 ---
 
 ## Changelog
+
+### 3.3.0
+- **Per-player API keys (bring-your-own-key).** New `requireOwnApiKey` (off by
+  default): when on, each bot uses *its owner's* personal key so one server owner
+  isn't billed for everyone. Players set theirs with `/ai mykey <token>` (or
+  privately in `/ai mymenu`), stored obfuscated per-UUID (`playerApiKeysObf`), never
+  shown or logged. `ownKeyWhitelist` (`/ai admin keylist add|remove|list <player>`)
+  exempts trusted players, who keep using the shared key. Key resolution is per-bot
+  from the owner: personal key wins, else shared key unless BYOK is required and
+  they aren't whitelisted (then a friendly "set your own key" prompt).
+- **Player-selectable models.** `allowedModels` is an admin-curated list (a model
+  whitelist; `/ai admin models add|remove|list`) that players pick from with
+  `/ai model <id>`, `/ai models`, or the new personal `/ai mymenu` screen
+  (`playerModels`, keyed by UUID; falls back to `hfModel`). `allowPlayerModelChoice`
+  turns player choice off. The server default model is always kept selectable.
+- **New personal menu.** `/ai mymenu` opens a per-player `PlayerSettingsScreen`
+  (open to everyone, unlike the admin menu) for choosing a model and setting your
+  own key privately. Backed by `PlayerPrefsSyncPayload` (S→C) and `PlayerPrefsPayload`
+  (C→S); the prefs packet only ever edits the sending player's own settings.
+- **Plumbing.** The API client now takes a resolved `HuggingFaceClient.ApiAuth`
+  (token + model) per request instead of reading global config; `AiTaskManager`
+  resolves it from the bot's owner. Bots now remember their owner's username
+  (`OwnerName` NBT) so whitelist checks work while the owner is offline. New
+  settings keys `require_own_key`, `allow_model_choice`. Config schema → v3
+  (safe migration defaults: BYOK off, model choice on, a seeded model list).
 
 ### 3.2.0
 - **Built-in admin menu (ops only).** New `/ai admin …` command tree and an

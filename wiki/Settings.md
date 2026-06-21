@@ -47,6 +47,7 @@ assistant. It's a five-tab screen:
 
 `name` · `skin` · `model` · `api_url` · `token` · `temperature` · `max_tokens` ·
 `follow_distance` · `guard_radius` · `command_level` · `admin_level` · `max_bots` ·
+`require_own_key` · `allow_model_choice` ·
 `max_task_seconds` · `action_tick_delay` · `flee_health` · `chat_listening` ·
 `active_mode` · `allow_commands` · `debug_logging` · `sneak_menu` · `preset`
 
@@ -59,6 +60,17 @@ assistant. It's a five-tab screen:
 |-----|---------|
 | `admin_level` | Permission level (0/2/4) needed to change settings or use `/ai admin`. Default **2** (ops). `4` = full operator / world owner only. |
 | `max_bots` | Max Blockpal entities on the server at once; `/ai summon` refuses past it. Default **8**, `0` = unlimited. Also `/ai admin maxbots <n>`. |
+
+### Per-player keys & models
+
+| Key | Meaning |
+|-----|---------|
+| `require_own_key` | When `true`, players use their **own** API key (except those on the whitelist). Default `false`. |
+| `allow_model_choice` | When `true` (default), players may pick their bot's model from the allowed list. |
+
+Players manage their own key/model with `/ai mykey`, `/ai model` and `/ai mymenu`;
+admins manage the whitelist and model list with `/ai admin keylist …` and
+`/ai admin models …`. Full guide: **[Per-Player Keys & Models](Per-Player-Keys-and-Models)**.
 
 ### API token security
 

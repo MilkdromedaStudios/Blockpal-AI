@@ -4,6 +4,19 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.3.0
+- **Bring your own API key.** Server owners can now make players use their *own*
+  API key (so one person isn't stuck with the whole bill). Turn it on with
+  `/ai admin requirekey on`; players set their key with `/ai mykey <token>` or
+  privately in the new `/ai mymenu` screen. Keys are stored scrambled and never
+  shown to anyone else.
+- **Key whitelist.** `/ai admin keylist add <player>` lets trusted players keep
+  using the server's shared key even when "bring your own key" is on.
+- **Pick your AI model.** Admins curate a list of models
+  (`/ai admin models add|remove|list <id>`), and players choose which one their
+  companion uses with `/ai model <id>`, `/ai models`, or the `/ai mymenu` screen.
+  Turn player choice off with `/ai settings allow_model_choice false`.
+
 ## 3.2.0
 - **New admin menu (ops only).** `/ai admin menu` opens a built-in admin panel —
   see and manage **every bot on the server**, kill them all at once, flip bots

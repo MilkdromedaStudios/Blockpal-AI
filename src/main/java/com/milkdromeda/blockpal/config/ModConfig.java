@@ -9,7 +9,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
 
 public class ModConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -20,7 +26,7 @@ public class ModConfig {
      * default instead of silently inheriting Java's zero/false. A file with no
      * version at all reads back as {@code 0} and is migrated from there.
      */
-    public static final int CURRENT_CONFIG_VERSION = 2;
+    public static final int CURRENT_CONFIG_VERSION = 3;
 
     // Settings (including the API key) live in their own folder under the game's
     // config directory. That directory is untouched when you replace the mod jar,
@@ -110,6 +116,39 @@ public class ModConfig {
     // anti-lag knob; change with /ai admin maxbots <n> or the admin menu.
     public int maxBotsPerServer = 8;
 
+    // ---- Per-player API keys (bring-your-own-key, to avoid one big shared bill) ----
+
+    // When true, a player's bot uses *that player's* own API key. Players without a
+    // personal key get no AI planning/analysis — UNLESS they're on ownKeyWhitelist
+    // (those keep using the server's shared key for free). Off by default, so a fresh
+    // install behaves exactly as before. See wiki/Per-Player-Keys-and-Models.md.
+    public boolean requireOwnApiKey = false;
+
+    // Players exempt from requireOwnApiKey: they may use the server's shared token.
+    // Stored as lowercased usernames (UUID strings also accepted/matched). Manage
+    // with /ai admin keylist add|remove|list <player>.
+    public List<String> ownKeyWhitelist = new ArrayList<>();
+
+    // Per-player personal API keys, keyed by player UUID string, stored OBFUSCATED
+    // at rest exactly like the shared token (never plaintext, never sent to clients).
+    public Map<String, String> playerApiKeysObf = new HashMap<>();
+
+    // ---- Player-selectable models ----
+
+    // When true, players may pick their bot's model from allowedModels (via
+    // /ai model <id>, the personal /ai mymenu screen, or the picker). When false,
+    // everyone uses the server hfModel.
+    public boolean allowPlayerModelChoice = true;
+
+    // The curated set of models players may choose from (a model "whitelist").
+    // Admin-managed with /ai admin models add|remove|list. hfModel is always kept in
+    // the list so the server default is always selectable.
+    public List<String> allowedModels = new ArrayList<>();
+
+    // Per-player chosen model, keyed by player UUID string. Falls back to hfModel
+    // when unset, disallowed, or player choice is turned off.
+    public Map<String, String> playerModels = new HashMap<>();
+
     // Schema version this file was written with — see CURRENT_CONFIG_VERSION.
     // Used only for migration; players don't need to touch it.
     public int configVersion = CURRENT_CONFIG_VERSION;
@@ -190,6 +229,13 @@ public class ModConfig {
             // Any legacy plaintext token in hfToken is preserved here and gets
             // obfuscated on the save() that follows load().
         }
+        if (configVersion < 3) {
+            // Per-player keys / model choice were added in v3. Keep upgrading
+            // installs behaving as before: shared key for everyone, model choice on.
+            requireOwnApiKey = false;
+            allowPlayerModelChoice = true;
+            // Collections are seeded/guarded in normalize().
+        }
         configVersion = CURRENT_CONFIG_VERSION;
     }
 
@@ -206,6 +252,21 @@ public class ModConfig {
         if (adminPermissionLevel < 0) adminPermissionLevel = 0;
         if (adminPermissionLevel > 4) adminPermissionLevel = 4;
         if (maxBotsPerServer < 0) maxBotsPerServer = 0;
+
+        // Per-player collections must never be null (an old/partial file may omit them).
+        if (ownKeyWhitelist == null) ownKeyWhitelist = new ArrayList<>();
+        if (playerApiKeysObf == null) playerApiKeysObf = new HashMap<>();
+        if (allowedModels == null) allowedModels = new ArrayList<>();
+        if (playerModels == null) playerModels = new HashMap<>();
+        // Seed a useful starter set of models the first time, and always keep the
+        // server's own default model selectable.
+        if (allowedModels.isEmpty()) {
+            allowedModels.add(hfModel);
+            allowedModels.add("meta-llama/Llama-3.1-8B-Instruct");
+            allowedModels.add("Qwen/Qwen2.5-7B-Instruct");
+            allowedModels.add("HuggingFaceH4/zephyr-7b-beta");
+        }
+        if (!allowedModels.contains(hfModel)) allowedModels.add(0, hfModel);
     }
 
     /** Recovers the live token from its obfuscated on-disk form (if needed). */
@@ -246,6 +307,106 @@ public class ModConfig {
     public void setToken(String token) {
         hfToken = token == null ? "" : token.trim();
         tokenFromEnv = false;
+    }
+
+    // ---- Per-player key & model resolution ----
+
+    /**
+     * The API token a bot owned by {@code owner} should use (may be {@code ""}).
+     * A player's personal key always wins; otherwise, if {@link #requireOwnApiKey}
+     * is on and the player isn't whitelisted, there is no key (AI is unavailable for
+     * them); otherwise the shared server token is used.
+     */
+    public String resolveTokenFor(UUID owner, String ownerName) {
+        if (owner != null) {
+            String personal = getPlayerToken(owner);
+            if (!personal.isBlank()) return personal;
+        }
+        if (requireOwnApiKey && !isKeyWhitelisted(ownerName, owner)) {
+            return "";
+        }
+        return hfToken == null ? "" : hfToken;
+    }
+
+    /** The model a bot owned by {@code owner} should use. */
+    public String resolveModelFor(UUID owner) {
+        if (allowPlayerModelChoice && owner != null) {
+            String m = playerModels.get(owner.toString());
+            if (m != null && !m.isBlank() && isModelAllowed(m)) return m;
+        }
+        return hfModel;
+    }
+
+    public String getPlayerToken(UUID owner) {
+        if (owner == null) return "";
+        return deobfuscate(playerApiKeysObf.get(owner.toString()));
+    }
+
+    public boolean hasPlayerToken(UUID owner) {
+        return !getPlayerToken(owner).isBlank();
+    }
+
+    /** Stores (blank clears) a player's personal API key — obfuscated at rest. */
+    public void setPlayerToken(UUID owner, String raw) {
+        if (owner == null) return;
+        if (raw == null || raw.isBlank()) {
+            playerApiKeysObf.remove(owner.toString());
+        } else {
+            playerApiKeysObf.put(owner.toString(), obfuscate(raw.trim()));
+        }
+    }
+
+    public boolean isKeyWhitelisted(String name, UUID owner) {
+        if (name != null && ownKeyWhitelist.contains(name.toLowerCase(Locale.ROOT))) return true;
+        return owner != null && ownKeyWhitelist.contains(owner.toString());
+    }
+
+    /** @return true if added (false if it was already present). */
+    public boolean addKeyWhitelist(String entry) {
+        if (entry == null || entry.isBlank()) return false;
+        String e = entry.trim().toLowerCase(Locale.ROOT);
+        if (ownKeyWhitelist.contains(e)) return false;
+        ownKeyWhitelist.add(e);
+        return true;
+    }
+
+    /** @return true if an entry was removed. */
+    public boolean removeKeyWhitelist(String entry) {
+        return entry != null && ownKeyWhitelist.remove(entry.trim().toLowerCase(Locale.ROOT));
+    }
+
+    public boolean isModelAllowed(String model) {
+        return model != null && allowedModels.contains(model);
+    }
+
+    public boolean addAllowedModel(String model) {
+        if (model == null || model.isBlank()) return false;
+        String m = model.trim();
+        if (allowedModels.contains(m)) return false;
+        allowedModels.add(m);
+        return true;
+    }
+
+    public boolean removeAllowedModel(String model) {
+        if (model == null) return false;
+        String m = model.trim();
+        if (m.equals(hfModel)) return false;   // never remove the server default
+        return allowedModels.remove(m);
+    }
+
+    public void setPlayerModel(UUID owner, String model) {
+        if (owner == null) return;
+        if (model == null || model.isBlank()) {
+            playerModels.remove(owner.toString());
+        } else {
+            playerModels.put(owner.toString(), model.trim());
+        }
+    }
+
+    public String getPlayerModel(UUID owner) {
+        if (owner == null) return "";
+        String m = playerModels.get(owner.toString());
+        return m == null ? "" : m;
     }
 
     // ---- token at-rest obfuscation (NOT encryption — see OBF_KEY note) ----

@@ -1,5 +1,6 @@
 package com.milkdromeda.blockpal.ai;
 
+import com.milkdromeda.blockpal.config.ModConfig;
 import com.milkdromeda.blockpal.entity.AiAssistantEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -37,9 +38,33 @@ public class AiTaskManager {
         int now = (int)(entity.level().getGameTime() & Integer.MAX_VALUE);
         if (now - lastRequestTick < 100) return; // 100 ticks = 5 s
         lastRequestTick = now;
+        // Resolve the owner's key/model. No key (e.g. bring-your-own-key is on and
+        // they haven't set one) → say so instead of firing a doomed request.
+        HuggingFaceClient.ApiAuth auth = authForOwner();
+        if (!auth.hasToken()) {
+            entity.broadcastMessage(needKeyMessage());
+            return;
+        }
         lastTask = task;
         waitingForApi = true;
-        pendingFuture = CLIENT.requestPlan(task, buildContext());
+        pendingFuture = CLIENT.requestPlan(task, buildContext(), auth);
+    }
+
+    /** The token + model a request from this bot should use, based on its owner. */
+    private HuggingFaceClient.ApiAuth authForOwner() {
+        ModConfig cfg = ModConfig.get();
+        java.util.UUID owner = entity.getOwnerUuid();
+        return new HuggingFaceClient.ApiAuth(
+                cfg.resolveTokenFor(owner, entity.getOwnerName()),
+                cfg.resolveModelFor(owner));
+    }
+
+    private String needKeyMessage() {
+        if (ModConfig.get().requireOwnApiKey) {
+            return "I need your own API key for that — set it with /ai mykey <token> "
+                    + "(ask an admin if you think you should be exempt).";
+        }
+        return "I don't have an API key to use — an admin can set one with /ai token <token>.";
     }
 
     /** Whether the current/last activity asked to keep going after its steps run out. */
@@ -52,15 +77,17 @@ public class AiTaskManager {
         if (waitingForApi || lastTask == null) return;
         if (loopCooldown > 0) { loopCooldown--; return; }
         loopCooldown = 10 * 20; // 10 s minimum between loop iterations
+        HuggingFaceClient.ApiAuth auth = authForOwner();
+        if (!auth.hasToken()) return;   // no key → quietly stop looping
         String task = lastTask;
         currentPlan = null;
         waitingForApi = true;
-        pendingFuture = CLIENT.requestPlan(task, buildContext());
+        pendingFuture = CLIENT.requestPlan(task, buildContext(), auth);
     }
 
     /** Asks the language model to interpret a free-form chat message. */
     public CompletableFuture<ChatIntent> classify(String message, String context, String assistantName) {
-        return CLIENT.classifyMessage(message, context, assistantName);
+        return CLIENT.classifyMessage(message, context, assistantName, authForOwner());
     }
 
     public void tick() {

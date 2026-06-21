@@ -15,6 +15,7 @@
 - [AI Actions](AI-Actions)
 
 **Admin & safety**
+- [Per-Player Keys & Models](Per-Player-Keys-and-Models)
 - [Admin Menu](Admin-Menu)
 - [Security](Security)
 - [Terms & Policy](Terms-and-Policy)

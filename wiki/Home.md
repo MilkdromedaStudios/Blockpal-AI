@@ -50,6 +50,7 @@ and configures itself from a real in-game settings screen.
 | [Custom Skins](Custom-Skins) | Built-in and drop-in skins |
 | [Running Commands](Running-Commands) | Command execution, permission levels, denylist |
 | [AI Actions](AI-Actions) | The 16 action types the planner can use |
+| [Per-Player Keys & Models](Per-Player-Keys-and-Models) | Bring-your-own-key, exemptions, selectable models |
 | [Admin Menu](Admin-Menu) | Ops-only panel: manage/kill all bots, bot cap, live stats |
 | [Security](Security) | Permission gating, API-key protection, what `.gitignore` can't do |
 | [Terms & Policy](Terms-and-Policy) | Fair-use / no-cheating policy and disclaimers |

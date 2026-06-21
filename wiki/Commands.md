@@ -23,6 +23,9 @@ All commands are under `/ai`. Type `/ai help` in-game for the live list.
 | `/ai inventory` · `/ai inv` | Show carried items |
 | `/ai settings` | List all current settings |
 | `/ai settings <key> <value>` | Change any one setting (tab-complete the key) — see [Settings](Settings) |
+| `/ai mykey <token>\|clear` | Set/clear **your own** API key — see [Per-Player Keys & Models](Per-Player-Keys-and-Models) |
+| `/ai model [<id>]` · `/ai models` | Pick your bot's model / list allowed models |
+| `/ai mymenu` | Personal settings screen (your model + your key) |
 | `/aiskins list\|reload` | *(client)* List or hot-reload the skins folder |
 | `/ai admin …` | *(ops only)* Admin panel — see below |
 | `/ai <task>` | Give a natural-language task |
@@ -47,6 +50,9 @@ permission level. See **[Admin Menu](Admin-Menu)** for the full guide.
 | `/ai admin maxbots <0-50>` | Cap bots per server (0 = unlimited) |
 | `/ai admin disable` · `/ai admin enable` | Turn all bots off / on for everyone |
 | `/ai admin reload` | Reload `config.json` from disk |
+| `/ai admin requirekey on\|off` | Make players use their own API key — see [Per-Player Keys & Models](Per-Player-Keys-and-Models) |
+| `/ai admin keylist add\|remove\|list <player>` | Who may use the shared key when BYOK is on |
+| `/ai admin models add\|remove\|list <id>` | Curate the models players may pick |
 
 ## Quick intents (no API token)
 

@@ -35,8 +35,10 @@ public final class AiNetworking {
         PayloadTypeRegistry.serverboundPlay().register(EmergencyDisablePayload.TYPE, EmergencyDisablePayload.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(AdminActionPayload.TYPE, AdminActionPayload.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(ClientStatsPayload.TYPE, ClientStatsPayload.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(PlayerPrefsPayload.TYPE, PlayerPrefsPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(ConfigSyncPayload.TYPE, ConfigSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(AdminSyncPayload.TYPE, AdminSyncPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(PlayerPrefsSyncPayload.TYPE, PlayerPrefsSyncPayload.CODEC);
     }
 
     /** Sends the current config to a player so their client opens the settings menu. */
@@ -52,6 +54,13 @@ public final class AiNetworking {
         if (server != null && ServerPlayNetworking.canSend(player, AdminSyncPayload.TYPE)) {
             ServerPlayNetworking.send(player, new AdminSyncPayload(AdminStatsData.gather(server)));
         }
+    }
+
+    /** Opens the personal preferences screen for a player. @return false if their client can't show it. */
+    public static boolean openPlayerMenuFor(ServerPlayer player) {
+        if (!ServerPlayNetworking.canSend(player, PlayerPrefsSyncPayload.TYPE)) return false;
+        ServerPlayNetworking.send(player, PlayerPrefsSyncPayload.forPlayer(player));
+        return true;
     }
 
     /** Registers the handlers that run on the (integrated or dedicated) server. */
@@ -135,6 +144,32 @@ public final class AiNetworking {
         // ConcurrentHashMap-backed, so it's safe to write from the network thread.
         ServerPlayNetworking.registerGlobalReceiver(ClientStatsPayload.TYPE, (payload, context) ->
                 PlayerStatsTracker.report(context.player().getUUID(), payload.fps()));
+
+        // A player saved their personal preferences (model / own API key) from the
+        // /ai mymenu screen. No admin check needed — it only ever affects the sender.
+        ServerPlayNetworking.registerGlobalReceiver(PlayerPrefsPayload.TYPE, (payload, context) -> {
+            ServerPlayer player = context.player();
+            MinecraftServer server = player.level().getServer();
+            if (server == null) return;
+            server.execute(() -> {
+                ModConfig cfg = ModConfig.get();
+                if (cfg.allowPlayerModelChoice && payload.model() != null && !payload.model().isBlank()
+                        && cfg.isModelAllowed(payload.model())) {
+                    cfg.setPlayerModel(player.getUUID(), payload.model());
+                }
+                if (payload.clearKey()) {
+                    cfg.setPlayerToken(player.getUUID(), "");
+                } else if (payload.token() != null && !payload.token().isBlank()) {
+                    cfg.setPlayerToken(player.getUUID(), payload.token());
+                }
+                ModConfig.save();
+                player.sendSystemMessage(Component.literal("§a[Blockpal] Saved your preferences ✓"));
+                // Re-sync so the screen shows the saved state.
+                if (ServerPlayNetworking.canSend(player, PlayerPrefsSyncPayload.TYPE)) {
+                    ServerPlayNetworking.send(player, PlayerPrefsSyncPayload.forPlayer(player));
+                }
+            });
+        });
     }
 
     private static void handleAdminAction(MinecraftServer server, ServerPlayer who, AdminActionPayload payload) {

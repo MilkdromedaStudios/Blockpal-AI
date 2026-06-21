@@ -101,6 +101,22 @@ public class AiCommands {
                                                         StringArgumentType.getString(ctx, "key"),
                                                         StringArgumentType.getString(ctx, "value"))))))
 
+                        // ── personal API key & model (open to everyone) ──────────────
+                        // Each player can set their own API key (so a server can bill
+                        // players to their own keys) and pick their bot's model.
+                        .then(Commands.literal("mykey")
+                                .executes(AiCommands::myKeyStatus)
+                                .then(Commands.literal("clear").executes(AiCommands::myKeyClear))
+                                .then(Commands.argument("token", StringArgumentType.greedyString())
+                                        .executes(ctx -> setMyKey(ctx, StringArgumentType.getString(ctx, "token")))))
+                        .then(Commands.literal("mymenu").executes(AiCommands::openPlayerMenu))
+                        .then(Commands.literal("models").executes(AiCommands::listModels))
+                        .then(Commands.literal("model")
+                                .executes(AiCommands::listModels)
+                                .then(Commands.argument("model", StringArgumentType.greedyString())
+                                        .suggests(ALLOWED_MODELS_SUGGEST)
+                                        .executes(ctx -> setMyModel(ctx, StringArgumentType.getString(ctx, "model")))))
+
                         // ── /ai admin — global controls, ops only ────────────────────
                         // The whole subtree is hidden from (and refused to) anyone
                         // below the configured admin permission level.
@@ -118,7 +134,25 @@ public class AiCommands {
                                 .then(Commands.literal("maxbots")
                                         .then(Commands.argument("count", IntegerArgumentType.integer(0, 50))
                                                 .executes(ctx -> adminMaxBots(ctx,
-                                                        IntegerArgumentType.getInteger(ctx, "count"))))))
+                                                        IntegerArgumentType.getInteger(ctx, "count")))))
+                                .then(Commands.literal("requirekey")
+                                        .then(Commands.literal("on").executes(ctx -> adminRequireKey(ctx, true)))
+                                        .then(Commands.literal("off").executes(ctx -> adminRequireKey(ctx, false))))
+                                .then(Commands.literal("keylist")
+                                        .executes(AiCommands::adminKeyListShow)
+                                        .then(Commands.literal("list").executes(AiCommands::adminKeyListShow))
+                                        .then(Commands.literal("add").then(Commands.argument("player", StringArgumentType.word())
+                                                .executes(ctx -> adminKeyListAdd(ctx, StringArgumentType.getString(ctx, "player")))))
+                                        .then(Commands.literal("remove").then(Commands.argument("player", StringArgumentType.word())
+                                                .executes(ctx -> adminKeyListRemove(ctx, StringArgumentType.getString(ctx, "player"))))))
+                                .then(Commands.literal("models")
+                                        .executes(AiCommands::adminModelsShow)
+                                        .then(Commands.literal("list").executes(AiCommands::adminModelsShow))
+                                        .then(Commands.literal("add").then(Commands.argument("model", StringArgumentType.greedyString())
+                                                .executes(ctx -> adminModelsAdd(ctx, StringArgumentType.getString(ctx, "model")))))
+                                        .then(Commands.literal("remove").then(Commands.argument("model", StringArgumentType.greedyString())
+                                                .suggests(ALLOWED_MODELS_SUGGEST)
+                                                .executes(ctx -> adminModelsRemove(ctx, StringArgumentType.getString(ctx, "model")))))))
 
                         // ── /ai <task> — natural language, must be last (greedy) ──────
                         .then(Commands.argument("task", StringArgumentType.greedyString())
@@ -166,8 +200,9 @@ public class AiCommands {
                 "§f/ai active on|off §7— toggle proactive analysis of every message\n" +
                 "§f/ai commands on|off §7— let it run commands (/setblock, /fill, redstone…)\n" +
                 "§f/ai dismiss §7— send it away\n" +
+                "§f/ai mykey <token>§7 · §f/ai model <id>§7 · §f/ai mymenu §7— your own API key & model\n" +
                 "§f/ai settings §7— list settings; §f/ai settings <key> <value>§7 changes any one\n" +
-                "§f/ai admin §7— (ops) admin panel: manage/kill all bots, stats, bot cap"
+                "§f/ai admin §7— (ops) admin panel: manage/kill all bots, stats, bot cap, keys & models"
         ));
         return 1;
     }
@@ -195,7 +230,7 @@ public class AiCommands {
 
         entity.setAssistantName(name);
         entity.setSkin(ModConfig.get().defaultSkin);
-        entity.setOwnerUuid(player.getUUID());
+        entity.setOwner(player);
         entity.setPos(player.getX() + 1.5, player.getY(), player.getZ());
         entity.setMode(AiAssistantEntity.Mode.FOLLOWING);
         level.addFreshEntity(entity);
@@ -439,6 +474,8 @@ public class AiCommands {
                 "§eAPI URL:        §f" + cfg.apiUrl + "\n" +
                 "§eAPI token:      §f" + (cfg.hasApiToken()
                         ? ("set ✓" + (cfg.isTokenFromEnv() ? " §7(from env)" : "")) : "§cnot set — /ai token <token>") + "\n" +
+                "§eOwn key req'd:  §f" + (cfg.requireOwnApiKey ? "yes §7(whitelist: " + cfg.ownKeyWhitelist.size() + ")" : "no") + "\n" +
+                "§eModel choice:   §f" + (cfg.allowPlayerModelChoice ? "players may pick" : "locked") + " §7(" + cfg.allowedModels.size() + " models)\n" +
                 "§eTemperature:    §f" + cfg.temperature + "\n" +
                 "§eMax tokens:     §f" + cfg.maxNewTokens + "\n" +
                 "§eFollow dist:    §f" + cfg.followDistance + "\n" +
@@ -457,8 +494,16 @@ public class AiCommands {
             "name", "skin", "model", "api_url", "token", "temperature", "max_tokens",
             "follow_distance", "guard_radius", "command_level", "admin_level", "max_bots",
             "max_task_seconds", "action_tick_delay", "flee_health", "chat_listening",
-            "active_mode", "allow_commands", "debug_logging", "sneak_menu", "preset"
+            "active_mode", "allow_commands", "debug_logging", "sneak_menu", "preset",
+            "require_own_key", "allow_model_choice"
     };
+
+    /** Suggests the server's allowed models for model arguments. */
+    private static final com.mojang.brigadier.suggestion.SuggestionProvider<CommandSourceStack> ALLOWED_MODELS_SUGGEST =
+            (ctx, builder) -> {
+                for (String m : ModConfig.get().allowedModels) builder.suggest(m);
+                return builder.buildFuture();
+            };
 
     private static final com.mojang.brigadier.suggestion.SuggestionProvider<CommandSourceStack> SETTING_KEYS_SUGGEST =
             (ctx, builder) -> {
@@ -498,6 +543,8 @@ public class AiCommands {
                 case "chat_listening"    -> cfg.chatListening = parseBool(value);
                 case "active_mode"       -> cfg.activeMode = parseBool(value);
                 case "allow_commands"    -> cfg.allowCommands = parseBool(value);
+                case "require_own_key"   -> cfg.requireOwnApiKey = parseBool(value);
+                case "allow_model_choice"-> cfg.allowPlayerModelChoice = parseBool(value);
                 case "debug_logging"     -> cfg.debugLogging = parseBool(value);
                 case "sneak_menu"        -> cfg.sneakToOpenMenu = parseBool(value);
                 case "preset"            -> applyPreset(cfg, value);
@@ -596,6 +643,9 @@ public class AiCommands {
                 "§f/ai admin maxbots <0-50> §7— cap bots per server (0 = unlimited)\n" +
                 "§f/ai admin disable§7 / §fenable §7— turn all bots off / on\n" +
                 "§f/ai admin reload §7— reload config from disk\n" +
+                "§f/ai admin requirekey on|off §7— make players use their own API key\n" +
+                "§f/ai admin keylist add|remove|list <player> §7— who may use the shared key\n" +
+                "§f/ai admin models add|remove|list <id> §7— models players may pick\n" +
                 "§7Admin tier: §f/ai settings admin_level <0-4>§7 (default: ops = 2)"), false);
         return 1;
     }
@@ -703,6 +753,176 @@ public class AiCommands {
         ModConfig.save();
         ctx.getSource().sendSuccess(() -> Component.literal(
                 "§a[Blockpal] Max bots per server = " + (count == 0 ? "unlimited" : count)), false);
+        return 1;
+    }
+
+    // ── personal API key & model (any player manages their own) ─────────────────
+
+    private static int myKeyStatus(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        ModConfig cfg = ModConfig.get();
+        boolean has = cfg.hasPlayerToken(player.getUUID());
+        StringBuilder sb = new StringBuilder("§6Your Blockpal API key: ")
+                .append(has ? "§aset ✓" : "§7not set");
+        if (cfg.requireOwnApiKey) {
+            boolean wl = cfg.isKeyWhitelisted(player.getName().getString(), player.getUUID());
+            sb.append("\n§7This server asks players to use their own key")
+                    .append(wl ? " — but you're whitelisted to use the shared key." : ".");
+            if (!has && !wl) sb.append("\n§eSet one with §f/ai mykey <token>§e to use AI features.");
+        } else {
+            sb.append("\n§7The server provides a shared key; set your own to use it (and your own bill) instead.");
+        }
+        final String out = sb.toString();
+        player.sendSystemMessage(Component.literal(out));
+        return 1;
+    }
+
+    private static int setMyKey(CommandContext<CommandSourceStack> ctx, String token) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        ModConfig.get().setPlayerToken(player.getUUID(), token);
+        ModConfig.save();
+        player.sendSystemMessage(Component.literal(
+                "§aSaved your personal API key ✓ §7(stored obfuscated, never shown to others).\n"
+                        + "§7Heads-up: typing a token in chat can expose it — consider §f/ai mymenu§7 instead."));
+        return 1;
+    }
+
+    private static int myKeyClear(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        ModConfig.get().setPlayerToken(player.getUUID(), "");
+        ModConfig.save();
+        player.sendSystemMessage(Component.literal("§aCleared your personal API key."));
+        return 1;
+    }
+
+    private static int listModels(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        ModConfig cfg = ModConfig.get();
+        String current = cfg.resolveModelFor(player.getUUID());
+        StringBuilder sb = new StringBuilder("§6Available models:");
+        for (String m : cfg.allowedModels) {
+            sb.append("\n").append(m.equals(current) ? "§a➤ " : "§7  ").append(m);
+        }
+        if (!cfg.allowPlayerModelChoice) {
+            sb.append("\n§7(Model choice is off here — everyone uses §f").append(cfg.hfModel).append("§7.)");
+        } else {
+            sb.append("\n§7Pick one with §f/ai model <id>§7 or §f/ai mymenu§7.");
+        }
+        final String out = sb.toString();
+        player.sendSystemMessage(Component.literal(out));
+        return 1;
+    }
+
+    private static int setMyModel(CommandContext<CommandSourceStack> ctx, String model) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        ModConfig cfg = ModConfig.get();
+        if (!cfg.allowPlayerModelChoice) {
+            player.sendSystemMessage(Component.literal("§cThis server doesn't allow choosing your own model."));
+            return 0;
+        }
+        String m = model.trim();
+        if (!cfg.isModelAllowed(m)) {
+            player.sendSystemMessage(Component.literal(
+                    "§cThat model isn't on the allowed list — see §f/ai models§c."));
+            return 0;
+        }
+        cfg.setPlayerModel(player.getUUID(), m);
+        ModConfig.save();
+        player.sendSystemMessage(Component.literal("§aYour bot will now use §f" + m + "§a."));
+        return 1;
+    }
+
+    private static int openPlayerMenu(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        if (!AiNetworking.openPlayerMenuFor(player)) {
+            player.sendSystemMessage(Component.literal(
+                    "§eThat menu needs the Blockpal mod on your client. Use §f/ai mykey§e and §f/ai model§e instead."));
+            return 0;
+        }
+        return 1;
+    }
+
+    // ── admin: bring-your-own-key controls & the model list ─────────────────────
+
+    private static int adminRequireKey(CommandContext<CommandSourceStack> ctx, boolean on) {
+        ModConfig.get().requireOwnApiKey = on;
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§a[Blockpal] Players must use their own API key: " + (on ? "§eON" : "§7off")
+                        + (on ? " §7(exempt trusted players with §f/ai admin keylist add <player>§7)" : "")), false);
+        return 1;
+    }
+
+    private static int adminKeyListShow(CommandContext<CommandSourceStack> ctx) {
+        java.util.List<String> wl = ModConfig.get().ownKeyWhitelist;
+        StringBuilder sb = new StringBuilder("§6Own-key whitelist (may use the shared key) — "
+                + wl.size() + " entr" + (wl.size() == 1 ? "y" : "ies") + ":");
+        if (wl.isEmpty()) sb.append("\n§7  (empty — everyone must bring their own key when required)");
+        for (String e : wl) sb.append("\n§f  ").append(e);
+        final String out = sb.toString();
+        ctx.getSource().sendSuccess(() -> Component.literal(out), false);
+        return 1;
+    }
+
+    private static int adminKeyListAdd(CommandContext<CommandSourceStack> ctx, String pl) {
+        boolean added = ModConfig.get().addKeyWhitelist(pl);
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(added
+                ? "§a[Blockpal] Added §f" + pl + "§a to the own-key whitelist."
+                : "§7[Blockpal] §f" + pl + "§7 was already whitelisted."), false);
+        return 1;
+    }
+
+    private static int adminKeyListRemove(CommandContext<CommandSourceStack> ctx, String pl) {
+        boolean removed = ModConfig.get().removeKeyWhitelist(pl);
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(removed
+                ? "§a[Blockpal] Removed §f" + pl + "§a from the own-key whitelist."
+                : "§7[Blockpal] §f" + pl + "§7 wasn't on the whitelist."), false);
+        return 1;
+    }
+
+    private static int adminModelsShow(CommandContext<CommandSourceStack> ctx) {
+        ModConfig cfg = ModConfig.get();
+        StringBuilder sb = new StringBuilder("§6Allowed models (" + cfg.allowedModels.size() + "):");
+        for (String m : cfg.allowedModels) {
+            sb.append("\n§f  ").append(m).append(m.equals(cfg.hfModel) ? " §7(server default)" : "");
+        }
+        sb.append("\n§7Add/remove with §f/ai admin models add|remove <id>§7. Player choice: ")
+                .append(cfg.allowPlayerModelChoice ? "§aon" : "§7off");
+        final String out = sb.toString();
+        ctx.getSource().sendSuccess(() -> Component.literal(out), false);
+        return 1;
+    }
+
+    private static int adminModelsAdd(CommandContext<CommandSourceStack> ctx, String model) {
+        boolean added = ModConfig.get().addAllowedModel(model);
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(added
+                ? "§a[Blockpal] Added model §f" + model.trim()
+                : "§7[Blockpal] That model is already allowed."), false);
+        return 1;
+    }
+
+    private static int adminModelsRemove(CommandContext<CommandSourceStack> ctx, String model) {
+        ModConfig cfg = ModConfig.get();
+        String m = model.trim();
+        if (m.equals(cfg.hfModel)) {
+            ctx.getSource().sendSuccess(() -> Component.literal(
+                    "§c[Blockpal] Can't remove the server default model — change it with /ai settings model <id> first."), false);
+            return 0;
+        }
+        boolean removed = cfg.removeAllowedModel(m);
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(removed
+                ? "§a[Blockpal] Removed model §f" + m
+                : "§7[Blockpal] That model wasn't on the list."), false);
         return 1;
     }
 

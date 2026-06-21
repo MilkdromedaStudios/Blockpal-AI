@@ -63,6 +63,9 @@ public class AiAssistantEntity extends PathfinderMob {
     private Mode mode = Mode.IDLE;
     private String assistantName = DEFAULT_NAME;
     private UUID ownerUuid;
+    // Owner's username, kept so per-player-key whitelist checks work even while the
+    // owner is offline (the bot can keep planning autonomously).
+    private String ownerName = "";
     private String pendingTask;
     private final AiTaskManager taskManager;
     private BuildGoal buildGoal;
@@ -656,6 +659,7 @@ public class AiAssistantEntity extends PathfinderMob {
         output.putString("Skin", getSkin());
         output.putString("Mode", mode.name());
         if (ownerUuid != null) output.store("OwnerUuid", UUIDUtil.STRING_CODEC, ownerUuid);
+        if (ownerName != null && !ownerName.isBlank()) output.putString("OwnerName", ownerName);
         if (pendingTask != null) output.putString("PendingTask", pendingTask);
         output.putBoolean("AutonomousMode", autonomousMode);
         ContainerHelper.saveAllItems(output.child("Inventory"), inventorySnapshot());
@@ -669,6 +673,7 @@ public class AiAssistantEntity extends PathfinderMob {
         String modeStr = input.getStringOr("Mode", "FOLLOWING");
         try { mode = Mode.valueOf(modeStr); } catch (IllegalArgumentException ignored) { mode = Mode.FOLLOWING; }
         input.read("OwnerUuid", UUIDUtil.STRING_CODEC).ifPresent(uuid -> ownerUuid = uuid);
+        ownerName = input.getStringOr("OwnerName", "");
         pendingTask = input.getString("PendingTask").orElse(null);
         autonomousMode = input.getBooleanOr("AutonomousMode", false);
         NonNullList<ItemStack> items = NonNullList.withSize(INVENTORY_SIZE, ItemStack.EMPTY);
@@ -691,6 +696,20 @@ public class AiAssistantEntity extends PathfinderMob {
 
     public UUID getOwnerUuid() { return ownerUuid; }
     public void setOwnerUuid(UUID uuid) { this.ownerUuid = uuid; }
+    public String getOwnerName() { return ownerName == null ? "" : ownerName; }
+    public void setOwnerName(String name) { this.ownerName = name == null ? "" : name; }
+
+    /** Records both the owner's UUID and current username in one call. */
+    public void setOwner(ServerPlayer player) {
+        this.ownerUuid = player.getUUID();
+        this.ownerName = player.getName().getString();
+    }
+
+    /** Whether this bot's owner currently has a usable API key (personal or shared). */
+    public boolean hasUsableApiKey() {
+        return !ModConfig.get().resolveTokenFor(ownerUuid, getOwnerName()).isBlank();
+    }
+
     public AiTaskManager getTaskManager() { return taskManager; }
 
     /** Skin id: "default"/"steve", a "namespace:path.png" texture, or a name under

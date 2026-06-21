@@ -49,6 +49,11 @@ export BLOCKPAL_API_TOKEN="hf_xxxxxxxxxxxxxxxxxxxxx"
 java -jar fabric-server-launch.jar nogui
 ```
 
+**Per-player keys** (when players bring their own — see
+[Per-Player Keys & Models](Per-Player-Keys-and-Models)) get the same treatment: stored
+obfuscated per-UUID, never shown to other players, never logged. Setting a key via
+`/ai mymenu` (a GUI field) avoids the chat-exposure risk of typing it in chat.
+
 > **Honest limit:** the on-disk obfuscation is **obfuscation, not encryption**. The
 > unscramble key is in the mod, which (like any mod) can be decompiled, so anyone with
 > file access *could* recover an on-disk token. If that matters to you, use the

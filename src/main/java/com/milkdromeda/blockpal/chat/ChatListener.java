@@ -99,7 +99,7 @@ public final class ChatListener {
             // you don't have to address it or use exact words. Quiet otherwise.
             // Skip trivial chatter and far-off players so we don't fire an API
             // call (and the analysis rate-limit) on every little message.
-            if (ModConfig.get().activeMode && ModConfig.get().hasApiToken()
+            if (ModConfig.get().activeMode && ai.hasUsableApiKey()
                     && text.length() >= 5
                     && ai.distanceToSqr(sender) < 48 * 48) {
                 ai.analyzeChat(sender, text);
@@ -110,9 +110,12 @@ public final class ChatListener {
         if (handleQuickIntent(sender, ai, body.toLowerCase(Locale.ROOT))) return;
 
         // Anything else is a real task for the AI planner.
-        if (!ModConfig.get().hasApiToken()) {
+        if (!ai.hasUsableApiKey()) {
+            String how = ModConfig.get().requireOwnApiKey
+                    ? "you'll need your own API key — set it with /ai mykey <token>"
+                    : "I need an API token first — an admin can set it with /ai token <token>";
             sender.sendSystemMessage(Component.literal(
-                    ai.getAssistantName() + ": \"I'd love to help, but I need an API token first. Use /ai token <token>.\""));
+                    ai.getAssistantName() + ": \"I'd love to help, but " + how + ".\""));
             return;
         }
         ai.giveTask(body, sender);

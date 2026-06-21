@@ -28,6 +28,17 @@ public class HuggingFaceClient {
             .build();
     private static final Gson GSON = new Gson();
 
+    /**
+     * The token + model a particular request should use. Resolved per bot from its
+     * owner's settings (personal key/model, the shared server key, or none), so one
+     * server can bill different players to their own keys and let them pick models.
+     */
+    public record ApiAuth(String token, String model) {
+        public boolean hasToken() {
+            return token != null && !token.isBlank();
+        }
+    }
+
     private static final String SYSTEM_PROMPT = """
             You are a highly capable AI Minecraft assistant, physically present in
             the world as a character that can move, build, fight, dig, interact and
@@ -94,12 +105,12 @@ public class HuggingFaceClient {
             you are unsure. Keep "task" concise, e.g. "build a 5x5 stone floor".
             """;
 
-    public CompletableFuture<ActionPlan> requestPlan(String task, String context) {
+    public CompletableFuture<ActionPlan> requestPlan(String task, String context, ApiAuth auth) {
         ModConfig cfg = ModConfig.get();
 
         HttpRequest request;
         try {
-            request = buildRequest(cfg, task, context);
+            request = buildRequest(cfg, task, context, auth);
         } catch (IllegalArgumentException e) {
             return CompletableFuture.completedFuture(
                     errorPlan(task, "the API URL looks invalid — fix it with /ai settings"));
@@ -113,15 +124,16 @@ public class HuggingFaceClient {
      * and what it should do. Never throws and never produces chat noise — any
      * problem resolves to {@link ChatIntent#none()}.
      */
-    public CompletableFuture<ChatIntent> classifyMessage(String message, String context, String assistantName) {
+    public CompletableFuture<ChatIntent> classifyMessage(String message, String context,
+                                                         String assistantName, ApiAuth auth) {
         ModConfig cfg = ModConfig.get();
-        if (!cfg.hasApiToken()) {
+        if (auth == null || !auth.hasToken()) {
             return CompletableFuture.completedFuture(ChatIntent.none());
         }
 
         HttpRequest request;
         try {
-            request = buildClassifierRequest(cfg, message, context, assistantName);
+            request = buildClassifierRequest(cfg, message, context, assistantName, auth);
         } catch (IllegalArgumentException e) {
             return CompletableFuture.completedFuture(ChatIntent.none());
         }
@@ -133,9 +145,10 @@ public class HuggingFaceClient {
                 });
     }
 
-    private HttpRequest buildClassifierRequest(ModConfig cfg, String message, String context, String name) {
+    private HttpRequest buildClassifierRequest(ModConfig cfg, String message, String context,
+                                               String name, ApiAuth auth) {
         JsonObject body = new JsonObject();
-        body.addProperty("model", cfg.hfModel);
+        body.addProperty("model", auth.model());
         body.addProperty("temperature", 0.0);   // deterministic classification
         body.addProperty("max_tokens", 120);
         body.addProperty("stream", false);
@@ -153,8 +166,8 @@ public class HuggingFaceClient {
                 .timeout(Duration.ofSeconds(30))
                 .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body)));
 
-        if (cfg.hasApiToken()) {
-            builder.header("Authorization", "Bearer " + cfg.hfToken);
+        if (auth.hasToken()) {
+            builder.header("Authorization", "Bearer " + auth.token());
         }
         return builder.build();
     }
@@ -179,9 +192,9 @@ public class HuggingFaceClient {
         }
     }
 
-    private HttpRequest buildRequest(ModConfig cfg, String task, String context) {
+    private HttpRequest buildRequest(ModConfig cfg, String task, String context, ApiAuth auth) {
         JsonObject body = new JsonObject();
-        body.addProperty("model", cfg.hfModel);
+        body.addProperty("model", auth.model());
         body.addProperty("temperature", cfg.temperature);
         body.addProperty("max_tokens", cfg.maxNewTokens);
         body.addProperty("stream", false);
@@ -197,8 +210,8 @@ public class HuggingFaceClient {
                 .timeout(Duration.ofSeconds(60))
                 .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body)));
 
-        if (cfg.hasApiToken()) {
-            builder.header("Authorization", "Bearer " + cfg.hfToken);
+        if (auth.hasToken()) {
+            builder.header("Authorization", "Bearer " + auth.token());
         }
         return builder.build();
     }
