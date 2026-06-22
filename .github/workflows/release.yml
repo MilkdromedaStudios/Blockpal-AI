@@ -3,9 +3,13 @@ name: Release to Modrinth
 # Publishes a build to Modrinth.
 #
 # Triggers:
-#   * Every pull request               (auto-publishes once per version)
+#   * When a pull request is MERGED     (auto-publishes once per version)
 #   * Pushing a tag like  v3.1.0        (recommended for tagged releases)
 #   * Manually from the Actions tab     (workflow_dispatch)
+#
+# It deliberately does NOT run while a PR is just open/updated, nor when a PR is
+# closed *without* merging — so an abandoned/closed PR never reaches Modrinth.
+# (PRs still get a compile check from the separate build.yml workflow.)
 #
 # Idempotent — a given version is published at most once:
 #   1. Authoritative marker: after a successful publish the workflow pushes a git
@@ -41,6 +45,7 @@ name: Release to Modrinth
 
 on:
   pull_request:
+    types: [closed]   # gated below to merged-only
   push:
     tags:
       - 'v*'
@@ -51,12 +56,21 @@ permissions:
 
 jobs:
   publish:
+    # Only publish when a PR was actually MERGED (not merely closed), or on a
+    # v* tag push / manual run. This is what stops a closed-without-merge PR
+    # from ever publishing.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0   # fetch tags so the dedup marker check works
+          # On a merged PR, build the merge commit (the post-merge base branch);
+          # otherwise fall back to the pushed tag / dispatched ref.
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.ref }}
 
       - name: Set up JDK 25
         uses: actions/setup-java@v4

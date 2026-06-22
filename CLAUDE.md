@@ -361,7 +361,9 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   `setScreenAndShow(...)`; updated the one call site in `AiAssistantClient`
   (opening the `/ai menu` settings screen). No other source changes were needed.
 - **New `release.yml` workflow** — publishes to Modrinth on every pull request,
-  a `v*` tag push, or a manual run. The uploaded jar is renamed to
+  a `v*` tag push, or a manual run. *(Later changed to publish only when a PR is
+  **merged** — not on open or close-without-merge; see `release.yml` for the live
+  triggers.)* The uploaded jar is renamed to
   `Blockpal-<mod_version>-<minecraft_version>.jar` (e.g. `Blockpal-3.1.0-26.2.jar`),
   published for the **Fabric and Quilt** loaders as a **`beta`** release, with the
   matching `CHANGELOG.md` section used as the Modrinth version description, and the
