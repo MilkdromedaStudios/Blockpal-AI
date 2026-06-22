@@ -1,19 +1,28 @@
 # Settings
 
-Every option can be changed two ways: the in-game **settings screen** or the
-**`/ai settings`** command. Both write to the same `config/blockpal/config.json`.
+All of Blockpal's options are changed in the **in-game panel**. As of **3.4.0**
+there are no per-setting commands (`/ai settings`, `/ai token`, `/ai listen`,
+`/ai active`, `/ai commands` were removed) — everything lives in the panel, which
+writes to `config/blockpal/config.json`.
 
-> **Operator-only (3.2.0+).** Settings are server-wide, so **changing** them — the
-> menu, `/ai token`, and `/ai settings <key> <value>` — requires admin permission
-> (`adminPermissionLevel`, default 2 = ops). Reading the list with `/ai settings`
-> stays open to everyone. See **[Security](Security)** and **[Admin Menu](Admin-Menu)**.
+> **Operator-only.** Server-wide settings are admin-gated (`adminPermissionLevel`,
+> default 2 = ops). Players can always change *their own* model and key (see
+> [Per-Player Keys & Models](Per-Player-Keys-and-Models)). See also [Security](Security).
 
-## Settings screen — `/ai menu`
+## Opening the panel
 
-Open with `/ai menu` (always works) or — unless disabled — sneak-right-click on the
-assistant. It's a five-tab screen:
+`/ai panel` (or `/ai menu`), or — unless disabled — sneak-right-click your assistant.
+Every Blockpal screen has a shared **tab bar** at the top to move between the panels:
 
-| Tab | What's here |
+| Tab | Who | What's there |
+|-----|-----|--------------|
+| **Settings** | admins | The five sub-tabs below (names, AI, behaviour, combat, developer) |
+| **Admin** | ops | Server controls + stats — see [Admin Menu](Admin-Menu) |
+| **My Settings** | everyone | Your own model and API key |
+
+### Settings sub-tabs
+
+| Sub-tab | What's here |
 |-----|-------------|
 | **Identity** | Name, skin, **Open skins folder** button |
 | **Behavior** | Chat listening, active analysis, sneak-to-open-menu, follow distance, guard radius, [performance preset](Performance-Presets) |
@@ -25,69 +34,45 @@ assistant. It's a five-tab screen:
 - Edits are held in a draft and captured on each tab switch, so moving between tabs
   doesn't lose changes.
 - **Save / Apply / Cancel** bar is pinned at the bottom; **Esc** auto-saves.
-- The body scrolls (mouse wheel + scrollbar) to fit any screen size.
 - The token field stays blank when one is set — leave it blank to keep the current
   token, or type a new one to replace it.
 
-## Command-line settings
+## Admin options (in the Admin panel)
 
-```
-/ai settings                            # show all current values
-/ai settings model mistralai/Mistral-7B-Instruct-v0.2
-/ai settings api_url http://localhost:11434/v1/chat/completions
-/ai settings temperature 0.7
-/ai settings max_tokens 512
-/ai settings follow_distance 4
-/ai settings guard_radius 16
-/ai settings sneak_menu false           # disable sneak-right-click to open menu
-/ai settings preset potato              # apply a performance preset
-```
+Ops change these right in the **Admin** tab — click a toggle or a level cycler, no
+commands needed:
 
-## Full list of keys
+| Option | Meaning |
+|--------|---------|
+| Allow commands | Let bots run `/setblock`, `/fill`, `/give`, etc. |
+| Command perm level | Permission tier (0–4) for those commands (2 = command-block) |
+| Admin level | Op tier (0–4) needed to change settings / use the admin panel. Default **2** |
+| Max bots | Most bots allowed on the server at once (0 = unlimited). Default **8** |
+| Require own API key | Players must bring their own key (except the whitelist) |
+| Players may pick model | Allow players to choose their bot's model |
 
-`name` · `skin` · `model` · `api_url` · `token` · `temperature` · `max_tokens` ·
-`follow_distance` · `guard_radius` · `command_level` · `admin_level` · `max_bots` ·
-`require_own_key` · `allow_model_choice` ·
-`max_task_seconds` · `action_tick_delay` · `flee_health` · `chat_listening` ·
-`active_mode` · `allow_commands` · `debug_logging` · `sneak_menu` · `preset`
+The two lists — the **allowed models** and the **own-key whitelist** — are managed
+with `/ai admin models …` and `/ai admin keylist …` (see
+[Per-Player Keys & Models](Per-Player-Keys-and-Models)).
 
-> `max_task_seconds`, `action_tick_delay` and `flee_health` are the high-risk
-> Developer-tab settings — read **[Developer Menu](Developer-Menu)** before changing them.
-
-### Admin & limits
-
-| Key | Meaning |
-|-----|---------|
-| `admin_level` | Permission level (0/2/4) needed to change settings or use `/ai admin`. Default **2** (ops). `4` = full operator / world owner only. |
-| `max_bots` | Max Blockpal entities on the server at once; `/ai summon` refuses past it. Default **8**, `0` = unlimited. Also `/ai admin maxbots <n>`. |
-
-### Per-player keys & models
-
-| Key | Meaning |
-|-----|---------|
-| `require_own_key` | When `true`, players use their **own** API key (except those on the whitelist). Default `false`. |
-| `allow_model_choice` | When `true` (default), players may pick their bot's model from the allowed list. |
-
-Players manage their own key/model with `/ai mykey`, `/ai model` and `/ai mymenu`;
-admins manage the whitelist and model list with `/ai admin keylist …` and
-`/ai admin models …`. Full guide: **[Per-Player Keys & Models](Per-Player-Keys-and-Models)**.
-
-### API token security
+## API token security
 
 The token is **never** shown back, never logged, and stored **obfuscated** in
 `config.json` (`hfTokenObf`) rather than as plain text. For the strongest protection,
 set it via the `BLOCKPAL_API_TOKEN` environment variable instead — then it's used but
-never written to disk. Full details in **[Security](Security)**.
+never written to disk. On a vanilla-client server with no GUI, this env var (or
+hand-editing `config.json`) is how you set the shared key. Full details in
+**[Security](Security)**.
 
 ## Persistence & versioning
 
-Settings live in `config/blockpal/config.json` (auto-migrated from the old flat
-`config/blockpal.json`). The file carries a `configVersion` stamp:
+Settings live in `config/blockpal/config.json`. The file carries a `configVersion`
+stamp:
 
-- Missing or corrupt → regenerated from defaults.
+- Missing or corrupt → regenerated from defaults (and a fresh install kicks off the
+  first-run [tutorial](Getting-Started)).
 - From an older mod version → newly-added fields are filled with their intended
   defaults (not Java's false/0), while existing values like your API key are preserved.
 
 So your API key carries across mod updates, and a deleted file just comes back as
 defaults.
-</content>

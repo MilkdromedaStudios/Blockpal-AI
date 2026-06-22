@@ -1,5 +1,6 @@
 package com.milkdromeda.blockpal.network;
 
+import com.milkdromeda.blockpal.admin.AdminAccess;
 import com.milkdromeda.blockpal.config.ModConfig;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -22,7 +23,8 @@ public record PlayerPrefsSyncPayload(
         boolean canChooseModel,
         boolean hasPersonalKey,
         boolean requireOwnKey,
-        boolean whitelisted
+        boolean whitelisted,
+        boolean isAdmin
 ) implements CustomPacketPayload {
 
     public static final Type<PlayerPrefsSyncPayload> TYPE =
@@ -40,7 +42,8 @@ public record PlayerPrefsSyncPayload(
                 cfg.allowPlayerModelChoice,
                 cfg.hasPlayerToken(player.getUUID()),
                 cfg.requireOwnApiKey,
-                cfg.isKeyWhitelisted(player.getName().getString(), player.getUUID()));
+                cfg.isKeyWhitelisted(player.getName().getString(), player.getUUID()),
+                AdminAccess.isAdmin(player));
     }
 
     private static void write(FriendlyByteBuf buf, PlayerPrefsSyncPayload d) {
@@ -51,6 +54,7 @@ public record PlayerPrefsSyncPayload(
         buf.writeBoolean(d.hasPersonalKey);
         buf.writeBoolean(d.requireOwnKey);
         buf.writeBoolean(d.whitelisted);
+        buf.writeBoolean(d.isAdmin);
     }
 
     private static PlayerPrefsSyncPayload read(FriendlyByteBuf buf) {
@@ -59,7 +63,7 @@ public record PlayerPrefsSyncPayload(
         for (int i = 0; i < n; i++) models.add(buf.readUtf());
         String current = buf.readUtf();
         return new PlayerPrefsSyncPayload(models, current,
-                buf.readBoolean(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean());
+                buf.readBoolean(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean());
     }
 
     @Override

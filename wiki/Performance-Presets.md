@@ -3,13 +3,8 @@
 A preset auto-fills temperature, max tokens, the active-analysis toggle, and **all
 Developer-tab fields** at once — a quick way to match the mod's load to your hardware.
 
-Cycle it from the **Behavior** tab in `/ai menu`, or set it from chat:
-
-```
-/ai settings preset normal
-/ai settings preset opus
-/ai settings preset potato
-```
+Cycle through **Normal · Opus · Potato** with the preset button on the **Behavior**
+tab in `/ai menu`. Selecting one fills in all the related fields instantly.
 
 | Preset | For | Effect |
 |--------|-----|--------|

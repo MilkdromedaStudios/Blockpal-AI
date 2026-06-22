@@ -4,6 +4,20 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.4.0
+- **Everything's in one panel now.** Open it with **`/ai panel`** (or `/ai menu`).
+  Tabs across the top switch between **Settings** (admins), **Admin** (ops) and
+  **My Settings** (everyone), so you no longer hunt for separate menus.
+- **No more confusing setting commands.** `/ai settings`, `/ai token`, `/ai listen`,
+  `/ai active` and `/ai commands` are gone — change everything in the panel instead.
+  Your everyday commands (summon, follow, come, stay, `/ai mykey`, `/ai model`, …)
+  are unchanged.
+- **Admins can change more from the panel** — allow-commands, permission levels,
+  admin level, the bot cap, bring-your-own-key and model choice are now toggles in
+  the Admin panel, no commands or file-editing needed.
+- **New first-run tutorial.** Fresh installs greet you and open a short how-to
+  walkthrough on first join. Reopen it any time with **`/ai tutorial`**.
+
 ## 3.3.0
 - **Bring your own API key.** Server owners can now make players use their *own*
   API key (so one person isn't stuck with the whole bill). Turn it on with

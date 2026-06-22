@@ -18,7 +18,7 @@ before (shared key, model choice on with a starter list).
 /ai admin requirekey on      # players must use their own key
 /ai admin requirekey off     # back to the shared key for everyone (default)
 ```
-You can also use `/ai settings require_own_key true|false`.
+You can also toggle **Require own API key** in the Admin panel.
 
 ### How a key is chosen for a bot
 A bot is owned by the player who summoned it. For each request Blockpal picks the key:
@@ -60,8 +60,8 @@ whitelist your moderators so they keep using the house key.
 /ai admin models remove <model-id>
 ```
 The list is seeded with a few common models on first run, and the **server default
-model** (`/ai settings model <id>`) is always kept on it. Removing the default isn't
-allowed — change the default first if you need to.
+model** (set in the Settings panel's AI tab) is always kept on it. Removing the
+default isn't allowed — change the default first if you need to.
 
 ### Players pick a model
 ```
@@ -70,10 +70,8 @@ allowed — change the default first if you need to.
 /ai mymenu            # pick from a dropdown in a screen
 ```
 A player's pick only applies if it's on the allowed list. Turn the whole feature off
-(everyone uses the server default) with:
-```
-/ai settings allow_model_choice false
-```
+(everyone uses the server default) with the **Players may pick model** toggle in the
+Admin panel.
 
 ## Where it's stored
 Everything lives in `config/blockpal/config.json`:

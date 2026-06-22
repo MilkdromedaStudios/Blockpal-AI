@@ -2,6 +2,9 @@
 
 Once the mod is [installed](Installation), getting going takes about a minute.
 
+> **First time?** On your first join, Blockpal greets you and opens a short in-game
+> tutorial. You can reopen it any time with **`/ai tutorial`**.
+
 ## 1. Summon your assistant
 
 In-game, run:
@@ -19,13 +22,13 @@ Quick commands (come, follow, stay…) work out of the box, but **AI-planned tas
 an API token.** Blockpal uses HuggingFace's router (OpenAI-compatible) by default.
 
 1. Create a free token at <https://huggingface.co/settings/tokens>.
-2. In-game, run:
-   ```
-   /ai token <your_token>
-   ```
+2. Open the panel with **`/ai menu`** → **AI** tab → paste it into the **API token**
+   field → **Save**. (Server owners can instead set the `BLOCKPAL_API_TOKEN`
+   environment variable so it never touches disk.)
 
-That's it — your token persists in `config/blockpal/config.json` and survives
-mod updates.
+Prefer everyone to use their own key? Each player can set theirs in **`/ai mymenu`**
+(or `/ai mykey <token>`) — see [Per-Player Keys & Models](Per-Player-Keys-and-Models).
+Your token persists in `config/blockpal/config.json` (obfuscated) and survives updates.
 
 ## 3. Try it out
 
@@ -40,12 +43,9 @@ or **[Commands](Commands)** for the slash-command reference.
 
 ## Using a different model or provider
 
-Point it at any OpenAI-compatible endpoint (Ollama, LM Studio, OpenAI…):
-
-```
-/ai settings api_url http://localhost:11434/v1/chat/completions
-/ai settings model <model-id>
-```
+Point it at any OpenAI-compatible endpoint (Ollama, LM Studio, OpenAI…) from the
+panel's **AI** tab — set the **API URL** and **Model** fields, then **Save**
+(e.g. URL `http://localhost:11434/v1/chat/completions`).
 
 More in **[Settings](Settings)**.
 </content>

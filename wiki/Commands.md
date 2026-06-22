@@ -5,7 +5,9 @@ All commands are under `/ai`. Type `/ai help` in-game for the live list.
 | Command | Description |
 |---------|-------------|
 | `/ai help` | Show the in-game command list |
-| `/ai menu` · `/ai config` | Open the settings screen |
+| `/ai tutorial` | Open the how-to walkthrough |
+| `/ai panel` | Open the unified panel (admins → Admin, players → My Settings) |
+| `/ai menu` · `/ai config` | Open the settings screen (admins) |
 | `/ai summon [name]` | Spawn an assistant (default: **Ethan**) |
 | `/ai dismiss` | Remove your assistant |
 | `/ai come` | Call it to you |
@@ -16,13 +18,7 @@ All commands are under `/ai`. Type `/ai help` in-game for the live list.
 | `/ai locate` · `/ai where` | Distance, direction and coords |
 | `/ai name <name>` | Rename it |
 | `/ai skin <name>` | Change skin (built-in or custom PNG) — see [Custom Skins](Custom-Skins) |
-| `/ai token <token>` | Set API token |
-| `/ai listen on\|off` | Toggle chat listening |
-| `/ai active on\|off` | Toggle proactive AI analysis |
-| `/ai commands on\|off` | Allow/block command execution — see [Running Commands](Running-Commands) |
 | `/ai inventory` · `/ai inv` | Show carried items |
-| `/ai settings` | List all current settings |
-| `/ai settings <key> <value>` | Change any one setting (tab-complete the key) — see [Settings](Settings) |
 | `/ai mykey <token>\|clear` | Set/clear **your own** API key — see [Per-Player Keys & Models](Per-Player-Keys-and-Models) |
 | `/ai model [<id>]` · `/ai models` | Pick your bot's model / list allowed models |
 | `/ai mymenu` | Personal settings screen (your model + your key) |
@@ -30,11 +26,12 @@ All commands are under `/ai`. Type `/ai help` in-game for the live list.
 | `/ai admin …` | *(ops only)* Admin panel — see below |
 | `/ai <task>` | Give a natural-language task |
 
-> **Heads-up (3.2.0+):** changing **server-wide settings** is now operator-only.
-> `/ai menu`, `/ai token`, `/ai settings <key> <value>` and
-> `/ai listen\|active\|commands on\|off` require admin permission
+> **No setting commands (3.4.0).** The old `/ai settings`, `/ai token`, `/ai listen`,
+> `/ai active` and `/ai commands` were removed — they were too fiddly. **Configure
+> everything in the panel** (`/ai panel` / `/ai menu`), which is operator-only
 > (`adminPermissionLevel`, default 2 = ops). Everyday commands above stay open to all
-> players, and `/ai settings` (the read-only list) and `/ai help` do too.
+> players. Ops on a **vanilla** client can still configure via the text `/ai admin …`
+> tree (and the `BLOCKPAL_API_TOKEN` environment variable for the shared key).
 
 ## Admin commands (ops only)
 

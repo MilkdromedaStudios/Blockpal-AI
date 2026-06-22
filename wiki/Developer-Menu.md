@@ -5,8 +5,8 @@ from the normal tabs because misconfiguring them can cause **lag spikes, server
 freezes, or crashes**. Each field shows an inline red warning in-game. Only change them
 if you understand what each one does.
 
-You can also set all three from chat (`/ai settings <key> <value>`), or have a
-[performance preset](Performance-Presets) fill them in for you.
+They're on the **Developer** tab of the panel (`/ai menu`); a
+[performance preset](Performance-Presets) can also fill them in for you.
 
 > **TL;DR — what the Developer menu does:** it lets you trade safety for speed/behavior.
 > Lower delays = faster but riskier; disabling the watchdog = no runaway protection;
@@ -85,13 +85,10 @@ permanently.
 
 ## Resetting to defaults
 
-Use `/ai settings` to reset individual values:
-
-```
-/ai settings action_tick_delay 2
-/ai settings max_task_seconds 300
-/ai settings flee_health 0.25
-```
+The safe defaults are **action tick delay 8**, **task watchdog 300 s**, and **flee
+health 0.25**. Set them back on the **Developer** tab, or just pick the **Normal**
+[performance preset](Performance-Presets) on the Behavior tab to restore all three at
+once.
 
 Or open `/ai menu`, switch to the **Developer** tab, and drag the sliders back to their
 default positions before clicking **Save**.

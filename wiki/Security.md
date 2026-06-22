@@ -9,14 +9,15 @@ Blockpal's settings are **server-wide** (one shared config), so changing them is
 restricted to admins:
 
 - **Everyday commands stay open to everyone** — `summon`, `follow`, `come`, `stay`,
-  `stop`, `locate`, `inventory`, `skin`, `name`, and reading `/ai settings` /
-  `/ai help`. (The owner-only rule for *commanding a specific bot* still applies.)
-- **Changing settings is admin-only** — `/ai menu`, `/ai token`,
-  `/ai settings <key> <value>`, `/ai listen|active|commands on|off`, the sneak-click
-  menu, and every `/ai admin …` command.
+  `stop`, `locate`, `inventory`, `skin`, `name`, `/ai help`, `/ai tutorial`, and each
+  player's own `/ai mykey` / `/ai model` / `/ai mymenu`. (The owner-only rule for
+  *commanding a specific bot* still applies.)
+- **Changing server-wide settings is admin-only** — the settings/admin **panel**
+  (`/ai menu` / `/ai panel`), the sneak-click menu, and every `/ai admin …` command.
+  (As of 3.4.0 there are no per-setting commands at all.)
 
 "Admin" means permission level ≥ `adminPermissionLevel` (default **2** = ops). Change
-it with `/ai settings admin_level <0-4>`.
+it in the Admin panel's admin-level control.
 
 ### Why this matters
 

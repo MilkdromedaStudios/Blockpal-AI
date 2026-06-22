@@ -16,14 +16,14 @@ You don't need a slash command to give orders — Blockpal listens to chat.
 ## How it decides
 
 - **Chat listening** — monitors all server chat; trigger words activate the assistant
-  without using its name. Toggle with `/ai listen on|off`.
+  without using its name. Toggle on the **Behavior** tab of the panel (`/ai menu`).
 - **Direct addressing** — `"Ethan, follow me"` / `"Ethan: follow me"`. The name prefix
   is stripped and the rest is run. This always works.
 - **Quick intents** — the common phrases above are handled instantly with no API call.
 - **Active analysis** — with this on (default), the LLM classifies *every* 5+ character
   message within 48 blocks to decide whether you need the assistant and what you want.
-  Rate-limited to about once every 3 seconds to avoid API spam. Toggle with
-  `/ai active on|off`. (Needs a [token](Getting-Started).)
+  Rate-limited to about once every 3 seconds to avoid API spam. Toggle on the
+  **Behavior** tab of the panel. (Needs a [token](Getting-Started).)
 
 ## Owner-only obedience
 
