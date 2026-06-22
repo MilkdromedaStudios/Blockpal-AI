@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "blockpal",
+  "version": "${version}",
+  "name": "Blockpal",
+  "description": "Blockpal — a HuggingFace-powered AI companion that proactively reads chat, builds, fights, and helps — configurable from an in-game menu.",
+  "authors": ["MilkdromedaStudios"],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/blockpal/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.milkdromeda.blockpal.AiAssistantMod"],
+    "client": ["com.milkdromeda.blockpal.client.AiAssistantClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.0",
+    "minecraft": "~26.2",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}

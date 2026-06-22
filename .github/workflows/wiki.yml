@@ -1,0 +1,28 @@
+name: Publish Wiki
+
+on:
+  push:
+    branches: [main] # Runs automatically every single time you push code to main
+  schedule:
+    - cron: '0 * * * *' # Runs automatically every hour as a backup sync
+  workflow_dispatch: # Keeps the manual run button just in case
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-wiki
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync wiki/ to the GitHub Wiki
+        uses: Andrew-Chen-Wang/github-wiki-action@v4
+        with:
+          path: wiki/
+          token: ${{ secrets.GITHUB_TOKEN }}
