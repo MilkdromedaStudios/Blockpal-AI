@@ -16,7 +16,7 @@ On by default. Turn it off with `/ai commands off` or the **Allow commands** swi
 The command-block tier. At the default level **2** it can run building/utility commands
 like `/setblock`, `/fill`, `/clone`, `/give`, `/summon`, `/tp`, `/effect`, `/time`,
 `/weather`, but **not** server-admin commands. Adjust with the **Command perm level**
-slider (`/ai settings command_level <n>`).
+control in the panel (Combat tab, or the Admin panel).
 
 ## 3. Denylist
 

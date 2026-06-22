@@ -39,6 +39,7 @@ public final class AiNetworking {
         PayloadTypeRegistry.clientboundPlay().register(ConfigSyncPayload.TYPE, ConfigSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(AdminSyncPayload.TYPE, AdminSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(PlayerPrefsSyncPayload.TYPE, PlayerPrefsSyncPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(OpenTutorialPayload.TYPE, OpenTutorialPayload.CODEC);
     }
 
     /** Sends the current config to a player so their client opens the settings menu. */
@@ -60,6 +61,13 @@ public final class AiNetworking {
     public static boolean openPlayerMenuFor(ServerPlayer player) {
         if (!ServerPlayNetworking.canSend(player, PlayerPrefsSyncPayload.TYPE)) return false;
         ServerPlayNetworking.send(player, PlayerPrefsSyncPayload.forPlayer(player));
+        return true;
+    }
+
+    /** Opens the how-to tutorial screen for a player. @return false if their client can't show it. */
+    public static boolean openTutorialFor(ServerPlayer player) {
+        if (!ServerPlayNetworking.canSend(player, OpenTutorialPayload.TYPE)) return false;
+        ServerPlayNetworking.send(player, new OpenTutorialPayload());
         return true;
     }
 
@@ -132,9 +140,11 @@ public final class AiNetworking {
                             payload.action(), player.getName().getString(), player.getUUID());
                     return;
                 }
-                handleAdminAction(server, player, payload);
-                // Reply with a fresh snapshot so the menu reflects the new state.
-                if (ServerPlayNetworking.canSend(player, AdminSyncPayload.TYPE)) {
+                boolean resync = handleAdminAction(server, player, payload);
+                // Re-sync only for one-shot actions (kill all, enable/disable, refresh).
+                // In-place setting toggles update their own widget, so re-opening the
+                // screen for them would just reset the scroll position.
+                if (resync && ServerPlayNetworking.canSend(player, AdminSyncPayload.TYPE)) {
                     ServerPlayNetworking.send(player, new AdminSyncPayload(AdminStatsData.gather(server)));
                 }
             });
@@ -172,38 +182,72 @@ public final class AiNetworking {
         });
     }
 
-    private static void handleAdminAction(MinecraftServer server, ServerPlayer who, AdminActionPayload payload) {
+    /** Performs an admin action. @return true if the menu should be re-synced afterwards. */
+    private static boolean handleAdminAction(MinecraftServer server, ServerPlayer who, AdminActionPayload payload) {
         String action = payload.action() == null ? "" : payload.action().toLowerCase(Locale.ROOT);
+        ModConfig cfg = ModConfig.get();
+        int value = payload.value();
         switch (action) {
+            // ── one-shot actions (broadcast + re-sync the panel) ──
             case "killall" -> {
                 int n = AiAssistantEntity.killAll(server);
                 AiAssistantMod.LOGGER.info("[Admin] {} removed all bots ({})", who.getName().getString(), n);
                 server.getPlayerList().broadcastSystemMessage(Component.literal(
                         "§c[Blockpal] An admin removed all bots (" + n + ")."), false);
+                return true;
             }
             case "disable" -> {
                 EmergencyState.setDisabled(true);
                 AiAssistantMod.LOGGER.info("[Admin] {} disabled Blockpal", who.getName().getString());
                 server.getPlayerList().broadcastSystemMessage(Component.literal(
                         "§c[Blockpal] Bots disabled by an admin. Use §e/ai resume§c to re-enable."), false);
+                return true;
             }
             case "enable" -> {
                 EmergencyState.setDisabled(false);
                 AiAssistantMod.LOGGER.info("[Admin] {} re-enabled Blockpal", who.getName().getString());
                 server.getPlayerList().broadcastSystemMessage(Component.literal(
                         "§a[Blockpal] Bots re-enabled by an admin."), false);
+                return true;
             }
+            case "refresh" -> { return true; }
+
+            // ── in-place setting toggles (saved silently; widget self-updates) ──
             case "maxbots" -> {
-                int n = Math.max(0, Math.min(50, payload.value()));
-                ModConfig.get().maxBotsPerServer = n;
+                cfg.maxBotsPerServer = Math.max(0, Math.min(50, value));
                 ModConfig.save();
-                AiAssistantMod.LOGGER.info("[Admin] {} set max bots = {}", who.getName().getString(), n);
-                who.sendSystemMessage(Component.literal("§a[Blockpal] Max bots per server = "
-                        + (n == 0 ? "unlimited" : n)));
+                AiAssistantMod.LOGGER.info("[Admin] {} set max bots = {}", who.getName().getString(), cfg.maxBotsPerServer);
+                return false;
             }
-            case "refresh" -> { /* snapshot is re-sent by the caller */ }
-            default -> AiAssistantMod.LOGGER.warn("Unknown admin action '{}' from {}",
-                    action, who.getName().getString());
+            case "adminlevel" -> {
+                cfg.adminPermissionLevel = Math.max(0, Math.min(4, value));
+                ModConfig.save();
+                return false;
+            }
+            case "commandlevel" -> {
+                cfg.commandPermissionLevel = Math.max(0, Math.min(4, value));
+                ModConfig.save();
+                return false;
+            }
+            case "allowcommands" -> {
+                cfg.allowCommands = value != 0;
+                ModConfig.save();
+                return false;
+            }
+            case "requirekey" -> {
+                cfg.requireOwnApiKey = value != 0;
+                ModConfig.save();
+                return false;
+            }
+            case "modelchoice" -> {
+                cfg.allowPlayerModelChoice = value != 0;
+                ModConfig.save();
+                return false;
+            }
+            default -> {
+                AiAssistantMod.LOGGER.warn("Unknown admin action '{}' from {}", action, who.getName().getString());
+                return false;
+            }
         }
     }
 }

@@ -26,7 +26,7 @@ public class ModConfig {
      * default instead of silently inheriting Java's zero/false. A file with no
      * version at all reads back as {@code 0} and is migrated from there.
      */
-    public static final int CURRENT_CONFIG_VERSION = 3;
+    public static final int CURRENT_CONFIG_VERSION = 4;
 
     // Settings (including the API key) live in their own folder under the game's
     // config directory. That directory is untouched when you replace the mod jar,
@@ -149,6 +149,11 @@ public class ModConfig {
     // when unset, disallowed, or player choice is turned off.
     public Map<String, String> playerModels = new HashMap<>();
 
+    // Whether the first-run tutorial has already been shown. Fresh installs start
+    // false (so the tutorial auto-opens once); upgrading installs are set true by
+    // migrate() so existing servers aren't nagged.
+    public boolean tutorialShown = false;
+
     // Schema version this file was written with — see CURRENT_CONFIG_VERSION.
     // Used only for migration; players don't need to touch it.
     public int configVersion = CURRENT_CONFIG_VERSION;
@@ -235,6 +240,11 @@ public class ModConfig {
             requireOwnApiKey = false;
             allowPlayerModelChoice = true;
             // Collections are seeded/guarded in normalize().
+        }
+        if (configVersion < 4) {
+            // The tutorial was added in v4. An existing install already knows the
+            // mod, so don't pop the tutorial for them — only fresh installs see it.
+            tutorialShown = true;
         }
         configVersion = CURRENT_CONFIG_VERSION;
     }

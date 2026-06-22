@@ -65,41 +65,12 @@ public class AiCommands {
                                 .then(Commands.argument("skin", StringArgumentType.greedyString())
                                         .executes(ctx -> setSkin(ctx, StringArgumentType.getString(ctx, "skin")))))
 
-                        .then(Commands.literal("token")
-                                .then(Commands.argument("token", StringArgumentType.greedyString())
-                                        .executes(ctx -> setToken(ctx, StringArgumentType.getString(ctx, "token")))))
-
-                        .then(Commands.literal("listen")
-                                .executes(AiCommands::showListen)
-                                .then(Commands.literal("on").executes(ctx -> setListen(ctx, true)))
-                                .then(Commands.literal("off").executes(ctx -> setListen(ctx, false))))
-
-                        .then(Commands.literal("active")
-                                .executes(AiCommands::showActive)
-                                .then(Commands.literal("on").executes(ctx -> setActive(ctx, true)))
-                                .then(Commands.literal("off").executes(ctx -> setActive(ctx, false))))
-
-                        .then(Commands.literal("commands")
-                                .executes(AiCommands::showCommandsSetting)
-                                .then(Commands.literal("on").executes(ctx -> setAllowCommands(ctx, true)))
-                                .then(Commands.literal("off").executes(ctx -> setAllowCommands(ctx, false))))
-
-                        // open the real settings screen (client must have the mod)
+                        // Configuration lives in the in-game panel now — no confusing
+                        // per-setting commands. /ai menu (or /ai panel) opens it;
+                        // /ai tutorial walks new players through everything.
                         .then(Commands.literal("menu").executes(AiCommands::openMenu))
                         .then(Commands.literal("config").executes(AiCommands::openMenu))
-
-                        // ── advanced settings ────────────────────────────────────────
-                        // One generic setter covers every config value (tab-complete the
-                        // key) so the command surface stays small. /ai settings alone lists
-                        // the current values.
-                        .then(Commands.literal("settings")
-                                .executes(AiCommands::showSettings)
-                                .then(Commands.argument("key", StringArgumentType.word())
-                                        .suggests(SETTING_KEYS_SUGGEST)
-                                        .then(Commands.argument("value", StringArgumentType.greedyString())
-                                                .executes(ctx -> applySetting(ctx,
-                                                        StringArgumentType.getString(ctx, "key"),
-                                                        StringArgumentType.getString(ctx, "value"))))))
+                        .then(Commands.literal("tutorial").executes(AiCommands::openTutorial))
 
                         // ── personal API key & model (open to everyone) ──────────────
                         // Each player can set their own API key (so a server can bill
@@ -110,6 +81,7 @@ public class AiCommands {
                                 .then(Commands.argument("token", StringArgumentType.greedyString())
                                         .executes(ctx -> setMyKey(ctx, StringArgumentType.getString(ctx, "token")))))
                         .then(Commands.literal("mymenu").executes(AiCommands::openPlayerMenu))
+                        .then(Commands.literal("panel").executes(AiCommands::openPanel))
                         .then(Commands.literal("models").executes(AiCommands::listModels))
                         .then(Commands.literal("model")
                                 .executes(AiCommands::listModels)
@@ -184,25 +156,20 @@ public class AiCommands {
                 "§7It fights back while it thinks, runs commands, and keeps going on patrols.\n" +
                 "§6\n" +
                 "§eCommands:\n" +
-                "§f/ai menu §7— open the settings screen\n" +
                 "§f/ai summon [name] §7— bring a new assistant into the world\n" +
-                "§f/ai skin <name> §7— give it a skin (built-in, or your own PNG; see /aiskins)\n" +
-                "§f/ai come §7— call it over to you\n" +
-                "§f/ai follow §7— have it follow you\n" +
-                "§f/ai stay §7— hold position and keep watch\n" +
-                "§f/ai stop §7— cancel what it's doing\n" +
+                "§f/ai come §7· §ffollow §7· §fstay §7· §fstop §7— basic orders\n" +
                 "§f/ai locate §7— find where it is\n" +
                 "§f/ai inventory §7— see what it's carrying and wearing\n" +
-                "§f/ai <task> §7— tell it what to do (e.g. /ai build a 5x5 floor)\n" +
+                "§f/ai skin <name> §7— give it a skin (built-in, or your own PNG; see /aiskins)\n" +
                 "§f/ai name <name> §7— rename it\n" +
-                "§f/ai token <token> §7— set your AI service token\n" +
-                "§f/ai listen on|off §7— toggle chat listening\n" +
-                "§f/ai active on|off §7— toggle proactive analysis of every message\n" +
-                "§f/ai commands on|off §7— let it run commands (/setblock, /fill, redstone…)\n" +
+                "§f/ai <task> §7— tell it what to do (e.g. /ai build a 5x5 floor)\n" +
                 "§f/ai dismiss §7— send it away\n" +
+                "§6\n" +
+                "§eSettings live in the panel — no confusing setting commands:\n" +
+                "§f/ai panel §7— the unified menu (tabs: Settings · Admin · My Settings)\n" +
                 "§f/ai mykey <token>§7 · §f/ai model <id>§7 · §f/ai mymenu §7— your own API key & model\n" +
-                "§f/ai settings §7— list settings; §f/ai settings <key> <value>§7 changes any one\n" +
-                "§f/ai admin §7— (ops) admin panel: manage/kill all bots, stats, bot cap, keys & models"
+                "§f/ai tutorial §7— a quick walkthrough of how to use Blockpal\n" +
+                "§f/ai admin §7— (ops) admin panel & global controls"
         ));
         return 1;
     }
@@ -341,26 +308,7 @@ public class AiCommands {
         return 1;
     }
 
-    // ── token / listen ──────────────────────────────────────────────────────────
-
-    private static int setToken(CommandContext<CommandSourceStack> ctx, String token) {
-        ServerPlayer player = getPlayer(ctx);
-        if (player == null) return 0;
-        if (denyIfNotAdmin(ctx)) return 0;
-        ModConfig.get().setToken(token);
-        ModConfig.save();
-        player.sendSystemMessage(Component.literal("§aAPI token saved ✓ §7Your assistant can now take tasks."));
-        return 1;
-    }
-
-    private static int showListen(CommandContext<CommandSourceStack> ctx) {
-        ServerPlayer player = getPlayer(ctx);
-        if (player == null) return 0;
-        boolean on = ModConfig.get().chatListening;
-        player.sendSystemMessage(Component.literal(
-                "§eChat listening is " + (on ? "§aON" : "§cOFF") + "§e. Use /ai listen on|off to change it."));
-        return 1;
-    }
+    // ── re-enable after the FPS kill switch ─────────────────────────────────────
 
     private static int resume(CommandContext<CommandSourceStack> ctx) {
         ServerPlayer player = getPlayer(ctx);
@@ -375,64 +323,6 @@ public class AiCommands {
         return 1;
     }
 
-    private static int setListen(CommandContext<CommandSourceStack> ctx, boolean on) {
-        ServerPlayer player = getPlayer(ctx);
-        if (player == null) return 0;
-        if (denyIfNotAdmin(ctx)) return 0;
-        ModConfig.get().chatListening = on;
-        ModConfig.save();
-        player.sendSystemMessage(Component.literal(on
-                ? "§aChat listening ON §7— just talk to your assistant in chat."
-                : "§cChat listening OFF §7— use /ai commands instead."));
-        return 1;
-    }
-
-    private static int showActive(CommandContext<CommandSourceStack> ctx) {
-        ServerPlayer player = getPlayer(ctx);
-        if (player == null) return 0;
-        boolean on = ModConfig.get().activeMode;
-        player.sendSystemMessage(Component.literal(
-                "§eActive analysis is " + (on ? "§aON" : "§cOFF")
-                        + "§e. Use /ai active on|off to change it."));
-        return 1;
-    }
-
-    private static int setActive(CommandContext<CommandSourceStack> ctx, boolean on) {
-        ServerPlayer player = getPlayer(ctx);
-        if (player == null) return 0;
-        if (denyIfNotAdmin(ctx)) return 0;
-        ModConfig.get().activeMode = on;
-        ModConfig.save();
-        player.sendSystemMessage(Component.literal(on
-                ? "§aActive analysis ON §7— I'll read every message and help when it sounds like you need me."
-                : "§cActive analysis OFF §7— I'll only respond when addressed by name or a command word."));
-        return 1;
-    }
-
-    private static int showCommandsSetting(CommandContext<CommandSourceStack> ctx) {
-        ServerPlayer player = getPlayer(ctx);
-        if (player == null) return 0;
-        ModConfig cfg = ModConfig.get();
-        player.sendSystemMessage(Component.literal(
-                "§eRunning commands is " + (cfg.allowCommands ? "§aON" : "§cOFF")
-                        + "§e (permission level " + cfg.commandPermissionLevel
-                        + "). Use /ai commands on|off."));
-        return 1;
-    }
-
-    private static int setAllowCommands(CommandContext<CommandSourceStack> ctx, boolean on) {
-        ServerPlayer player = getPlayer(ctx);
-        if (player == null) return 0;
-        if (denyIfNotAdmin(ctx)) return 0;
-        ModConfig.get().allowCommands = on;
-        ModConfig.save();
-        player.sendSystemMessage(Component.literal(on
-                ? "§aCommand execution ON §7— I can now use /setblock, /fill, /give, etc. (level "
-                        + ModConfig.get().commandPermissionLevel + ")."
-                : "§cCommand execution OFF §7— I'll stick to moving, building and fighting by hand."));
-        return 1;
-    }
-
     // ── config menu ───────────────────────────────────────────────────────────
 
     private static int openMenu(CommandContext<CommandSourceStack> ctx) {
@@ -443,7 +333,7 @@ public class AiCommands {
         if (!ServerPlayNetworking.canSend(player, ConfigSyncPayload.TYPE)) {
             player.sendSystemMessage(Component.literal(
                     "§eThe settings menu needs the Blockpal mod on your client. "
-                            + "Use §f/ai settings§e here instead."));
+                            + "On a vanilla client, use §f/ai admin§e for text-based controls."));
             return 0;
         }
         ServerPlayNetworking.send(player, new ConfigSyncPayload(ConfigData.fromConfig()));
@@ -451,166 +341,12 @@ public class AiCommands {
         return 1;
     }
 
-    // ── advanced settings ─────────────────────────────────────────────────────
-
-    private static int showSettings(CommandContext<CommandSourceStack> ctx) {
-        ServerPlayer player = getPlayer(ctx);
-        if (player == null) return 0;
-
-        ModConfig cfg = ModConfig.get();
-        AiAssistantEntity ai = AiAssistantEntity.findFor(player, 128);
-        String aiName = ai != null ? ai.getAssistantName() : "none nearby";
-        String mode   = ai != null ? ai.getMode().name() : "-";
-
-        player.sendSystemMessage(Component.literal(
-                "§6=== Blockpal Settings ===\n" +
-                "§eAssistant:      §f" + aiName + "  (mode: " + mode + ")\n" +
-                "§eChat listening: §f" + (cfg.chatListening ? "on" : "off") + "\n" +
-                "§eActive analysis:§f " + (cfg.activeMode ? "on" : "off") + "\n" +
-                "§eRun commands:   §f" + (cfg.allowCommands ? "on (level " + cfg.commandPermissionLevel + ")" : "off") + "\n" +
-                "§eAdmin level:    §f" + cfg.adminPermissionLevel + "  §7(/ai settings admin_level <0-4>)\n" +
-                "§eMax bots:       §f" + (cfg.maxBotsPerServer == 0 ? "unlimited" : cfg.maxBotsPerServer) + "\n" +
-                "§eModel:          §f" + cfg.hfModel + "\n" +
-                "§eAPI URL:        §f" + cfg.apiUrl + "\n" +
-                "§eAPI token:      §f" + (cfg.hasApiToken()
-                        ? ("set ✓" + (cfg.isTokenFromEnv() ? " §7(from env)" : "")) : "§cnot set — /ai token <token>") + "\n" +
-                "§eOwn key req'd:  §f" + (cfg.requireOwnApiKey ? "yes §7(whitelist: " + cfg.ownKeyWhitelist.size() + ")" : "no") + "\n" +
-                "§eModel choice:   §f" + (cfg.allowPlayerModelChoice ? "players may pick" : "locked") + " §7(" + cfg.allowedModels.size() + " models)\n" +
-                "§eTemperature:    §f" + cfg.temperature + "\n" +
-                "§eMax tokens:     §f" + cfg.maxNewTokens + "\n" +
-                "§eFollow dist:    §f" + cfg.followDistance + "\n" +
-                "§eGuard radius:   §f" + cfg.guardRadius + "\n" +
-                "§eMax task secs:  §f" + (cfg.maxTaskSeconds == 0 ? "unlimited" : cfg.maxTaskSeconds) + "\n" +
-                "§eSneak→menu:     §f" + (cfg.sneakToOpenMenu ? "on" : "off") + "\n" +
-                "§7Tip: open the full menu with §f/ai menu§7"
-                        + (cfg.sneakToOpenMenu ? " (or sneak-right-click the assistant)" : "") + ". "
-                        + "Or change any value with §f/ai settings <key> <value>§7 (tab-complete the key)."
-        ));
-        return 1;
-    }
-
-    /** Every key accepted by {@code /ai settings <key> <value>}. */
-    private static final String[] SETTING_KEYS = {
-            "name", "skin", "model", "api_url", "token", "temperature", "max_tokens",
-            "follow_distance", "guard_radius", "command_level", "admin_level", "max_bots",
-            "max_task_seconds", "action_tick_delay", "flee_health", "chat_listening",
-            "active_mode", "allow_commands", "debug_logging", "sneak_menu", "preset",
-            "require_own_key", "allow_model_choice"
-    };
-
     /** Suggests the server's allowed models for model arguments. */
     private static final com.mojang.brigadier.suggestion.SuggestionProvider<CommandSourceStack> ALLOWED_MODELS_SUGGEST =
             (ctx, builder) -> {
                 for (String m : ModConfig.get().allowedModels) builder.suggest(m);
                 return builder.buildFuture();
             };
-
-    private static final com.mojang.brigadier.suggestion.SuggestionProvider<CommandSourceStack> SETTING_KEYS_SUGGEST =
-            (ctx, builder) -> {
-                String remaining = builder.getRemaining().toLowerCase(java.util.Locale.ROOT);
-                for (String key : SETTING_KEYS) {
-                    if (key.startsWith(remaining)) builder.suggest(key);
-                }
-                return builder.buildFuture();
-            };
-
-    /** Generic setter for any config value, parsing {@code raw} to the key's type. */
-    private static int applySetting(CommandContext<CommandSourceStack> ctx, String key, String raw) {
-        ServerPlayer player = getPlayer(ctx);
-        if (player == null) return 0;
-        if (denyIfNotAdmin(ctx)) return 0;
-        ModConfig cfg = ModConfig.get();
-        key = key.toLowerCase(java.util.Locale.ROOT).trim();
-        String value = raw.trim();
-
-        try {
-            switch (key) {
-                case "name"              -> cfg.defaultName = require(value);
-                case "skin"              -> cfg.defaultSkin = require(value);
-                case "model"             -> cfg.hfModel = require(value);
-                case "api_url"           -> cfg.apiUrl = require(value);
-                case "token"             -> cfg.setToken(value);
-                case "temperature"       -> cfg.temperature = clampD(parseD(value), 0.0, 2.0);
-                case "max_tokens"        -> cfg.maxNewTokens = clampI(parseI(value), 32, 2048);
-                case "follow_distance"   -> cfg.followDistance = clampD(parseD(value), 1.0, 32.0);
-                case "guard_radius"      -> cfg.guardRadius = clampD(parseD(value), 4.0, 64.0);
-                case "command_level"     -> cfg.commandPermissionLevel = clampI(parseI(value), 0, 4);
-                case "admin_level"       -> cfg.adminPermissionLevel = clampI(parseI(value), 0, 4);
-                case "max_bots"          -> cfg.maxBotsPerServer = clampI(parseI(value), 0, 50);
-                case "max_task_seconds"  -> cfg.maxTaskSeconds = clampI(parseI(value), 0, 3600);
-                case "action_tick_delay" -> cfg.actionTickDelay = clampI(parseI(value), 0, 40);
-                case "flee_health"       -> cfg.fleeHealthPercent = clampD(parseD(value), 0.0, 1.0);
-                case "chat_listening"    -> cfg.chatListening = parseBool(value);
-                case "active_mode"       -> cfg.activeMode = parseBool(value);
-                case "allow_commands"    -> cfg.allowCommands = parseBool(value);
-                case "require_own_key"   -> cfg.requireOwnApiKey = parseBool(value);
-                case "allow_model_choice"-> cfg.allowPlayerModelChoice = parseBool(value);
-                case "debug_logging"     -> cfg.debugLogging = parseBool(value);
-                case "sneak_menu"        -> cfg.sneakToOpenMenu = parseBool(value);
-                case "preset"            -> applyPreset(cfg, value);
-                default -> {
-                    player.sendSystemMessage(Component.literal(
-                            "§cUnknown setting §f" + key + "§c. Valid keys: §7" + String.join(", ", SETTING_KEYS)));
-                    return 0;
-                }
-            }
-        } catch (NumberFormatException e) {
-            player.sendSystemMessage(Component.literal("§cInvalid value §f" + value + "§c for §f" + key + "§c."));
-            return 0;
-        } catch (IllegalArgumentException e) {
-            player.sendSystemMessage(Component.literal("§c" + e.getMessage()));
-            return 0;
-        }
-
-        ModConfig.save();
-        String shown = key.equals("token") ? (value.isBlank() ? "cleared" : "set ✓") : value;
-        player.sendSystemMessage(Component.literal("§a[Settings] §f" + key + " §7= §f" + shown));
-        return 1;
-    }
-
-    /** Applies a performance preset's values to the live config (mirrors the GUI button). */
-    private static void applyPreset(ModConfig cfg, String preset) {
-        switch (preset.toLowerCase(java.util.Locale.ROOT)) {
-            case "opus" -> {
-                cfg.chatListening = true; cfg.activeMode = true;
-                cfg.temperature = 0.8; cfg.maxNewTokens = 1024;
-                cfg.actionTickDelay = 2; cfg.maxTaskSeconds = 600; cfg.fleeHealthPercent = 0.2;
-                cfg.performancePreset = "opus";
-            }
-            case "potato" -> {
-                cfg.chatListening = true; cfg.activeMode = false;
-                cfg.temperature = 0.5; cfg.maxNewTokens = 256;
-                cfg.actionTickDelay = 20; cfg.maxTaskSeconds = 120; cfg.fleeHealthPercent = 0.25;
-                cfg.performancePreset = "potato";
-            }
-            case "normal" -> {
-                cfg.chatListening = true; cfg.activeMode = true;
-                cfg.temperature = 0.7; cfg.maxNewTokens = 512;
-                cfg.actionTickDelay = 8; cfg.maxTaskSeconds = 300; cfg.fleeHealthPercent = 0.25;
-                cfg.performancePreset = "normal";
-            }
-            default -> throw new IllegalArgumentException("Preset must be normal, opus or potato.");
-        }
-    }
-
-    private static String require(String v) {
-        if (v == null || v.isBlank()) throw new IllegalArgumentException("Value can't be empty.");
-        return v;
-    }
-
-    private static double parseD(String v) { return Double.parseDouble(v); }
-    private static int parseI(String v) { return Integer.parseInt(v); }
-
-    private static boolean parseBool(String v) {
-        return switch (v.toLowerCase(java.util.Locale.ROOT)) {
-            case "on", "true", "yes", "1", "enable", "enabled" -> true;
-            case "off", "false", "no", "0", "disable", "disabled" -> false;
-            default -> throw new IllegalArgumentException("Use on/off (or true/false) for " + v + ".");
-        };
-    }
-
-    private static double clampD(double v, double lo, double hi) { return Math.max(lo, Math.min(hi, v)); }
-    private static int clampI(int v, int lo, int hi) { return Math.max(lo, Math.min(hi, v)); }
 
     // ── /ai <task> ────────────────────────────────────────────────────────────
 
@@ -621,9 +357,10 @@ public class AiCommands {
         AiAssistantEntity ai = AiAssistantEntity.findFor(player, 128);
         if (ai == null) return noAi(player);
 
-        if (!ModConfig.get().hasApiToken()) {
-            player.sendSystemMessage(Component.literal(
-                    "§c[AI] No API token set yet. Run: §f/ai token <your_token>"));
+        if (!ai.hasUsableApiKey()) {
+            player.sendSystemMessage(Component.literal(ModConfig.get().requireOwnApiKey
+                    ? "§c[AI] You need your own API key — set it in §f/ai mymenu§c or with §f/ai mykey <token>§c."
+                    : "§c[AI] No API key set yet. An admin can add one in §f/ai menu§c (AI tab)."));
             return 0;
         }
 
@@ -847,6 +584,45 @@ public class AiCommands {
         }
         return 1;
     }
+
+    /** One entry point to the unified panel: the admin panel for ops, else the personal one. */
+    private static int openPanel(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        if (AdminAccess.isAdmin(player)) {
+            if (!ServerPlayNetworking.canSend(player, AdminSyncPayload.TYPE)) {
+                player.sendSystemMessage(Component.literal("§eThe panel needs the Blockpal mod on your client."));
+                return 0;
+            }
+            AiNetworking.openAdminMenuFor(player);
+            return 1;
+        }
+        if (!AiNetworking.openPlayerMenuFor(player)) {
+            player.sendSystemMessage(Component.literal(
+                    "§eThe panel needs the Blockpal mod on your client. Use §f/ai mykey§e and §f/ai model§e instead."));
+            return 0;
+        }
+        return 1;
+    }
+
+    /** Opens the how-to tutorial screen, or prints a text version on a vanilla client. */
+    private static int openTutorial(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        if (!AiNetworking.openTutorialFor(player)) {
+            player.sendSystemMessage(Component.literal(TUTORIAL_TEXT));
+        }
+        return 1;
+    }
+
+    private static final String TUTORIAL_TEXT =
+            "§6=== Welcome to Blockpal ===\n" +
+            "§71) §fSpawn your companion: §a/ai summon\n" +
+            "§72) §fJust talk in chat — \"follow me\", \"come\", \"stay\", \"stop\", or ask it to build/mine/fight.\n" +
+            "§73) §fGive a task directly: §a/ai <task>§7 (e.g. /ai build a 5x5 floor).\n" +
+            "§74) §fSettings are all in one panel: §a/ai panel§7 (tabs: Settings · Admin · My Settings).\n" +
+            "§75) §fAI needs a key: an admin sets one in the panel, or bring your own with §a/ai mykey <token>§7.\n" +
+            "§7Open this again any time with §a/ai tutorial§7.";
 
     // ── admin: bring-your-own-key controls & the model list ─────────────────────
 

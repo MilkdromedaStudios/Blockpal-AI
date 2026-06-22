@@ -32,6 +32,10 @@ public record AdminStatsData(
         int commandLevel,
         boolean tokenSet,
         boolean tokenFromEnv,
+        boolean requireOwnKey,
+        boolean allowModelChoice,
+        int allowedModelCount,
+        int keyWhitelistCount,
         List<PlayerRow> players,
         List<BotRow> bots
 ) {
@@ -80,6 +84,10 @@ public record AdminStatsData(
                 cfg.commandPermissionLevel,
                 cfg.hasApiToken(),
                 cfg.isTokenFromEnv(),
+                cfg.requireOwnApiKey,
+                cfg.allowPlayerModelChoice,
+                cfg.allowedModels.size(),
+                cfg.ownKeyWhitelist.size(),
                 playerRows,
                 botRows);
     }
@@ -100,6 +108,10 @@ public record AdminStatsData(
         buf.writeInt(d.commandLevel);
         buf.writeBoolean(d.tokenSet);
         buf.writeBoolean(d.tokenFromEnv);
+        buf.writeBoolean(d.requireOwnKey);
+        buf.writeBoolean(d.allowModelChoice);
+        buf.writeInt(d.allowedModelCount);
+        buf.writeInt(d.keyWhitelistCount);
         buf.writeInt(d.players.size());
         for (PlayerRow r : d.players) {
             buf.writeUtf(r.name());
@@ -128,6 +140,10 @@ public record AdminStatsData(
         int commandLevel = buf.readInt();
         boolean tokenSet = buf.readBoolean();
         boolean tokenFromEnv = buf.readBoolean();
+        boolean requireOwnKey = buf.readBoolean();
+        boolean allowModelChoice = buf.readBoolean();
+        int allowedModelCount = buf.readInt();
+        int keyWhitelistCount = buf.readInt();
 
         int pc = buf.readInt();
         List<PlayerRow> players = new ArrayList<>();
@@ -141,6 +157,7 @@ public record AdminStatsData(
                     buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt()));
         }
         return new AdminStatsData(totalBots, maxBots, modDisabled, adminLevel, allowCommands,
-                commandLevel, tokenSet, tokenFromEnv, players, bots);
+                commandLevel, tokenSet, tokenFromEnv, requireOwnKey, allowModelChoice,
+                allowedModelCount, keyWhitelistCount, players, bots);
     }
 }

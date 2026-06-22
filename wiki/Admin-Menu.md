@@ -6,17 +6,33 @@ bot limit, and see live stats (bots, players, FPS).
 
 > **Who can use it?** Anyone at the **admin permission level** — `adminPermissionLevel`,
 > default **2** (ops). On a normal server, operators qualify; in single-player, the
-> world owner with cheats on qualifies. Change it with
-> `/ai settings admin_level <0-4>` (0 = everyone, 2 = ops, 4 = full operator / world
-> owner only). Non-admins can't see or run any `/ai admin` command.
+> world owner with cheats on qualifies. Change it right in the panel (the **Admin
+> level** control), or it falls back to 2. Non-admins can't see or run any `/ai admin`
+> command.
 
 ## Opening it
 
+The panel is one of three tabs (**Settings · Admin · My Settings**) shared across
+every Blockpal screen, so you can reach it from any of them.
+
 | How | Notes |
 |-----|-------|
-| `/ai admin menu` | Opens the visual panel (needs the Blockpal mod on your client) |
+| `/ai panel` | Opens the unified panel (admins land on the Admin tab) |
+| `/ai admin menu` | Opens the visual panel directly (needs the mod on your client) |
 | `/ai admin stats` | Text summary — works on any client and from the server console |
 | `/ai admin list` | Text list of every bot and where it is |
+
+## Change settings here (3.4.0)
+
+The Admin tab now has **in-place controls** so you configure the server without any
+commands or file-editing — click a toggle, or cycle a 0–4 level:
+
+- **Allow commands**, **Command perm level**, **Admin level**, **Max bots**,
+  **Require own API key**, **Players may pick model**.
+
+These save instantly and silently (the panel keeps your scroll position). The two
+lists — allowed models and the own-key whitelist — are still managed with
+`/ai admin models …` and `/ai admin keylist …`.
 
 ## What it shows
 
@@ -36,7 +52,7 @@ bot limit, and see live stats (bots, players, FPS).
 |--------|---------|--------|
 | **Kill all bots** | `/ai admin killall` | Removes every Blockpal entity on the server |
 | **Disable bots** / **Enable bots** | `/ai admin disable` · `/ai admin enable` | Flips the mod-wide kill switch for everyone (same switch as the FPS guardian / `/ai resume`) |
-| **Max bots −/＋** | `/ai admin maxbots <0-50>` | Sets the server-wide bot cap (`0` = unlimited) |
+| **Max bots** (cycler) | `/ai admin maxbots <0-50>` | Sets the server-wide bot cap (`0` = unlimited) |
 | **Refresh** | — | Re-reads the current stats |
 | — | `/ai admin reload` | Reloads `config.json` from disk |
 
@@ -48,8 +64,8 @@ stats. A modified client can't bypass that check.
 
 `maxBotsPerServer` (default **8**) caps how many companions can exist at once. When
 the server is at the cap, `/ai summon` refuses with a message pointing players at an
-admin. Raise/lower it from the menu, with `/ai admin maxbots <n>`, or via
-`/ai settings max_bots <n>`. Set it to `0` for no limit.
+admin. Raise/lower it with the panel's **Max bots** cycler or `/ai admin maxbots <n>`.
+Set it to `0` for no limit.
 
 ## See also
 

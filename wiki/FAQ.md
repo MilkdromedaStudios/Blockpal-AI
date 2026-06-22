@@ -23,7 +23,7 @@ Command execution is off-limited by a permission level and a denylist of admin c
 and is toggleable. See [Running Commands](Running-Commands).
 
 **It's lagging my game — what do I do?**
-Apply the **Potato** preset (`/ai settings preset potato`). If FPS fully collapses the
+Apply the **Potato** preset (Behavior tab of `/ai menu`). If FPS fully collapses the
 [emergency kill-switch](Performance-Presets) stops the mod; recover and run `/ai resume`.
 See also [Troubleshooting](Troubleshooting).
 

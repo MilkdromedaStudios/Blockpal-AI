@@ -6,7 +6,10 @@ import com.milkdromeda.blockpal.config.ModConfig;
 import com.milkdromeda.blockpal.entity.AiAssistantEntity;
 import com.milkdromeda.blockpal.network.AiNetworking;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,10 +26,32 @@ public class AiAssistantMod implements ModInitializer {
         AiNetworking.registerServerReceivers();
         AiCommands.register();
         ChatListener.register();
+        registerFirstRunTutorial();
 
         LOGGER.info("Blockpal mod initialized.");
         if (!ModConfig.get().hasApiToken()) {
-            LOGGER.warn("No AI API token set. Use /ai token <token> in-game to enable AI tasks.");
+            LOGGER.warn("No AI API token set yet. Set one in-game from /ai menu (AI tab), "
+                    + "or via the BLOCKPAL_API_TOKEN environment variable.");
         }
+    }
+
+    /**
+     * On the first player join after a fresh install (no config folder yet), greet
+     * the player and open the how-to tutorial. {@code tutorialShown} makes this a
+     * one-time thing; the config folder itself is created by {@link ModConfig} on load.
+     */
+    private void registerFirstRunTutorial() {
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            if (ModConfig.get().tutorialShown) return;
+            ModConfig.get().tutorialShown = true;
+            ModConfig.save();
+            ServerPlayer player = handler.player;
+            // Always send a chat welcome (works on any client, and avoids the
+            // channel-handshake race); also try to pop the GUI tutorial if ready.
+            player.sendSystemMessage(Component.literal(
+                    "§6Welcome to Blockpal! §7New here? Run §a/ai tutorial§7 for a quick guide, "
+                            + "or §a/ai summon§7 to spawn your companion."));
+            AiNetworking.openTutorialFor(player);
+        });
     }
 }

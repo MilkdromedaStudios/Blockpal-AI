@@ -45,7 +45,7 @@ and configures itself from a real in-game settings screen.
 | [Getting Started](Getting-Started) | First summon, AI token setup |
 | [Commands](Commands) | Every `/ai` command |
 | [Talking to Your Assistant](Talking-to-Your-Assistant) | Chat, quick intents, addressing by name |
-| [Settings](Settings) | Settings GUI + `/ai settings` keys |
+| [Settings](Settings) | The in-game settings panel (no more setting commands) |
 | [Performance Presets](Performance-Presets) | Normal / Opus / Potato |
 | [Custom Skins](Custom-Skins) | Built-in and drop-in skins |
 | [Running Commands](Running-Commands) | Command execution, permission levels, denylist |

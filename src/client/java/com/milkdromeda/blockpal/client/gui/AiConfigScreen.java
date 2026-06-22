@@ -45,9 +45,11 @@ public class AiConfigScreen extends Screen {
     private static final int FIELD_H = 18;
     private static final int LABEL_H = 9;
     private static final int SPACING = 3;
-    private static final int TAB_Y = 22;     // tab bar
+    private static final int NAV_Y = 20;     // cross-panel tab bar (Settings/Admin/Me)
+    private static final int NAV_H = 14;
+    private static final int TAB_Y = 38;     // settings sub-tab bar
     private static final int TAB_H = 18;
-    private static final int BODY_TOP = 46;  // first row of the scrollable body
+    private static final int BODY_TOP = 60;  // first row of the scrollable body
     private static final int FOOTER = 28;
     private static final Component SAVED_MSG =
             Component.literal("Settings applied ✓").withStyle(s -> s.withColor(0x55FF55));
@@ -111,7 +113,10 @@ public class AiConfigScreen extends Screen {
         // -- pinned title --
         addRenderableWidget(new StringWidget(0, 6, this.width, 12, this.title, this.font));
 
-        // -- pinned tab bar --
+        // -- shared cross-panel tab bar (this screen is the admin "Settings" panel) --
+        PanelNav.build(this.width, W + 12, NAV_Y, NAV_H, PanelNav.Tab.SETTINGS, true, this::addRenderableWidget);
+
+        // -- pinned settings sub-tab bar --
         buildTabBar();
 
         // -- scrollable body for the active tab --

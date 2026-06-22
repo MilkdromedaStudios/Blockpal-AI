@@ -40,9 +40,12 @@ public class PlayerSettingsScreen extends Screen {
     @Override
     protected void init() {
         int x = this.width / 2 - W / 2;
-        int y = 40;
+        int y = 48;
 
-        addRenderableWidget(new StringWidget(0, 14, this.width, 12, this.title, this.font));
+        addRenderableWidget(new StringWidget(0, 6, this.width, 12, this.title, this.font));
+
+        // -- shared cross-panel tab bar (admins also see Settings & Admin) --
+        PanelNav.build(this.width, W, 22, 16, PanelNav.Tab.ME, data.isAdmin(), this::addRenderableWidget);
 
         // -- model picker --
         addRenderableWidget(new StringWidget(x, y, W, 10, Component.literal("§eBot model"), this.font));

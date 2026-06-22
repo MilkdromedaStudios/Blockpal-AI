@@ -97,7 +97,9 @@ can do and how it evolved.
 | `/ai` / `/ai help` | Show help |
 | `/ai summon [name]` | Spawn assistant |
 | `/ai dismiss` | Remove assistant |
-| `/ai menu` / `/ai config` | Open settings GUI |
+| `/ai menu` / `/ai config` | Open the settings GUI (admins) |
+| `/ai panel` | Open the unified panel (admins → Admin, players → My Settings) |
+| `/ai tutorial` | Open the how-to walkthrough |
 | `/ai come` | Call to player |
 | `/ai follow` | Follow player |
 | `/ai stay` | Guard position |
@@ -107,25 +109,21 @@ can do and how it evolved.
 | `/ai name <name>` | Rename |
 | `/ai skin <name>` | Change skin (built-in or your own PNG) |
 | `/aiskins list\|reload` | (client) list/reload skins in `config/blockpal/skins/` |
-| `/ai token <token>` | Set API token |
 | `/ai inventory` / `/ai inv` | Show carried items |
-| `/ai listen on\|off` | Toggle chat listening |
-| `/ai active on\|off` | Toggle active analysis |
-| `/ai commands on\|off` | Allow/block command execution |
-| `/ai settings` | List all current settings |
-| `/ai settings <key> <value>` | Change any one setting (tab-complete the key) |
 | `/ai mykey <token>\|clear` | Set/clear **your own** API key (any player) |
 | `/ai model [<id>]` / `/ai models` | Pick your bot's model / list the allowed models |
 | `/ai mymenu` | Personal settings screen (model + your own key) |
 | `/ai admin …` | **(ops only)** admin panel — see *Admin menu* below |
 | `/ai <task>` | Give a natural-language task |
 
-**Config writes are admin-gated (3.2.0+).** `/ai menu`, `/ai token`,
-`/ai settings <key> <value>`, `/ai listen|active|commands on\|off` and the
-sneak-click menu now require the admin permission level (`adminPermissionLevel`,
-default 2 = ops). Everyday commands (summon, follow, come, stay, stop, locate,
-inventory, skin, name) stay open to everyone, and read-only `/ai settings` (list)
-and `/ai help` stay open too.
+**No more setting commands (3.4.0).** The confusing per-setting commands were
+removed — there is **no** `/ai settings`, `/ai token`, `/ai listen`, `/ai active` or
+`/ai commands` any more. All configuration now lives in the **in-game panel**
+(`/ai menu` / `/ai panel`), which is admin-gated (`adminPermissionLevel`, default
+2 = ops); the sneak-click menu is too. Everyday commands (summon, follow, come, stay,
+stop, locate, inventory, skin, name) and the personal `/ai mykey` / `/ai model` /
+`/ai mymenu` stay open to everyone. Ops on a **vanilla** client can still use the
+text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to configure.
 
 ### Admin menu (ops only)
 - `/ai admin menu` opens a built-in **admin panel** GUI (`AdminScreen`,
@@ -139,14 +137,19 @@ and `/ai help` stay open too.
 - **Stats** — total bots vs. cap, mod status, per-player bot counts and **live FPS**
   (clients report FPS ~1×/s via `ClientStatsPayload`; the server stores it in
   `PlayerStatsTracker`), plus token/command status.
-- **Bot cap** — `/ai admin maxbots <0-50>` (or the −/＋ buttons / `/ai settings
-  max_bots`) sets `maxBotsPerServer`; `/ai summon` refuses past the cap. 0 = unlimited.
+- **Edit settings in the GUI (3.4.0)** — the admin panel now has in-place controls
+  (toggles / level cyclers) for allow-commands, command level, **admin level**,
+  max bots, require-own-key and model-choice, so ops change them without commands
+  or editing files. (These ride `AdminActionPayload`; setting toggles don't trigger
+  a re-sync so the scroll position is kept.)
+- **Bot cap** — the panel's "Max bots" cycler or `/ai admin maxbots <0-50>` sets
+  `maxBotsPerServer`; `/ai summon` refuses past the cap. 0 = unlimited.
 - **Per-player keys & models** — `/ai admin requirekey on|off` makes players bring
   their own API key; `/ai admin keylist add|remove|list <player>` manages the
   exemption whitelist; `/ai admin models add|remove|list <id>` curates the model
   list players may pick from. (See *Per-player API keys & selectable models*.)
 - Who counts as admin is `adminPermissionLevel` (vanilla tiers 0/2/4), changed with
-  `/ai settings admin_level <0-4>`. Data flows over `AdminSyncPayload` (S→C) and
+  the Admin panel's admin-level control. Data flows over `AdminSyncPayload` (S→C) and
   `AdminActionPayload` (C→S), re-checked server-side in `AiNetworking`.
 
 ### Security & API-key protection
@@ -176,7 +179,7 @@ and `/ai help` stay open too.
 ### Task watchdog
 - Hard timeout (`maxTaskSeconds`, default 300 s, 0 = unlimited) stops runaway
   plans automatically and reverts the entity to FOLLOWING mode.
-- Configurable via `/ai settings max_task_seconds <seconds>`.
+- Configurable on the **Developer** tab of the settings panel.
 
 ### Emergency FPS kill switch
 - A client-side **frame-rate watchdog** ("extreme" watchdog) samples FPS every
@@ -211,21 +214,32 @@ and `/ai help` stay open too.
   `chatListening`, `activeMode`, `defaultName`,
   `defaultSkin`, `maxTaskSeconds`, `performancePreset`, `sneakToOpenMenu`,
   `configVersion`.
-- **Every setting is also command-configurable**: `/ai settings <key> <value>`
-  is a single generic setter (tab-complete the key) covering all of the above,
-  so the command surface stays small. Setting changes are **admin-gated** (3.2.0+).
+- **Settings are configured in the panel, not via commands (3.4.0).** The old
+  `/ai settings <key> <value>` generic setter (and `/ai token|listen|active|commands`)
+  were removed as too confusing. The **Settings** panel (`/ai menu`) covers the
+  player/AI/behaviour/combat/developer fields; the **Admin** panel covers the
+  server-wide ones (admin level, command level/toggle, max bots, require-own-key,
+  model choice). All panel writes are **admin-gated** (`adminPermissionLevel`).
 - `adminPermissionLevel` (default 2) decides who may change settings / use the admin
   menu; `maxBotsPerServer` (default 8, 0 = unlimited) caps `/ai summon`. The token is
   persisted obfuscated (`hfTokenObf`) and can be supplied via the `BLOCKPAL_API_TOKEN`
   env var instead (then it's never written to disk). See *Security & API-key protection*.
+- **First-run tutorial** — on the first player join after a fresh install
+  (`tutorialShown` false), Blockpal greets the player and opens a paged
+  `TutorialScreen` (also on demand via `/ai tutorial`). Upgrading installs are
+  marked seen by `migrate()`. Config schema → v4.
 
 ### In-game settings GUI
-- Opened via `/ai menu` or — unless disabled — sneak-right-click on the
-  assistant. The sneak shortcut can trip accidentally, so it's toggleable
-  (`sneakToOpenMenu`, on the Behavior tab or via `/ai settings sneak_menu off`);
-  `/ai menu` always works regardless.
-- **Tabbed categories** — settings are split into **Identity**, **Behavior**,
-  **AI & API**, **Combat** and **Developer** tabs, shown one at a time. The
+- Opened via `/ai menu` (or `/ai panel`) or — unless disabled — sneak-right-click on
+  the assistant. The sneak shortcut can trip accidentally, so it's toggleable
+  (`sneakToOpenMenu`, on the Behavior tab); `/ai menu` always works regardless.
+- **Unified panel with a shared tab bar (3.4.0)** — every Blockpal screen carries a
+  top **panel switcher** (`PanelNav`): **Settings** (admins), **Admin** (ops), and
+  **My Settings** (everyone). Switching a tab asks the server for that panel's data
+  (`ConfigRequestPayload` / an admin refresh / a no-op `PlayerPrefsPayload`) and the
+  matching sync packet opens the right screen, so the three panels feel like one place.
+- **Tabbed categories** — the Settings panel is split into **Identity**, **Behavior**,
+  **AI & API**, **Combat** and **Developer** sub-tabs, shown one at a time. The
   current tab reads as "pressed" in the pinned tab bar. Each setting has a hover
   **tooltip** explaining it.
 - Values are held in a pending draft and `capture()`d on every tab switch, so
@@ -242,18 +256,43 @@ and `/ai help` stay open too.
 - **Performance preset** — cycle button on the Behavior tab:
   **Normal** (default), **Opus** (high-end, full AI), **Potato** (low-end,
   reduced AI activity). Selecting a preset auto-fills temperature, max tokens,
-  active analysis toggle, and all developer-tab fields at once (the same logic
-  is available from `/ai settings preset <name>`).
+  active analysis toggle, and all developer-tab fields at once (applied instantly
+  by the Behavior-tab preset button).
 
 ### Command execution
 - Can run `/setblock`, `/fill`, `/give`, `/tp`, `/effect`, and similar
   commands (permission level 2 by default = command-block tier).
 - Denylist blocks dangerous admin commands (`op`, `ban`, `whitelist`, etc.).
-- Toggled per-session with `/ai commands on|off`.
+- Toggled from the settings/admin panel (the "Allow commands" control).
 
 ---
 
 ## Changelog
+
+### 3.4.0
+- **One unified panel with tabs.** Every Blockpal screen now carries a shared top
+  **panel switcher** (`PanelNav`) — **Settings** (admins), **Admin** (ops) and
+  **My Settings** (everyone) — so the previously separate menus are reachable from
+  one place. Switching a tab requests that panel's data from the server
+  (`ConfigRequestPayload` / an admin refresh / a no-op `PlayerPrefsPayload`) and the
+  reply opens the matching screen. New `/ai panel` entry point opens the right one.
+- **Removed the confusing setting commands.** Deleted `/ai settings` (list + the
+  generic `<key> <value>` setter), `/ai token`, `/ai listen`, `/ai active` and
+  `/ai commands`. Configuration now lives entirely in the panel. Everyday gameplay
+  commands and the personal `/ai mykey` / `/ai model` / `/ai mymenu` stay; ops keep a
+  text fallback via the `/ai admin …` tree for vanilla clients.
+- **More admin options editable in the GUI.** The Admin panel gained in-place
+  controls (toggles / 0–4 level cyclers) for allow-commands, command level,
+  **admin level**, max bots, require-own-key and player model-choice — so ops change
+  them without commands or editing files. New `AdminActionPayload` actions
+  (`adminlevel`, `commandlevel`, `allowcommands`, `requirekey`, `modelchoice`); setting
+  toggles save silently (no re-sync) so the panel keeps its scroll position.
+  `AdminStatsData` now also carries those values + the model/whitelist counts.
+- **First-run tutorial.** On the first player join after a fresh install (detected
+  via the new persisted `tutorialShown` flag — the `config/blockpal/` folder is
+  created by the config loader), Blockpal greets the player and opens a paged
+  `TutorialScreen` walkthrough. Reopen any time with `/ai tutorial`. Existing installs
+  are marked seen by `migrate()`. Config schema → v4. New `OpenTutorialPayload`.
 
 ### 3.3.0
 - **Per-player API keys (bring-your-own-key).** New `requireOwnApiKey` (off by

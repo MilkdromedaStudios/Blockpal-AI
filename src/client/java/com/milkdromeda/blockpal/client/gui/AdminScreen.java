@@ -4,6 +4,7 @@ import com.milkdromeda.blockpal.network.AdminActionPayload;
 import com.milkdromeda.blockpal.network.AdminStatsData;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.ScrollableLayout;
 import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.components.Tooltip;
@@ -11,27 +12,32 @@ import net.minecraft.client.gui.layouts.LinearLayout;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
- * The Blockpal admin panel, opened with {@code /ai admin menu} (ops only). It is
- * a read-out of server-wide state ({@link AdminStatsData}) — bot totals, per-player
- * bot counts and FPS, a row per bot — plus action buttons (kill all bots, disable
- * / enable the mod, adjust the bot cap, refresh).
+ * The Blockpal <b>Admin</b> panel ({@code /ai admin menu} or the "Admin" tab),
+ * ops only. Reads out server-wide state ({@link AdminStatsData}) and lets an admin
+ * change the common server options <i>right here</i> — no commands or config-file
+ * editing — plus one-shot actions (kill all bots, disable/enable the mod).
  *
- * <p>The screen is "dumb": every button sends an {@link AdminActionPayload}; the
- * server re-checks permission, performs the action and sends back a fresh snapshot,
- * which re-opens this screen with up-to-date values. (Mirrors {@link AiConfigScreen}'s
- * pinned-title + scrollable-body + pinned-action-bar layout.)
+ * <p>Setting toggles change in place (their widget shows the new value and the
+ * server saves silently); the footer actions re-open the panel with fresh stats.
  */
 public class AdminScreen extends Screen {
 
-    private static final int W = 320;        // content column width
+    private static final int W = 320;
     private static final int FIELD_H = 18;
     private static final int LABEL_H = 11;
-    private static final int SPACING = 1;
-    private static final int BODY_TOP = 26;
-    private static final int FOOTER = 50;    // room for two action rows
+    private static final int SPACING = 2;
+    private static final int NAV_Y = 20;
+    private static final int NAV_H = 16;
+    private static final int BODY_TOP = 40;
+    private static final int FOOTER = 28;
 
     private final AdminStatsData d;
 
@@ -42,19 +48,39 @@ public class AdminScreen extends Screen {
 
     @Override
     protected void init() {
-        // -- pinned title --
         addRenderableWidget(new StringWidget(0, 6, this.width, 12, this.title, this.font));
+
+        // -- shared cross-panel tab bar --
+        PanelNav.build(this.width, W + 12, NAV_Y, NAV_H, PanelNav.Tab.ADMIN, true, this::addRenderableWidget);
 
         // -- scrollable body --
         LinearLayout body = LinearLayout.vertical().spacing(SPACING);
 
-        line(body, "§6Overview");
+        line(body, "§6Server status");
         line(body, "§eBots: §f" + d.totalBots() + " §7/ " + (d.maxBots() == 0 ? "∞" : d.maxBots()));
-        line(body, "§eMod status: " + (d.modDisabled() ? "§cDISABLED" : "§aactive"));
-        line(body, "§eAllow commands: §f" + (d.allowCommands() ? "on (lvl " + d.commandLevel() + ")" : "off"));
-        line(body, "§eAdmin level: §f" + d.adminLevel());
-        line(body, "§eAPI token: §f" + (d.tokenSet()
-                ? ("set ✓" + (d.tokenFromEnv() ? " (from env)" : "")) : "§cnot set"));
+        line(body, "§eMod: " + (d.modDisabled() ? "§cDISABLED" : "§aactive")
+                + "  §eToken: §f" + (d.tokenSet() ? ("set ✓" + (d.tokenFromEnv() ? " (env)" : "")) : "§cnot set"));
+
+        line(body, " ");
+        line(body, "§6Settings §7(click to change)");
+        // Booleans
+        addToggle(body, "Allow commands", d.allowCommands(), "allowcommands",
+                "Let bots run /setblock, /fill, /give, etc. as part of a plan.");
+        addToggle(body, "Require own API key", d.requireOwnKey(), "requirekey",
+                "Players must use their own API key (except those on the key whitelist).");
+        addToggle(body, "Players may pick model", d.allowModelChoice(), "modelchoice",
+                "Let players choose their bot's model from the allowed list.");
+        // Levels (cycle 0–4)
+        addLevel(body, "Command perm level", d.commandLevel(), "commandlevel",
+                "Permission tier for commands bots run (2 = command-block tier).");
+        addLevel(body, "Admin level (who's an admin)", d.adminLevel(), "adminlevel",
+                "Vanilla op tier needed to change settings / use this panel. 2 = ops.");
+        addMaxBots(body);
+
+        line(body, " ");
+        line(body, "§7Models allowed: §f" + d.allowedModelCount()
+                + " §7· Key whitelist: §f" + d.keyWhitelistCount());
+        line(body, "§7Manage those lists with §f/ai admin models§7 and §f/ai admin keylist§7.");
 
         line(body, " ");
         line(body, "§6Players online (" + d.players().size() + ")");
@@ -81,40 +107,57 @@ public class AdminScreen extends Screen {
         scroll.setY(BODY_TOP);
         scroll.visitWidgets(this::addRenderableWidget);
 
-        // -- pinned action bar (two rows) --
+        // -- pinned footer: one-shot actions --
         int bw = 100, gap = 8;
         int barW = bw * 3 + gap * 2;
         int bx = this.width / 2 - barW / 2;
-        int row2 = this.height - FIELD_H - 6;
-        int row1 = row2 - FIELD_H - 4;
-
+        int by = this.height - FIELD_H - 6;
         addRenderableWidget(withTip(Button.builder(Component.literal("Kill all bots"),
-                        b -> send("killall", 0)).bounds(bx, row1, bw, FIELD_H).build(),
+                        b -> send("killall", 0)).bounds(bx, by, bw, FIELD_H).build(),
                 "Remove every Blockpal entity on the server."));
         addRenderableWidget(Button.builder(
                         Component.literal(d.modDisabled() ? "Enable bots" : "Disable bots"),
                         b -> send(d.modDisabled() ? "enable" : "disable", 0))
-                .bounds(bx + bw + gap, row1, bw, FIELD_H).build());
+                .bounds(bx + bw + gap, by, bw, FIELD_H).build());
         addRenderableWidget(Button.builder(Component.literal("Refresh"),
                         b -> send("refresh", 0))
-                .bounds(bx + (bw + gap) * 2, row1, bw, FIELD_H).build());
-
-        // Bot-cap controls: [ − ] [ Max: N ] [ + ]
-        addRenderableWidget(withTip(Button.builder(Component.literal("Max bots −"),
-                        b -> send("maxbots", Math.max(0, d.maxBots() - 1)))
-                .bounds(bx, row2, bw, FIELD_H).build(),
-                "Lower the server-wide bot cap (0 = unlimited)."));
-        StringWidget maxLabel = new StringWidget(bx + bw + gap, row2, bw, FIELD_H,
-                Component.literal("Max: " + (d.maxBots() == 0 ? "∞" : d.maxBots())), this.font);
-        addRenderableWidget(maxLabel);
-        addRenderableWidget(withTip(Button.builder(Component.literal("Max bots +"),
-                        b -> send("maxbots", Math.min(50, d.maxBots() + 1)))
-                .bounds(bx + (bw + gap) * 2, row2, bw, FIELD_H).build(),
-                "Raise the server-wide bot cap (max 50)."));
+                .bounds(bx + (bw + gap) * 2, by, bw, FIELD_H).build());
     }
+
+    // ── body widgets ────────────────────────────────────────────────────────────
 
     private void line(LinearLayout body, String text) {
         body.addChild(new StringWidget(W, LABEL_H, Component.literal(text), this.font));
+    }
+
+    private void addToggle(LinearLayout body, String label, boolean value, String action, String tip) {
+        CycleButton<Boolean> btn = body.addChild(CycleButton.onOffBuilder(value)
+                .create(0, 0, W, FIELD_H, Component.literal(label), (b, val) -> send(action, val ? 1 : 0)));
+        btn.setTooltip(Tooltip.create(Component.literal(tip)));
+    }
+
+    private void addLevel(LinearLayout body, String label, int value, String action, String tip) {
+        int cur = Math.max(0, Math.min(4, value));
+        CycleButton<Integer> btn = body.addChild(
+                CycleButton.<Integer>builder(i -> Component.literal(label + ": " + i), cur)
+                        .withValues(0, 1, 2, 3, 4)
+                        .create(0, 0, W, FIELD_H, Component.literal(label), (b, val) -> send(action, val)));
+        btn.setTooltip(Tooltip.create(Component.literal(tip)));
+    }
+
+    private void addMaxBots(LinearLayout body) {
+        // A handful of presets, plus whatever the current value is, so the current
+        // value is always one of the selectable options.
+        int cur = Math.max(0, Math.min(50, d.maxBots()));
+        Set<Integer> set = new LinkedHashSet<>(List.of(0, 1, 2, 4, 8, 12, 16, 24, 32, 48));
+        set.add(cur);
+        List<Integer> values = new ArrayList<>(set);
+        Collections.sort(values);
+        CycleButton<Integer> btn = body.addChild(
+                CycleButton.<Integer>builder(i -> Component.literal("Max bots: " + (i == 0 ? "∞" : i)), cur)
+                        .withValues(values)
+                        .create(0, 0, W, FIELD_H, Component.literal("Max bots"), (b, val) -> send("maxbots", val)));
+        btn.setTooltip(Tooltip.create(Component.literal("Most bots allowed on the server at once (0 = unlimited).")));
     }
 
     private static Button withTip(Button button, String tip) {
@@ -126,7 +169,8 @@ public class AdminScreen extends Screen {
         if (ClientPlayNetworking.canSend(AdminActionPayload.TYPE)) {
             ClientPlayNetworking.send(new AdminActionPayload(action, value));
         }
-        // The server replies with a fresh AdminSyncPayload, which reopens this screen.
+        // One-shot actions trigger a server re-sync that reopens this screen;
+        // setting toggles update their own widget in place.
     }
 
     @Override
