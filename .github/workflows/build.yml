@@ -1,0 +1,40 @@
+name: build
+
+# Compile check. Runs on pushes to main and to working branches (so a PR's head
+# commit still gets a build check via its branch push) — and on merge to main —
+# but NOT as a separate pull_request-open job. This keeps it consistent with the
+# release/wiki workflows, which only act on merges, and avoids a duplicate run
+# per PR.
+on:
+  push:
+    branches: [ "main", "claude/**" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Build
+        run: ./gradlew build --stacktrace --no-daemon
+
+      - name: Upload built jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: blockpal-jar
+          path: build/libs/*.jar
+          if-no-files-found: error

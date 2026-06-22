@@ -1,0 +1,14 @@
+pluginManagement {
+    repositories {
+        maven { url 'https://maven.fabricmc.net/' }
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    // Lets Gradle auto-download the required JDK (Java 25) if it isn't installed,
+    // so the project builds out of the box on any machine and in CI.
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = 'blockpal'

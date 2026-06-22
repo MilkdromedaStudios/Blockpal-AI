@@ -1,0 +1,40 @@
+# Gradle
+.gradle/
+build/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# Fabric Loom cache (inside project)
+.loom-cache/
+run/
+
+# CI release staging (renamed jars for Modrinth upload)
+upload/
+
+# Secrets — never commit tokens/keys.
+#
+# NOTE: a Minecraft mod ships as a compiled jar that anyone can decompile, so
+# .gitignore cannot "hide" the mod's source code from players or hackers, and
+# excluding source would only break building. These rules exist to keep *secrets*
+# (your API token and the runtime config that stores it) out of git — not to
+# obscure code. Real key protection: set BLOCKPAL_API_TOKEN as an environment
+# variable so the token never lands on disk. See wiki/Security.md.
+*.env
+.env
+secrets.properties
+# Runtime config that can contain the (obfuscated) API token — never commit it.
+# (Specifically the game's config/blockpal/ folder — NOT the source 'config'
+# package, which is com/milkdromeda/blockpal/config/.)
+config/blockpal/
+run/config/
+# Loose token/secret files people sometimes drop in a repo by accident.
+*.token
+*.secret
+hf_token*
+blockpal-token*

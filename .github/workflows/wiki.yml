@@ -1,0 +1,33 @@
+name: Publish Wiki
+
+# Publishes wiki/ to the GitHub Wiki. Like the release workflow, this only acts
+# AFTER a merge — it runs on pushes to main (i.e. once a PR lands), not on open
+# PRs — and only when wiki content actually changed. The hourly cron is a
+# full-sync safety net.
+on:
+  push:
+    branches: [main]
+    paths: ['wiki/**']
+  schedule:
+    - cron: '0 * * * *' # hourly backup sync
+  workflow_dispatch: # manual run button
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-wiki
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync wiki/ to the GitHub Wiki
+        uses: Andrew-Chen-Wang/github-wiki-action@v4
+        with:
+          path: wiki/
+          token: ${{ secrets.GITHUB_TOKEN }}

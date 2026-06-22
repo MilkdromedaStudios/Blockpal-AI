@@ -1,0 +1,15 @@
+{
+  "entity.blockpal.ai_assistant": "Blockpal",
+
+  "chat.blockpal.ready":          "[%s] Ready to help! Talk to me in chat, or use /ai help.",
+  "chat.blockpal.thinking":       "[%s] On it...",
+  "chat.blockpal.task_complete":  "[%s] Done!",
+  "chat.blockpal.task_failed":    "[%s] Sorry, I couldn't do that: %s",
+  "chat.blockpal.no_token":       "[AI] Set your AI token first: /ai token <token>",
+  "chat.blockpal.no_ai":          "No AI nearby — summon one with /ai summon",
+  "chat.blockpal.stopped":        "[%s] Stopped. Standing by.",
+  "chat.blockpal.low_health":     "[%s] Taking heavy damage, retreating!",
+  "chat.blockpal.fighting":       "[%s] Engaging hostiles!",
+
+  "item_group.blockpal": "Blockpal"
+}
