@@ -46,13 +46,26 @@ compiling. History is kept — every released `mod_version` keeps its own
 `builds/blockpal-<version>.jar`; old builds are never deleted. (`builds/` is not
 gitignored; only `build/` is.)
 
+## Workflows (CI/CD)
+
+The three GitHub Actions workflows are deliberately consistent: real work happens on
+**merge to `main`**, never on a freshly opened PR (so a PR you later close has no
+side effects).
+
+| Workflow | When it runs | What it does |
+|----------|--------------|--------------|
+| `build.yml` | pushes to `main` and `claude/**` branches (so a PR's head commit still gets a compile check) | `./gradlew build` + uploads the jar artifact |
+| `wiki.yml` | push to `main` that touches `wiki/**` (i.e. after a merge), plus an hourly backup sync | publishes `wiki/` to the GitHub Wiki |
+| `release.yml` | a **merged** PR, a `v*` tag, or manual dispatch | publishes the jar to Modrinth |
+
 ## Releasing to Modrinth
 
-The **Release to Modrinth** workflow (`.github/workflows/release.yml`) runs on
-**every pull request**, on a `v*` tag push, and on a manual dispatch. It builds
-the mod, renames the jar to
-`Blockpal-<mod_version>-<minecraft_version>.jar` (e.g. `Blockpal-3.1.0-26.2.jar`)
-and uploads it to Modrinth via `Kir-Antipov/mc-publish`.
+The **Release to Modrinth** workflow (`.github/workflows/release.yml`) runs when a
+**pull request is merged** (not when it's opened, and not if it's closed without
+merging), on a `v*` tag push, and on a manual dispatch. It builds the mod, renames
+the jar to `Blockpal-<mod_version>-<minecraft_version>.jar`
+(e.g. `Blockpal-3.4.0-26.2.jar`) and uploads it to Modrinth via
+`Kir-Antipov/mc-publish`.
 
 Each release is published:
 

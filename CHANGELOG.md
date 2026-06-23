@@ -4,6 +4,13 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.4.1
+- **Behind-the-scenes / docs only — no gameplay changes.** The mod itself is identical
+  to 3.4.0.
+- Release, wiki and build automation now only run **after a pull request is merged**
+  (never when one is just opened), so work-in-progress that gets closed never ships.
+- The wiki and developer docs were brought up to date with the 3.2–3.4 changes.
+
 ## 3.4.0
 - **Everything's in one panel now.** Open it with **`/ai panel`** (or `/ai menu`).
   Tabs across the top switch between **Settings** (admins), **Admin** (ops) and

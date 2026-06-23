@@ -269,6 +269,18 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 
 ## Changelog
 
+### 3.4.1
+- **Consistent, merge-only CI.** Brought the `build.yml` and `wiki.yml` workflows in
+  line with the merge-only `release.yml`: `build.yml` dropped its `pull_request`
+  trigger (it now runs on pushes to `main` / `claude/**` — a PR's head commit still
+  gets a build check via its branch push, with no duplicate PR-open run), and
+  `wiki.yml` only republishes on pushes to `main` that touch `wiki/**` (plus the hourly
+  backup). Net effect: nothing builds/publishes just because a PR was opened.
+- **Docs/wiki brought up to date.** `wiki/Building-From-Source.md` now documents all
+  three workflows (and the merge-only release trigger); `wiki/More-Info.md`'s changelog
+  highlights were refreshed through 3.4.x; added a *CI / workflows* section here. No
+  gameplay/jar changes — this is an infrastructure + documentation release.
+
 ### 3.4.0
 - **One unified panel with tabs.** Every Blockpal screen now carries a shared top
   **panel switcher** (`PanelNav`) — **Settings** (admins), **Admin** (ops) and
@@ -595,6 +607,20 @@ Whenever a jar is built and verified during testing, copy it into the repo's
   and `gradle/wrapper/gradle-wrapper.properties` (Gradle itself).
 - Verify with a real `./gradlew clean build` before committing a jar.
 
+## CI / workflows (all act on *merge*, never on PR-open)
+
+Three GitHub Actions workflows, deliberately consistent — real work happens on a
+merge to `main`, not when a PR is opened (so a PR you later close has no side effects):
+
+- **`build.yml`** — compile check. Runs on pushes to `main` and `claude/**` branches
+  (a PR's head commit still gets a build check via its branch push) and on merge to
+  `main`. No `pull_request` trigger, so there's no duplicate PR-open run.
+- **`wiki.yml`** — publishes `wiki/` to the GitHub Wiki on pushes to `main` that touch
+  `wiki/**` (i.e. after a merge), with an hourly cron backup sync.
+- **`release.yml`** — publishes the jar to Modrinth only when a PR is **merged**
+  (`pull_request: types:[closed]` gated by `merged == true`), or on a `v*` tag / manual
+  dispatch. Idempotent via the `modrinth-published/<version>` marker tag.
+
 ## Layout
 
 ```
@@ -610,7 +636,8 @@ wiki/                # source for the GitHub Wiki (all user docs live here)
 - The repo `README.md` is intentionally **minimal** — a short overview plus links
   into the GitHub Wiki. All setup/usage/config docs live in `wiki/` and are
   published to the GitHub Wiki automatically by `.github/workflows/wiki.yml`
-  (see `wiki/README.md` for the one-time wiki-init step).
+  **on merge to `main`** (see `wiki/README.md` for the one-time wiki-init step,
+  and *CI / workflows* above).
 - **When a feature changes, update the matching `wiki/*.md` page** (e.g. new
   command → `wiki/Commands.md`, new setting → `wiki/Settings.md`, dev-tab change
   → `wiki/Developer-Menu.md`) in the same change. Keep `wiki/Home.md` and

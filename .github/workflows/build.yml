@@ -1,9 +1,14 @@
 name: build
 
+# Compile check. Runs on pushes to main and to working branches (so a PR's head
+# commit still gets a build check via its branch push) — and on merge to main —
+# but NOT as a separate pull_request-open job. This keeps it consistent with the
+# release/wiki workflows, which only act on merges, and avoids a duplicate run
+# per PR.
 on:
   push:
     branches: [ "main", "claude/**" ]
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read

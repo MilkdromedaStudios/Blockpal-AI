@@ -72,6 +72,18 @@ The full version history is maintained in
 [`CLAUDE.md`](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/blob/main/CLAUDE.md)
 in the repo. Highlights:
 
+- **3.4.1** — Internal: the **release, wiki and build workflows now act only on a
+  merged PR** (never when a PR is just opened, so a closed-without-merge PR has no
+  side effects); wiki and docs brought up to date.
+- **3.4.0** — **One unified, tabbed panel** (Settings · Admin · My Settings); **removed
+  the per-setting commands** (configure in the panel instead); more admin options
+  editable in the GUI; **first-run tutorial** — reopen with `/ai tutorial`.
+- **3.3.0** — **Per-player API keys** (bring-your-own-key) with an exemption
+  [whitelist](Per-Player-Keys-and-Models); **player-selectable models** from an
+  admin-curated list.
+- **3.2.0** — Built-in **[admin menu](Admin-Menu)** (manage/kill all bots, stats, live
+  FPS), server-wide **bot cap**, closed a config privilege-escalation hole, and
+  **API-key protection** (obfuscated at rest + `BLOCKPAL_API_TOKEN` env var).
 - **3.1.0** — Updated to **Minecraft 26.2** (Fabric API `0.152.2+26.2`); added a
   Modrinth release workflow that publishes `Blockpal-<version>-<mcversion>.jar`.
 - **3.0.0** — Renamed the whole mod to **Blockpal** (mod id, Java package, texture
@@ -97,7 +109,7 @@ You can test any build yourself and open a pull request to tag it as "working".
 ## Contributing
 
 Wiki pages are versioned in the [`wiki/`](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/tree/main/wiki)
-folder and published to the GitHub Wiki automatically — edit the markdown there and open
-a PR rather than editing the wiki in place. See
+folder and published to the GitHub Wiki automatically **when a PR merges to `main`** —
+edit the markdown there and open a PR rather than editing the wiki in place. See
 [`wiki/README.md`](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/blob/main/wiki/README.md).
 </content>
