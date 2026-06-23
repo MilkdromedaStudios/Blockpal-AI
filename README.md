@@ -19,6 +19,69 @@ real in-game settings screen.*
 
 ---
 
+## 🎬 See it in action
+
+<div align="center">
+
+<!--
+  ▶ DROP YOUR DEMO HERE
+  ------------------------------------------------------------------
+  GitHub renders an uploaded video inline. To add yours:
+    1. Open a new GitHub Issue (or edit this README on github.com) and
+       drag-and-drop your recording (.mp4 / .mov / .webm, <100 MB) into
+       the text box. GitHub uploads it and gives you a URL like
+       https://github.com/user-attachments/assets/XXXXXXXX
+    2. Replace the placeholder block below with that URL on its own line:
+           https://github.com/user-attachments/assets/XXXXXXXX
+       (a bare video URL auto-embeds as a player — no <video> tag needed)
+    3. Prefer a looping GIF instead? Commit it to docs/demo.gif and use:
+           ![Blockpal AI demo](docs/demo.gif)
+  ------------------------------------------------------------------
+-->
+
+[![▶ Watch Ethan build, fight & follow](https://img.shields.io/badge/▶_Demo_video-record_%26_drop_in_here-6c63ff?style=for-the-badge)](#-see-it-in-action)
+
+*Gameplay clip coming soon — see the comment in this section to add it.*
+
+</div>
+
+> **Tip:** the best 20–30 second clip shows three things back-to-back: a chat
+> command (`Ethan, build a 5×5 floor`), the bot auto-equipping gear, and a
+> `SurvivalReflexGoal` fight where it retreats at low health.
+
+---
+
+## ⚡ What Ethan can do
+
+| | |
+|---|---|
+| 🧠 **LLM task planning** | Natural-language orders (`/ai build a tower`) become a 5–15 step JSON action plan over any OpenAI-compatible API. |
+| 💬 **Talks back** | Listens to chat, answers in first-person, handles `come` / `follow` / `stop` instantly with no API call. |
+| ⚔️ **Fights on reflex** | Always scans for threats, retaliates, and retreats below 25% health — in any mode. |
+| 🎒 **Manages its gear** | Picks up drops, auto-equips the best weapon & armor, eats food when hurt, tosses harmful items. |
+| 🛠️ **16 actions** | Move, place, break, mine, use blocks, run commands, attack, follow, look, chat, collect, and more. |
+| 🎨 **Custom skins** | Built-in skins or drop your own PNG into `config/blockpal/skins/` — no rebuild. |
+| 🖥️ **In-game panel** | Tabbed settings & admin GUI — no config-file editing, no setting commands. |
+| 🔑 **Bring-your-own-key** | Per-player API keys & selectable models so one server owner isn't billed for everyone. |
+| 🛟 **Safety rails** | Task watchdog, server bot cap, and an emergency FPS kill switch that pauses the bot if frames collapse. |
+
+---
+
+## 🚀 Quick start
+
+```text
+1. Grab the latest jar from  builds/
+2. Drop it in your  mods/  folder, next to Fabric API
+3. Launch Minecraft (Fabric 26.2)
+4. In-game:  /ai summon      → meet Ethan
+            /ai mykey <token> → give it an LLM key
+            /ai build a 5x5 floor
+```
+
+Everything else — install details, tokens, every command — is in the wiki below.
+
+---
+
 ## 📖 Documentation lives in the Wiki
 
 **All setup, usage, and configuration docs are on the [Blockpal Wiki »](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki)**
