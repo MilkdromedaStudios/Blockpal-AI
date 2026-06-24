@@ -69,6 +69,9 @@ public class AiCommands {
                         // Give the nearby bot a personality (how it talks + the tone of its plans).
                         .then(Commands.literal("personality")
                                 .executes(AiCommands::listPersonalities)
+                                .then(Commands.literal("custom")
+                                        .then(Commands.argument("text", StringArgumentType.greedyString())
+                                                .executes(ctx -> setCustomPersonality(ctx, StringArgumentType.getString(ctx, "text")))))
                                 .then(Commands.argument("personality", StringArgumentType.word())
                                         .suggests(PERSONALITY_SUGGEST)
                                         .executes(ctx -> setPersonality(ctx, StringArgumentType.getString(ctx, "personality")))))
@@ -170,7 +173,7 @@ public class AiCommands {
                 "§f/ai inventory §7— see what it's carrying and wearing\n" +
                 "§f/ai skin <name> §7— give it a skin (built-in, or your own PNG; see /aiskins)\n" +
                 "§f/ai name <name> §7— rename it\n" +
-                "§f/ai personality [<id>] §7— change how it talks & acts (try /ai personality)\n" +
+                "§f/ai personality [<id>|custom <text>] §7— change how it talks & acts\n" +
                 "§f/ai <task> §7— tell it what to do (e.g. /ai build a 5x5 floor)\n" +
                 "§f/ai dismiss §7— send it away\n" +
                 "§6\n" +
@@ -331,11 +334,16 @@ public class AiCommands {
         if (player == null) return 0;
         AiAssistantEntity ai = AiAssistantEntity.findFor(player, 128);
         Personality current = ai != null ? ai.getPersonality() : Personality.fromConfig();
+        boolean isCustom = ai != null && ai.isCustomPersonality();
 
         StringBuilder sb = new StringBuilder("§6=== Personalities ===");
         for (Personality p : Personality.values()) {
-            sb.append("\n").append(p == current ? "§a➤ §f" : "§7  §f").append(p.id())
+            sb.append("\n").append((!isCustom && p == current) ? "§a➤ §f" : "§7  §f").append(p.id())
                     .append(" §7— ").append(p.desc());
+        }
+        if (ModConfig.get().allowCustomPersonality) {
+            sb.append("\n").append(isCustom ? "§a➤ §f" : "§7  §f").append("custom")
+                    .append(" §7— your own description (AI-checked): §f/ai personality custom <text>");
         }
         if (ai != null) {
             sb.append("\n§7Give §f").append(ai.getAssistantName())
@@ -346,6 +354,15 @@ public class AiCommands {
         }
         final String out = sb.toString();
         player.sendSystemMessage(Component.literal(out));
+        return 1;
+    }
+
+    private static int setCustomPersonality(CommandContext<CommandSourceStack> ctx, String text) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        AiAssistantEntity ai = AiAssistantEntity.findFor(player, 128);
+        if (ai == null) return noAi(player);
+        ai.requestCustomPersonality(text, player);   // async safety check, then applies
         return 1;
     }
 

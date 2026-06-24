@@ -79,7 +79,7 @@ public final class PanelNav {
             case ME -> {
                 // A no-op prefs save doubles as "send me my prefs" (server re-syncs).
                 if (ClientPlayNetworking.canSend(PlayerPrefsPayload.TYPE)) {
-                    ClientPlayNetworking.send(new PlayerPrefsPayload("", "", false));
+                    ClientPlayNetworking.send(new PlayerPrefsPayload("", "", false, "", ""));
                 }
             }
         }
