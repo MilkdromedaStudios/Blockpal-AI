@@ -2,6 +2,7 @@ package com.milkdromeda.blockpal.command;
 
 import com.milkdromeda.blockpal.ModEntities;
 import com.milkdromeda.blockpal.admin.AdminAccess;
+import com.milkdromeda.blockpal.ai.Personality;
 import com.milkdromeda.blockpal.config.ModConfig;
 import com.milkdromeda.blockpal.entity.AiAssistantEntity;
 import com.milkdromeda.blockpal.network.AdminStatsData;
@@ -64,6 +65,13 @@ public class AiCommands {
                         .then(Commands.literal("skin")
                                 .then(Commands.argument("skin", StringArgumentType.greedyString())
                                         .executes(ctx -> setSkin(ctx, StringArgumentType.getString(ctx, "skin")))))
+
+                        // Give the nearby bot a personality (how it talks + the tone of its plans).
+                        .then(Commands.literal("personality")
+                                .executes(AiCommands::listPersonalities)
+                                .then(Commands.argument("personality", StringArgumentType.word())
+                                        .suggests(PERSONALITY_SUGGEST)
+                                        .executes(ctx -> setPersonality(ctx, StringArgumentType.getString(ctx, "personality")))))
 
                         // Configuration lives in the in-game panel now — no confusing
                         // per-setting commands. /ai menu (or /ai panel) opens it;
@@ -162,6 +170,7 @@ public class AiCommands {
                 "§f/ai inventory §7— see what it's carrying and wearing\n" +
                 "§f/ai skin <name> §7— give it a skin (built-in, or your own PNG; see /aiskins)\n" +
                 "§f/ai name <name> §7— rename it\n" +
+                "§f/ai personality [<id>] §7— change how it talks & acts (try /ai personality)\n" +
                 "§f/ai <task> §7— tell it what to do (e.g. /ai build a 5x5 floor)\n" +
                 "§f/ai dismiss §7— send it away\n" +
                 "§6\n" +
@@ -203,7 +212,7 @@ public class AiCommands {
         level.addFreshEntity(entity);
 
         player.sendSystemMessage(Component.literal(
-                "§a" + name + ": §f\"Hey, I'm here! Talk to me in chat or use §e/ai help§f for commands.\""));
+                "§a" + name + ": §f\"" + entity.getPersonality().greet() + "\""));
         return 1;
     }
 
@@ -305,6 +314,58 @@ public class AiCommands {
                 "§aSkin set to §f" + skin + "§a. §7Built-ins: default, robot, void, "
                         + "slate, ember, forest, amethyst. Drop your own PNG in "
                         + "config/blockpal/skins/ and run §f/aiskins list§7."));
+        return 1;
+    }
+
+    // ── personality ─────────────────────────────────────────────────────────────
+
+    /** Suggests the available personality ids. */
+    private static final com.mojang.brigadier.suggestion.SuggestionProvider<CommandSourceStack> PERSONALITY_SUGGEST =
+            (ctx, builder) -> {
+                for (Personality p : Personality.values()) builder.suggest(p.id());
+                return builder.buildFuture();
+            };
+
+    private static int listPersonalities(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        AiAssistantEntity ai = AiAssistantEntity.findFor(player, 128);
+        Personality current = ai != null ? ai.getPersonality() : Personality.fromConfig();
+
+        StringBuilder sb = new StringBuilder("§6=== Personalities ===");
+        for (Personality p : Personality.values()) {
+            sb.append("\n").append(p == current ? "§a➤ §f" : "§7  §f").append(p.id())
+                    .append(" §7— ").append(p.desc());
+        }
+        if (ai != null) {
+            sb.append("\n§7Give §f").append(ai.getAssistantName())
+                    .append("§7 a new one with §f/ai personality <id>§7.");
+        } else {
+            sb.append("\n§7(No bot nearby — the server default is §f")
+                    .append(Personality.fromConfig().id()).append("§7.)");
+        }
+        final String out = sb.toString();
+        player.sendSystemMessage(Component.literal(out));
+        return 1;
+    }
+
+    private static int setPersonality(CommandContext<CommandSourceStack> ctx, String id) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+
+        AiAssistantEntity ai = AiAssistantEntity.findFor(player, 128);
+        if (ai == null) return noAi(player);
+
+        Personality p = Personality.byId(id);
+        if (p == null) {
+            player.sendSystemMessage(Component.literal(
+                    "§cUnknown personality §f'" + id + "'§c. See §f/ai personality§c for the list."));
+            return 0;
+        }
+        ai.setPersonality(p);
+        player.sendSystemMessage(Component.literal(
+                "§a" + ai.getAssistantName() + " is now §f" + p.display() + "§a — " + p.desc()));
+        ai.broadcastMessage(p.greet());   // a line in the new voice, so the change is felt
         return 1;
     }
 

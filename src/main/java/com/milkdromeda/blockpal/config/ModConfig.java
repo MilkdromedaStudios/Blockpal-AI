@@ -26,7 +26,7 @@ public class ModConfig {
      * default instead of silently inheriting Java's zero/false. A file with no
      * version at all reads back as {@code 0} and is migrated from there.
      */
-    public static final int CURRENT_CONFIG_VERSION = 4;
+    public static final int CURRENT_CONFIG_VERSION = 5;
 
     // Settings (including the API key) live in their own folder under the game's
     // config directory. That directory is untouched when you replace the mod jar,
@@ -90,6 +90,12 @@ public class ModConfig {
     // "namespace:path.png" texture, or a name under
     // assets/blockpal/textures/entity/skins/<name>.png.
     public String defaultSkin = "default";
+
+    // Default personality for a freshly summoned assistant (lowercase id from the
+    // Personality enum, e.g. "friendly", "cheerful", "grumpy", "stoic", "heroic",
+    // "shy"). Drives both how the bot talks and the tone of its AI plans. Each bot
+    // remembers its own personality; change one with /ai personality <id>.
+    public String defaultPersonality = "friendly";
 
     // Safety cap: automatically stop a running task after this many seconds, so a
     // task stuck in an endless loop can't keep running (and lagging) forever.
@@ -246,6 +252,12 @@ public class ModConfig {
             // mod, so don't pop the tutorial for them — only fresh installs see it.
             tutorialShown = true;
         }
+        if (configVersion < 5) {
+            // Selectable personalities were added in v5. An upgrading install keeps
+            // the historical tone, so default it to the friendly personality rather
+            // than the empty string an older file deserializes to.
+            defaultPersonality = "friendly";
+        }
         configVersion = CURRENT_CONFIG_VERSION;
     }
 
@@ -257,6 +269,9 @@ public class ModConfig {
         if (apiUrl == null || apiUrl.isBlank()) apiUrl = "https://router.huggingface.co/v1/chat/completions";
         if (defaultName == null || defaultName.isBlank()) defaultName = "Ethan";
         if (defaultSkin == null || defaultSkin.isBlank()) defaultSkin = "default";
+        if (com.milkdromeda.blockpal.ai.Personality.byId(defaultPersonality) == null) {
+            defaultPersonality = "friendly";
+        }
         if (maxTaskSeconds < 0) maxTaskSeconds = 0;
         if (performancePreset == null || performancePreset.isBlank()) performancePreset = "normal";
         if (adminPermissionLevel < 0) adminPermissionLevel = 0;

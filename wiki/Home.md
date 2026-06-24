@@ -29,6 +29,8 @@ and configures itself from a real in-game settings screen.
   safely gated. See [Running Commands](Running-Commands).
 - **Inventory & gear** — picks up drops, auto-equips the best weapon/armor, eats food.
 - **Custom skins** — built-in palettes or your own PNG. See [Custom Skins](Custom-Skins).
+- **Personalities** — pick how it talks & acts: friendly, cheerful, grumpy, stoic,
+  heroic, shy. See [Personalities](Personalities).
 - **Emergency FPS kill-switch** — auto-disables the mod if framerate collapses.
 - **Admin menu (ops)** — manage/kill all bots, set a bot cap, and see live stats
   (bots, players, FPS). See [Admin Menu](Admin-Menu).
@@ -48,6 +50,7 @@ and configures itself from a real in-game settings screen.
 | [Settings](Settings) | The in-game settings panel (no more setting commands) |
 | [Performance Presets](Performance-Presets) | Normal / Opus / Potato |
 | [Custom Skins](Custom-Skins) | Built-in and drop-in skins |
+| [Personalities](Personalities) | How your companion talks & acts |
 | [Running Commands](Running-Commands) | Command execution, permission levels, denylist |
 | [AI Actions](AI-Actions) | The 16 action types the planner can use |
 | [Per-Player Keys & Models](Per-Player-Keys-and-Models) | Bring-your-own-key, exemptions, selectable models |

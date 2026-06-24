@@ -11,6 +11,7 @@
 - [Settings](Settings)
 - [Performance Presets](Performance-Presets)
 - [Custom Skins](Custom-Skins)
+- [Personalities](Personalities)
 - [Running Commands](Running-Commands)
 - [AI Actions](AI-Actions)
 

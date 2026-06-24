@@ -47,7 +47,7 @@ public class AiTaskManager {
         }
         lastTask = task;
         waitingForApi = true;
-        pendingFuture = CLIENT.requestPlan(task, buildContext(), auth);
+        pendingFuture = CLIENT.requestPlan(task, buildContext(), auth, entity.getPersonality().style());
     }
 
     /** The token + model a request from this bot should use, based on its owner. */
@@ -82,7 +82,7 @@ public class AiTaskManager {
         String task = lastTask;
         currentPlan = null;
         waitingForApi = true;
-        pendingFuture = CLIENT.requestPlan(task, buildContext(), auth);
+        pendingFuture = CLIENT.requestPlan(task, buildContext(), auth, entity.getPersonality().style());
     }
 
     /** Asks the language model to interpret a free-form chat message. */

@@ -41,4 +41,8 @@ Cancel it with **"stop"**, **"follow me"**, or **"stay"**.
 All messages use natural first-person dialogue in `Name: "message"` format, drawn from
 randomised pools so replies vary. When health drops critically low in combat, the
 assistant calls out to nearby players for help before retreating.
+
+The exact wording depends on the bot's **[personality](Personalities)** — a cheerful
+companion bubbles, a grumpy one grumbles, a stoic one keeps it clipped. Set it with
+`/ai personality <id>`.
 </content>
