@@ -2,6 +2,7 @@ package com.milkdromeda.blockpal.entity;
 
 import com.milkdromeda.blockpal.ai.AiTaskManager;
 import com.milkdromeda.blockpal.ai.ChatIntent;
+import com.milkdromeda.blockpal.ai.Personality;
 import com.milkdromeda.blockpal.config.ModConfig;
 import com.milkdromeda.blockpal.entity.goal.*;
 import com.milkdromeda.blockpal.entity.goal.FollowOwnerGoal;
@@ -41,7 +42,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
-import java.util.Random;
 import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.function.ToDoubleFunction;
@@ -58,10 +58,11 @@ public class AiAssistantEntity extends PathfinderMob {
     private static final EntityDataAccessor<String> DATA_SKIN =
             SynchedEntityData.defineId(AiAssistantEntity.class, EntityDataSerializers.STRING);
 
-    private static final Random RAND = new Random();
-
     private Mode mode = Mode.IDLE;
     private String assistantName = DEFAULT_NAME;
+    // How this bot talks and the tone of its AI plans. Defaults to the server-wide
+    // default at spawn; each bot remembers its own (NBT) so they can differ.
+    private Personality personality = Personality.fromConfig();
     private UUID ownerUuid;
     // Owner's username, kept so per-player-key whitelist checks work even while the
     // owner is offline (the bot can keep planning autonomously).
@@ -301,14 +302,14 @@ public class AiAssistantEntity extends PathfinderMob {
         } else {
             getNavigation().moveTo(player, 1.2);
         }
-        broadcastMessage(pick("On my way!", "Coming!", "Be right there.", "Heading over now."));
+        broadcastMessage(personality.come());
     }
 
     public void followPlayer() {
         taskManager.clearPlan();
         mode = Mode.FOLLOWING;
         autonomousMode = false;
-        broadcastMessage(pick("Sure, I'll stick with you.", "Right behind you!", "Lead the way.", "On it, staying close."));
+        broadcastMessage(personality.follow());
     }
 
     /** Stops moving and guards the current spot (still defends against hostiles). */
@@ -317,7 +318,7 @@ public class AiAssistantEntity extends PathfinderMob {
         getNavigation().stop();
         mode = Mode.GUARDING;
         autonomousMode = false;
-        broadcastMessage(pick("Got it, I'll keep watch here.", "I'll hold this position.", "Staying put.", "Alright, keeping an eye on things."));
+        broadcastMessage(personality.stay());
     }
 
     public void stopTask() {
@@ -325,16 +326,13 @@ public class AiAssistantEntity extends PathfinderMob {
         getNavigation().stop();
         mode = Mode.FOLLOWING;
         autonomousMode = false;
-        broadcastMessage(pick("Okay, stopping.", "Alright, I'll wait here.", "Got it.", "Sure, taking a break."));
+        broadcastMessage(personality.stop());
     }
 
     /** Enters autonomous mode — the bot self-directs and picks its own tasks. */
     public void enterAutonomousMode() {
         autonomousMode = true;
-        broadcastMessage(pick("Alright, I'll use my own judgment from here.",
-                "Sure, I'll keep myself busy.",
-                "Got it — I'll figure something out on my own!",
-                "Okay, leaving it to me then."));
+        broadcastMessage(personality.auto());
         autoThinkTimer = 20; // start immediately
     }
 
@@ -394,11 +392,6 @@ public class AiAssistantEntity extends PathfinderMob {
         } else {
             broadcastMessage(msg);
         }
-    }
-
-    /** Picks a random option from the supplied strings. */
-    private static String pick(String... options) {
-        return options[RAND.nextInt(options.length)];
     }
 
     // ---- Inventory & gear ----
@@ -494,10 +487,7 @@ public class AiAssistantEntity extends PathfinderMob {
         setItemSlot(slot, stack);
         setGuaranteedDrop(slot);
         String item = stack.getDisplayName().getString();
-        broadcastMessage(pick("Nice, putting on " + item + ".",
-                "Ooh, " + item + " — that's an upgrade.",
-                "I'll wear this " + item + ".",
-                item + "? Don't mind if I do."));
+        broadcastMessage(personality.equip(item));
         if (!displaced.isEmpty()) {
             ItemStack overflow = inventory.addItem(displaced);
             if (!overflow.isEmpty()) spawnAtLocation(level, overflow);
@@ -586,10 +576,7 @@ public class AiAssistantEntity extends PathfinderMob {
             ItemStack s = inventory.getItem(i);
             if (!s.isEmpty() && ItemSorter.isJunk(s)) {
                 String junk = s.getDisplayName().getString();
-                broadcastMessage(pick("I don't need this " + junk + ", tossing it.",
-                        "No thanks, " + junk + " is useless to me.",
-                        "Dropping the " + junk + " — not worth carrying.",
-                        junk + "? Trash. Gone."));
+                broadcastMessage(personality.junk(junk));
                 spawnAtLocation(level, inventory.removeItemNoUpdate(i));
             }
         }
@@ -657,6 +644,7 @@ public class AiAssistantEntity extends PathfinderMob {
         super.addAdditionalSaveData(output);
         output.putString("AssistantName", assistantName);
         output.putString("Skin", getSkin());
+        output.putString("Personality", personality.id());
         output.putString("Mode", mode.name());
         if (ownerUuid != null) output.store("OwnerUuid", UUIDUtil.STRING_CODEC, ownerUuid);
         if (ownerName != null && !ownerName.isBlank()) output.putString("OwnerName", ownerName);
@@ -670,6 +658,8 @@ public class AiAssistantEntity extends PathfinderMob {
         super.readAdditionalSaveData(input);
         setAssistantName(input.getStringOr("AssistantName", DEFAULT_NAME));
         setSkin(input.getStringOr("Skin", "default"));
+        Personality p = Personality.byId(input.getStringOr("Personality", ""));
+        personality = p != null ? p : Personality.fromConfig();
         String modeStr = input.getStringOr("Mode", "FOLLOWING");
         try { mode = Mode.valueOf(modeStr); } catch (IllegalArgumentException ignored) { mode = Mode.FOLLOWING; }
         input.read("OwnerUuid", UUIDUtil.STRING_CODEC).ifPresent(uuid -> ownerUuid = uuid);
@@ -686,6 +676,12 @@ public class AiAssistantEntity extends PathfinderMob {
     public Mode getMode() { return mode; }
     public void setMode(Mode mode) { this.mode = mode; }
     public String getAssistantName() { return assistantName; }
+
+    /** This bot's personality — drives its chat tone and the flavour of its AI plans. */
+    public Personality getPersonality() { return personality; }
+    public void setPersonality(Personality personality) {
+        this.personality = personality != null ? personality : Personality.fromConfig();
+    }
 
     /** Sets the assistant's name and keeps the floating nametag in sync. */
     public void setAssistantName(String name) {

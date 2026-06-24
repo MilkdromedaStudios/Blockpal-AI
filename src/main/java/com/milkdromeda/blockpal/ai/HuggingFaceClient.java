@@ -106,11 +106,21 @@ public class HuggingFaceClient {
             """;
 
     public CompletableFuture<ActionPlan> requestPlan(String task, String context, ApiAuth auth) {
+        return requestPlan(task, context, auth, null);
+    }
+
+    /**
+     * Requests a plan, blending the bot's {@code personaStyle} (a personality flavour
+     * line) into the system prompt so its {@code CHAT} actions and general approach
+     * stay in character. A blank/null style behaves exactly like the plain request.
+     */
+    public CompletableFuture<ActionPlan> requestPlan(String task, String context, ApiAuth auth,
+                                                     String personaStyle) {
         ModConfig cfg = ModConfig.get();
 
         HttpRequest request;
         try {
-            request = buildRequest(cfg, task, context, auth);
+            request = buildRequest(cfg, task, context, auth, personaStyle);
         } catch (IllegalArgumentException e) {
             return CompletableFuture.completedFuture(
                     errorPlan(task, "the API URL looks invalid — fix it with /ai settings"));
@@ -192,7 +202,8 @@ public class HuggingFaceClient {
         }
     }
 
-    private HttpRequest buildRequest(ModConfig cfg, String task, String context, ApiAuth auth) {
+    private HttpRequest buildRequest(ModConfig cfg, String task, String context, ApiAuth auth,
+                                     String personaStyle) {
         JsonObject body = new JsonObject();
         body.addProperty("model", auth.model());
         body.addProperty("temperature", cfg.temperature);
@@ -200,7 +211,7 @@ public class HuggingFaceClient {
         body.addProperty("stream", false);
 
         JsonArray messages = new JsonArray();
-        messages.add(message("system", SYSTEM_PROMPT));
+        messages.add(message("system", systemPrompt(personaStyle)));
         messages.add(message("user", "Context:\n" + context + "\n\nTask: " + task));
         body.add("messages", messages);
 
@@ -214,6 +225,15 @@ public class HuggingFaceClient {
             builder.header("Authorization", "Bearer " + auth.token());
         }
         return builder.build();
+    }
+
+    /** The planner system prompt, with the bot's personality flavour appended (if any). */
+    private String systemPrompt(String personaStyle) {
+        if (personaStyle == null || personaStyle.isBlank()) return SYSTEM_PROMPT;
+        return SYSTEM_PROMPT
+                + "\n\nPersonality: " + personaStyle.trim()
+                + " Stay in character in the wording of any CHAT action, but never let it "
+                + "change the JSON schema or the actions you choose.";
     }
 
     private JsonObject message(String role, String content) {
