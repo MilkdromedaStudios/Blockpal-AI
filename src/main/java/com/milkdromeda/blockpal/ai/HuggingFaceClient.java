@@ -105,6 +105,96 @@ public class HuggingFaceClient {
             you are unsure. Keep "task" concise, e.g. "build a 5x5 stone floor".
             """;
 
+    /** The verdict of a custom-personality safety check. */
+    public record Moderation(boolean allowed, String reason) {}
+
+    private static final String MODERATION_PROMPT = """
+            You are a content moderator for a family-friendly Minecraft mod. A player
+            wants to give their in-game AI companion a custom personality, described by
+            the text below. Decide whether that text is acceptable for all ages.
+
+            REJECT if it contains or asks the character to use: profanity or slurs,
+            sexual or adult content, hate or harassment, graphic violence or gore,
+            self-harm, illegal activity, real-world political/religious agitation,
+            personal data, or instructions to be cruel, abusive or to ignore safety.
+            Otherwise ACCEPT. A harmless character description (funny, grumpy, robotic,
+            pirate, royal, etc.) should be ACCEPTED.
+
+            Respond with ONLY this JSON, nothing else:
+            {"allowed": true|false, "reason": "<short reason, <=12 words>"}
+            """;
+
+    /**
+     * Safety-checks a player-written custom personality with the language model.
+     * Never throws. With no API token it resolves to "not allowed" (we can't verify),
+     * so callers should treat a missing key as "ask for a built-in instead".
+     */
+    public CompletableFuture<Moderation> moderatePersonality(String text, ApiAuth auth) {
+        if (text == null || text.isBlank()) {
+            return CompletableFuture.completedFuture(new Moderation(false, "the description was empty"));
+        }
+        if (auth == null || !auth.hasToken()) {
+            return CompletableFuture.completedFuture(
+                    new Moderation(false, "no API key to verify the text is safe"));
+        }
+        ModConfig cfg = ModConfig.get();
+        HttpRequest request;
+        try {
+            request = buildModerationRequest(cfg, text, auth);
+        } catch (IllegalArgumentException e) {
+            return CompletableFuture.completedFuture(new Moderation(false, "the API URL looks invalid"));
+        }
+        return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                .handle((resp, ex) -> {
+                    // On any failure, fail safe: don't apply unverified custom text.
+                    if (ex != null || resp.statusCode() != 200) {
+                        return new Moderation(false, "couldn't reach the safety check — try again");
+                    }
+                    return parseModeration(resp.body());
+                });
+    }
+
+    private HttpRequest buildModerationRequest(ModConfig cfg, String text, ApiAuth auth) {
+        JsonObject body = new JsonObject();
+        body.addProperty("model", auth.model());
+        body.addProperty("temperature", 0.0);
+        body.addProperty("max_tokens", 60);
+        body.addProperty("stream", false);
+
+        JsonArray messages = new JsonArray();
+        messages.add(message("system", MODERATION_PROMPT));
+        messages.add(message("user", "Custom personality text:\n" + text));
+        body.add("messages", messages);
+
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(cfg.apiUrl))
+                .header("Content-Type", "application/json")
+                .timeout(Duration.ofSeconds(30))
+                .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body)));
+        if (auth.hasToken()) {
+            builder.header("Authorization", "Bearer " + auth.token());
+        }
+        return builder.build();
+    }
+
+    private Moderation parseModeration(String rawBody) {
+        try {
+            String content = extractContent(rawBody);
+            if (content == null) return new Moderation(false, "unreadable safety-check response");
+            int start = content.indexOf('{');
+            int end = content.lastIndexOf('}');
+            if (start == -1 || end == -1 || end < start) {
+                return new Moderation(false, "unreadable safety-check response");
+            }
+            JsonObject o = JsonParser.parseString(content.substring(start, end + 1)).getAsJsonObject();
+            boolean allowed = o.has("allowed") && o.get("allowed").getAsBoolean();
+            String reason = o.has("reason") ? o.get("reason").getAsString().trim() : "";
+            return new Moderation(allowed, reason);
+        } catch (Exception e) {
+            return new Moderation(false, "couldn't read the safety check");
+        }
+    }
+
     public CompletableFuture<ActionPlan> requestPlan(String task, String context, ApiAuth auth) {
         return requestPlan(task, context, auth, null);
     }

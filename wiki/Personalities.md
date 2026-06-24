@@ -32,12 +32,37 @@ relogs and restarts.
 A personality only changes *flavour* — every companion is equally capable. It never
 changes what tasks it can do, only the wording it uses.
 
+## Custom personalities
+
+Want something that isn't on the list? Write your own in plain words:
+
+```
+/ai personality custom a wise old wizard who speaks in riddles
+/ai personality custom a sarcastic robot butler
+```
+
+You can also do it in the **My Settings** screen (`/ai mymenu`): set the **Personality**
+cycler to **Custom** and type a description in the box, then **Save** (stand near your
+bot when you do).
+
+**It's kept family-friendly automatically.** Your text is checked by the AI before it's
+applied — anything with profanity, slurs, or adult/unsafe content is rejected with a
+short reason, so just try a friendlier description. (Because the check uses the AI, a
+custom personality needs a working [API key](Getting-Started); without one it can't be
+verified and is refused.)
+
+Switching back to any built-in personality clears the custom text.
+
+> **Ops:** you can turn custom personalities off entirely with the **Allow custom
+> personalities** toggle on the Settings → Behavior tab (`allowCustomPersonality`),
+> leaving players with the six built-ins only.
+
 ## Server default
 
-Newly summoned bots start with the server's **`defaultPersonality`** (see
-[Settings](Settings)), which is `friendly` out of the box. Change it to make every
-fresh `/ai summon` start with a different character. Existing bots keep whatever
-personality they already have.
+Newly summoned bots start with the server's **default personality**, which is `friendly`
+out of the box. Set it on the **Settings → Identity** tab (the *Default personality*
+picker) or via the `defaultPersonality` config value. Changing it makes every fresh
+`/ai summon` start with that character; existing bots keep whatever they already have.
 
 ## Notes
 

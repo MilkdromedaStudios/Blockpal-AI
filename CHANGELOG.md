@@ -4,6 +4,19 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.6.0
+- **Custom personalities.** Beyond the six built-ins, you can now write your *own*
+  personality in plain words — "a wise old wizard", "a sarcastic robot butler", etc.
+  Set it with **`/ai personality custom <text>`** or in the **My Settings** screen
+  (`/ai mymenu`), where there's now a Personality picker and a custom text box.
+- **Kept family-friendly automatically.** Custom text is checked by the AI before it's
+  applied — anything with profanity, slurs, adult or otherwise unsafe content is
+  rejected with a reason, so it stays appropriate for all ages.
+- **In the settings panel, not just commands.** The Settings → Identity tab now has a
+  **Default personality** picker (the personality new bots spawn with), and ops get an
+  **"Allow custom personalities"** toggle (Behavior tab) to restrict players to the
+  built-ins if they want.
+
 ## 3.5.0
 - **Your companion now has a personality.** Pick how it talks *and* how it acts with
   **`/ai personality <id>`** — choose from **friendly** (the classic Ethan),

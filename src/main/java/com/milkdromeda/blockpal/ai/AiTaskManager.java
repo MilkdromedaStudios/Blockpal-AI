@@ -47,7 +47,7 @@ public class AiTaskManager {
         }
         lastTask = task;
         waitingForApi = true;
-        pendingFuture = CLIENT.requestPlan(task, buildContext(), auth, entity.getPersonality().style());
+        pendingFuture = CLIENT.requestPlan(task, buildContext(), auth, entity.getPlanStyle());
     }
 
     /** The token + model a request from this bot should use, based on its owner. */
@@ -82,12 +82,22 @@ public class AiTaskManager {
         String task = lastTask;
         currentPlan = null;
         waitingForApi = true;
-        pendingFuture = CLIENT.requestPlan(task, buildContext(), auth, entity.getPersonality().style());
+        pendingFuture = CLIENT.requestPlan(task, buildContext(), auth, entity.getPlanStyle());
     }
 
     /** Asks the language model to interpret a free-form chat message. */
     public CompletableFuture<ChatIntent> classify(String message, String context, String assistantName) {
         return CLIENT.classifyMessage(message, context, assistantName, authForOwner());
+    }
+
+    /** Asks the language model to safety-check a player-written custom personality. */
+    public CompletableFuture<HuggingFaceClient.Moderation> moderatePersonality(String text) {
+        return CLIENT.moderatePersonality(text, authForOwner());
+    }
+
+    /** Whether this bot's owner has a usable API key (needed to moderate custom text). */
+    public boolean hasApiKey() {
+        return authForOwner().hasToken();
     }
 
     public void tick() {
