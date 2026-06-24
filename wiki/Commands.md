@@ -19,6 +19,7 @@ All commands are under `/ai`. Type `/ai help` in-game for the live list.
 | `/ai name <name>` | Rename it |
 | `/ai skin <name>` | Change skin (built-in or custom PNG) — see [Custom Skins](Custom-Skins) |
 | `/ai personality [<id>]` | List or set how it talks & acts — see [Personalities](Personalities) |
+| `/ai personality custom <text>` | Give it your own AI-moderated personality |
 | `/ai inventory` · `/ai inv` | Show carried items |
 | `/ai mykey <token>\|clear` | Set/clear **your own** API key — see [Per-Player Keys & Models](Per-Player-Keys-and-Models) |
 | `/ai model [<id>]` · `/ai models` | Pick your bot's model / list allowed models |

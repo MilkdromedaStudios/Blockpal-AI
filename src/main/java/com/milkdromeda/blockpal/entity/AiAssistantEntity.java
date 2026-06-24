@@ -63,6 +63,11 @@ public class AiAssistantEntity extends PathfinderMob {
     // How this bot talks and the tone of its AI plans. Defaults to the server-wide
     // default at spawn; each bot remembers its own (NBT) so they can differ.
     private Personality personality = Personality.fromConfig();
+    // Optional player-written "custom" personality. When non-blank it overrides the
+    // built-in personality's style() in the AI planner; the built-in `personality`
+    // above still supplies the quick no-API reply pools (a neutral base voice).
+    // "" = use the built-in. Always moderated before being set (see HuggingFaceClient).
+    private String customStyle = "";
     private UUID ownerUuid;
     // Owner's username, kept so per-player-key whitelist checks work even while the
     // owner is offline (the bot can keep planning autonomously).
@@ -645,6 +650,7 @@ public class AiAssistantEntity extends PathfinderMob {
         output.putString("AssistantName", assistantName);
         output.putString("Skin", getSkin());
         output.putString("Personality", personality.id());
+        if (customStyle != null && !customStyle.isBlank()) output.putString("CustomPersonality", customStyle);
         output.putString("Mode", mode.name());
         if (ownerUuid != null) output.store("OwnerUuid", UUIDUtil.STRING_CODEC, ownerUuid);
         if (ownerName != null && !ownerName.isBlank()) output.putString("OwnerName", ownerName);
@@ -660,6 +666,7 @@ public class AiAssistantEntity extends PathfinderMob {
         setSkin(input.getStringOr("Skin", "default"));
         Personality p = Personality.byId(input.getStringOr("Personality", ""));
         personality = p != null ? p : Personality.fromConfig();
+        customStyle = input.getStringOr("CustomPersonality", "");
         String modeStr = input.getStringOr("Mode", "FOLLOWING");
         try { mode = Mode.valueOf(modeStr); } catch (IllegalArgumentException ignored) { mode = Mode.FOLLOWING; }
         input.read("OwnerUuid", UUIDUtil.STRING_CODEC).ifPresent(uuid -> ownerUuid = uuid);
@@ -677,10 +684,90 @@ public class AiAssistantEntity extends PathfinderMob {
     public void setMode(Mode mode) { this.mode = mode; }
     public String getAssistantName() { return assistantName; }
 
-    /** This bot's personality — drives its chat tone and the flavour of its AI plans. */
+    /** This bot's built-in personality — supplies the quick no-API reply pools. */
     public Personality getPersonality() { return personality; }
+
+    /** Switches to a built-in personality, clearing any custom text. */
     public void setPersonality(Personality personality) {
         this.personality = personality != null ? personality : Personality.fromConfig();
+        this.customStyle = "";   // choosing a built-in clears a custom personality
+    }
+
+    /** True when this bot is running a player-written custom personality. */
+    public boolean isCustomPersonality() { return customStyle != null && !customStyle.isBlank(); }
+
+    /** The free-text custom personality, or "" when using a built-in. */
+    public String getCustomStyle() { return customStyle == null ? "" : customStyle; }
+
+    /** Sets a custom personality from free text (assumed already moderated). Blank clears it. */
+    public void setCustomStyle(String text) {
+        this.customStyle = (text == null) ? "" : text.trim();
+    }
+
+    /** Human label for the active personality: "Custom" or the built-in's display name. */
+    public String getPersonalityLabel() {
+        return isCustomPersonality() ? "Custom" : personality.display();
+    }
+
+    /** The style fragment fed to the planner: the custom text if set, else the built-in's. */
+    public String getPlanStyle() {
+        return isCustomPersonality() ? customStyle : personality.style();
+    }
+
+    /** Longest a custom personality description may be (kept short so it can't blow up the prompt). */
+    public static final int CUSTOM_PERSONALITY_MAX = 300;
+
+    /**
+     * Sets a custom personality from free text after a language-model safety check.
+     * Replies to {@code issuer} (or broadcasts) with the outcome. Refused when custom
+     * personalities are disabled server-wide or there's no API key to verify the text.
+     */
+    public void requestCustomPersonality(String text, ServerPlayer issuer) {
+        if (!ModConfig.get().allowCustomPersonality) {
+            msgTo(issuer, "§cCustom personalities are turned off here. Pick a built-in one with §f/ai personality§c.");
+            return;
+        }
+        String trimmed = text == null ? "" : text.trim();
+        if (trimmed.isEmpty()) {
+            msgTo(issuer, "§cDescribe the personality, e.g. §f/ai personality custom a wise old wizard§c.");
+            return;
+        }
+        if (trimmed.length() > CUSTOM_PERSONALITY_MAX) trimmed = trimmed.substring(0, CUSTOM_PERSONALITY_MAX);
+        if (!taskManager.hasApiKey()) {
+            msgTo(issuer, "§cI need an API key to safety-check a custom personality — set one (e.g. §f/ai mykey <token>§c).");
+            return;
+        }
+        msgTo(issuer, "§7Checking that personality is okay…");
+        final String candidate = trimmed;
+        taskManager.moderatePersonality(candidate).whenComplete((mod, ex) -> {
+            MinecraftServer server = level().getServer();
+            if (server == null) return;
+            server.execute(() -> {
+                if (!isAlive()) return;
+                if (ex != null || mod == null) {
+                    msgTo(issuer, "§cCouldn't check that personality — try again in a moment.");
+                    return;
+                }
+                if (!mod.allowed()) {
+                    String why = (mod.reason() == null || mod.reason().isBlank())
+                            ? "it wasn't family-friendly" : mod.reason();
+                    msgTo(issuer, "§cThat personality was rejected: §f" + why + "§c. Try a friendlier description.");
+                    return;
+                }
+                setCustomStyle(candidate);
+                if (issuer != null) {
+                    issuer.sendSystemMessage(Component.literal(
+                            "§a" + assistantName + " now has a custom personality ✓"));
+                }
+                broadcastMessage("Got it — I'll take on that personality from now on.");
+            });
+        });
+    }
+
+    /** Sends a message to a specific player if given, otherwise broadcasts it. */
+    private void msgTo(ServerPlayer issuer, String msg) {
+        if (issuer != null) issuer.sendSystemMessage(Component.literal(msg));
+        else broadcastMessage(msg);
     }
 
     /** Sets the assistant's name and keeps the floating nametag in sync. */

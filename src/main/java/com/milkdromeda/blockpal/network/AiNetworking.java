@@ -173,6 +173,12 @@ public final class AiNetworking {
                     cfg.setPlayerToken(player.getUUID(), payload.token());
                 }
                 ModConfig.save();
+
+                // Personality applies to the player's nearest owned bot. A custom text
+                // is safety-checked (async) by the bot before it's applied; a built-in
+                // id is applied immediately. Both blank = a no-op refresh, so we skip.
+                applyPersonality(player, payload);
+
                 player.sendSystemMessage(Component.literal("§a[Blockpal] Saved your preferences ✓"));
                 // Re-sync so the screen shows the saved state.
                 if (ServerPlayNetworking.canSend(player, PlayerPrefsSyncPayload.TYPE)) {
@@ -180,6 +186,29 @@ public final class AiNetworking {
                 }
             });
         });
+    }
+
+    /** Applies a personality choice from the My Settings panel to the player's nearby bot. */
+    private static void applyPersonality(ServerPlayer player, PlayerPrefsPayload payload) {
+        String pid = payload.personality();
+        String custom = payload.customPersonality();
+        boolean wantsBuiltin = pid != null && !pid.isBlank();
+        boolean wantsCustom = custom != null && !custom.isBlank();
+        if (!wantsBuiltin && !wantsCustom) return;   // panel-switch no-op
+
+        AiAssistantEntity bot = AiAssistantEntity.findFor(player, 256);
+        if (bot == null) {
+            player.sendSystemMessage(Component.literal(
+                    "§eStand near your companion to change its personality."));
+            return;
+        }
+        if (wantsCustom) {
+            bot.requestCustomPersonality(custom, player);   // async safety check, then applies
+        } else {
+            com.milkdromeda.blockpal.ai.Personality p =
+                    com.milkdromeda.blockpal.ai.Personality.byId(pid);
+            if (p != null) bot.setPersonality(p);
+        }
     }
 
     /** Performs an admin action. @return true if the menu should be re-synced afterwards. */

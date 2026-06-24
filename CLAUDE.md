@@ -55,7 +55,28 @@ can do and how it evolved.
   writes stays in voice (without changing the JSON schema or chosen actions).
 - The server default for freshly summoned bots is `defaultPersonality` (config, default
   `friendly`). Resolution: a bot's stored personality wins; an unknown/missing one falls
-  back to the server default. Config schema → v5.
+  back to the server default.
+
+#### Custom personalities (3.6.0+)
+- Players can write a **free-text custom personality** ("a wise old wizard", "a
+  sarcastic robot butler") with **`/ai personality custom <text>`** or in the **My
+  Settings** screen (`/ai mymenu`), which now has a Personality cycler (built-ins +
+  `custom`) and a custom text box. Stored per-bot in NBT (`CustomPersonality`); a
+  non-blank custom text overrides the built-in's `style()` in the planner via
+  `entity.getPlanStyle()`, while the built-in `personality` still supplies the quick
+  no-API reply pools (a neutral base voice). `getPersonalityLabel()` reads "Custom".
+- **AI moderation** — custom text is safety-checked by the language model
+  (`HuggingFaceClient.moderatePersonality` → `Moderation(allowed, reason)`,
+  family-friendly prompt, temp 0) **before** it's applied. Rejections (profanity,
+  slurs, adult/unsafe content) come back with a short reason; if there's no usable API
+  key the text is refused (can't verify). The flow lives in
+  `AiAssistantEntity.requestCustomPersonality(text, issuer)` (async, applies on the
+  server thread), shared by the command and the `PlayerPrefsPayload` handler.
+- **Ops limit** — `allowCustomPersonality` (config, default true) gates the whole
+  feature; a "Allow custom personalities" toggle sits on the Settings → Behavior tab.
+- **In the panel** — the Settings → **Identity** tab has a **Default personality**
+  picker (writes `defaultPersonality`). Config schema → v6 (upgrading installs default
+  `allowCustomPersonality` true).
 
 ### AI / LLM planning
 - Connects to any **OpenAI-compatible** API (HuggingFace, Ollama, OpenAI,
@@ -124,6 +145,7 @@ can do and how it evolved.
 | `/ai name <name>` | Rename |
 | `/ai skin <name>` | Change skin (built-in or your own PNG) |
 | `/ai personality [<id>]` | List / set how the bot talks & acts |
+| `/ai personality custom <text>` | Give it your own (AI-moderated) personality |
 | `/aiskins list\|reload` | (client) list/reload skins in `config/blockpal/skins/` |
 | `/ai inventory` / `/ai inv` | Show carried items |
 | `/ai mykey <token>\|clear` | Set/clear **your own** API key (any player) |
@@ -228,8 +250,8 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   `requireOwnApiKey`, `ownKeyWhitelist`, `playerApiKeysObf`, `allowPlayerModelChoice`,
   `allowedModels`, `playerModels`,
   `chatListening`, `activeMode`, `defaultName`,
-  `defaultSkin`, `defaultPersonality`, `maxTaskSeconds`, `performancePreset`,
-  `sneakToOpenMenu`, `configVersion`.
+  `defaultSkin`, `defaultPersonality`, `allowCustomPersonality`, `maxTaskSeconds`,
+  `performancePreset`, `sneakToOpenMenu`, `configVersion`.
 - **Settings are configured in the panel, not via commands (3.4.0).** The old
   `/ai settings <key> <value>` generic setter (and `/ai token|listen|active|commands`)
   were removed as too confusing. The **Settings** panel (`/ai menu`) covers the
@@ -284,6 +306,24 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 ---
 
 ## Changelog
+
+### 3.6.0
+- **Custom personalities + AI moderation.** Beyond the six built-ins, players can write a
+  free-text personality with `/ai personality custom <text>` or the **My Settings** GUI
+  (`/ai mymenu`, now with a Personality cycler + custom box). The text is safety-checked
+  by the language model (`HuggingFaceClient.moderatePersonality` →
+  `Moderation(allowed, reason)`) before it's applied; rejections return a reason and a
+  missing API key refuses (can't verify). Stored per-bot in NBT (`CustomPersonality`);
+  `entity.getPlanStyle()` feeds the custom text (or the built-in `style()`) to the
+  planner, while built-in reply pools still cover the quick no-API lines. Shared flow in
+  `AiAssistantEntity.requestCustomPersonality(text, issuer)`.
+- **In the settings panel.** Settings → **Identity** tab gained a **Default personality**
+  picker (`defaultPersonality`); Settings → **Behavior** tab gained an **Allow custom
+  personalities** toggle (`allowCustomPersonality`, the ops limit). Both ride `ConfigData`.
+- **Plumbing.** `PlayerPrefsPayload`/`PlayerPrefsSyncPayload` carry the per-bot personality
+  (built-in id or custom text + `allowCustom`); the `AiNetworking` handler applies it to
+  the player's nearest owned bot (`applyPersonality`). `ModConfig` adds
+  `allowCustomPersonality`; config schema → v6 (upgrades default it true).
 
 ### 3.5.0
 - **Selectable personalities.** New `Personality` enum gives each bot a character that

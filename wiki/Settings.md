@@ -24,8 +24,8 @@ Every Blockpal screen has a shared **tab bar** at the top to move between the pa
 
 | Sub-tab | What's here |
 |-----|-------------|
-| **Identity** | Name, skin, **Open skins folder** button |
-| **Behavior** | Chat listening, active analysis, sneak-to-open-menu, follow distance, guard radius, [performance preset](Performance-Presets) |
+| **Identity** | Name, skin, **Open skins folder** button, **Default personality** |
+| **Behavior** | Chat listening, active analysis, sneak-to-open-menu, **allow custom personalities**, follow distance, guard radius, [performance preset](Performance-Presets) |
 | **AI** | API URL, model, token, temperature, max tokens |
 | **Combat** | Allow commands, permission level, flee health |
 | **Developer** | Action tick delay, task watchdog timeout, flee health *(high-risk — see [Developer Menu](Developer-Menu))* |
@@ -34,10 +34,11 @@ Every Blockpal screen has a shared **tab bar** at the top to move between the pa
 - Edits are held in a draft and captured on each tab switch, so moving between tabs
   doesn't lose changes.
 
-> **Personality** is set per-bot with `/ai personality <id>` (see
-> [Personalities](Personalities)), not in the panel. The server-wide default for newly
-> summoned bots is the `defaultPersonality` value in `config/blockpal/config.json`
-> (default `friendly`).
+> **Personality:** the **Identity** tab sets the *default* personality for newly
+> summoned bots, and the **Behavior** tab has an *Allow custom personalities* toggle.
+> Each player changes their *own* bot's personality with `/ai personality <id>` /
+> `/ai personality custom <text>` or the **My Settings** screen (`/ai mymenu`). See
+> [Personalities](Personalities).
 - **Save / Apply / Cancel** bar is pinned at the bottom; **Esc** auto-saves.
 - The token field stays blank when one is set — leave it blank to keep the current
   token, or type a new one to replace it.

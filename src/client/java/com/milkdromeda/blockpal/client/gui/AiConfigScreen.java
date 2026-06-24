@@ -1,5 +1,6 @@
 package com.milkdromeda.blockpal.client.gui;
 
+import com.milkdromeda.blockpal.ai.Personality;
 import com.milkdromeda.blockpal.client.render.RuntimeSkins;
 import com.milkdromeda.blockpal.network.ConfigData;
 import com.milkdromeda.blockpal.network.ConfigUpdatePayload;
@@ -63,12 +64,14 @@ public class AiConfigScreen extends Screen {
     private double pTemp, pFollow, pGuard, pFlee;
     private int pMaxTokens, pCmdLevel, pActionDelay, pMaxTask;
     private String pPreset;
+    private String pDefaultPersonality;
+    private boolean pAllowCustom;
     private boolean tokenSet;
 
     // ── widgets for the current tab (null when not on that tab) ──
     private EditBox nameBox, skinBox, modelBox, apiUrlBox, tokenBox;
-    private CycleButton<Boolean> listenButton, activeButton, commandsButton, debugButton, sneakButton;
-    private CycleButton<String> presetButton;
+    private CycleButton<Boolean> listenButton, activeButton, commandsButton, debugButton, sneakButton, allowCustomButton;
+    private CycleButton<String> presetButton, defaultPersonalityButton;
     private OptionSlider tempSlider, maxTokensSlider, followSlider, guardSlider, cmdLevelSlider;
     private OptionSlider actionDelaySlider, maxTaskSlider, fleeSlider;
 
@@ -100,6 +103,9 @@ public class AiConfigScreen extends Screen {
         pActionDelay = d.actionTickDelay();
         pMaxTask = d.maxTaskSeconds();
         pPreset = d.performancePreset() != null ? d.performancePreset() : "normal";
+        pDefaultPersonality = (d.defaultPersonality() != null && !d.defaultPersonality().isBlank())
+                ? d.defaultPersonality() : Personality.DEFAULT.id();
+        pAllowCustom = d.allowCustomPersonality();
         // Capture the as-loaded state once so dirty-tracking survives tab switches
         // (init() runs on every tab change, so we must NOT recompute it there).
         baseline = buildData();
@@ -155,8 +161,8 @@ public class AiConfigScreen extends Screen {
 
     private void clearWidgetRefs() {
         nameBox = skinBox = modelBox = apiUrlBox = tokenBox = null;
-        listenButton = activeButton = commandsButton = debugButton = sneakButton = null;
-        presetButton = null;
+        listenButton = activeButton = commandsButton = debugButton = sneakButton = allowCustomButton = null;
+        presetButton = defaultPersonalityButton = null;
         tempSlider = maxTokensSlider = followSlider = guardSlider = cmdLevelSlider = null;
         actionDelaySlider = maxTaskSlider = fleeSlider = null;
     }
@@ -192,6 +198,26 @@ public class AiConfigScreen extends Screen {
                 .bounds(0, 0, W, FIELD_H).build();
         open.setTooltip(Tooltip.create(Component.literal("Opens config/blockpal/skins/ — drop a 64×64 PNG in, then set the skin by its file name.")));
         body.addChild(open);
+
+        body.addChild(new StringWidget(W, LABEL_H, Component.literal("Default personality"), this.font));
+        defaultPersonalityButton = body.addChild(CycleButton.<String>builder(
+                        s -> Component.literal(personalityLabel(s)), pDefaultPersonality)
+                .withValues(personalityIds())
+                .create(0, 0, W, FIELD_H, Component.literal("Default personality"),
+                        (btn, val) -> pDefaultPersonality = val));
+        defaultPersonalityButton.setTooltip(Tooltip.create(Component.literal(
+                "Personality of newly summoned bots. Players change their own with /ai personality.")));
+    }
+
+    private static java.util.List<String> personalityIds() {
+        java.util.List<String> ids = new java.util.ArrayList<>();
+        for (Personality p : Personality.values()) ids.add(p.id());
+        return ids;
+    }
+
+    private static String personalityLabel(String id) {
+        Personality p = Personality.byId(id);
+        return p != null ? p.display() : id;
     }
 
     private void buildBehaviorTab(LinearLayout body) {
@@ -205,6 +231,7 @@ public class AiConfigScreen extends Screen {
         commandsButton = bodyToggle(body, "Allow commands", pCommands, "Let the assistant run /setblock, /fill, /give, etc. as part of a plan.");
         cmdLevelSlider = bodySlider(body, "Command perm level", 0, 4, pCmdLevel, true, "Permission tier for those commands (2 = command-block tier).");
         sneakButton = bodyToggle(body, "Sneak-click opens menu", pSneakMenu, "When off, sneak-right-click just toggles follow/stay; the menu is still on /ai menu.");
+        allowCustomButton = bodyToggle(body, "Allow custom personalities", pAllowCustom, "Let players give their bot a free-text personality (AI-checked to be family-friendly). Off = built-ins only.");
         debugButton = bodyToggle(body, "Debug logging", pDebug, "Verbose logging to the game log for troubleshooting.");
     }
 
@@ -320,7 +347,9 @@ public class AiConfigScreen extends Screen {
         if (commandsButton != null) pCommands = commandsButton.getValue();
         if (debugButton != null) pDebug = debugButton.getValue();
         if (sneakButton != null) pSneakMenu = sneakButton.getValue();
+        if (allowCustomButton != null) pAllowCustom = allowCustomButton.getValue();
         if (presetButton != null) pPreset = presetButton.getValue();
+        if (defaultPersonalityButton != null) pDefaultPersonality = defaultPersonalityButton.getValue();
         if (tempSlider != null) pTemp = tempSlider.current();
         if (maxTokensSlider != null) pMaxTokens = (int) Math.round(maxTokensSlider.current());
         if (followSlider != null) pFollow = followSlider.current();
@@ -336,7 +365,8 @@ public class AiConfigScreen extends Screen {
         return new ConfigData(
                 pListen, pActive, pDebug, pName, pToken, tokenSet, pModel, pApiUrl,
                 pTemp, pMaxTokens, pFollow, pGuard, pCommands, pCmdLevel, pSkin,
-                pActionDelay, pMaxTask, pFlee, pPreset, pSneakMenu);
+                pActionDelay, pMaxTask, pFlee, pPreset, pSneakMenu,
+                pDefaultPersonality, pAllowCustom);
     }
 
     private void sendCurrent() {

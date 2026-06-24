@@ -39,7 +39,9 @@ public record ConfigData(
         int maxTaskSeconds,
         double fleeHealthPercent,
         String performancePreset,
-        boolean sneakToOpenMenu
+        boolean sneakToOpenMenu,
+        String defaultPersonality,
+        boolean allowCustomPersonality
 ) {
     public static final StreamCodec<FriendlyByteBuf, ConfigData> STREAM_CODEC =
             StreamCodec.of(ConfigData::write, ConfigData::read);
@@ -67,7 +69,9 @@ public record ConfigData(
                 c.maxTaskSeconds,
                 c.fleeHealthPercent,
                 c.performancePreset,
-                c.sneakToOpenMenu);
+                c.sneakToOpenMenu,
+                c.defaultPersonality,
+                c.allowCustomPersonality);
     }
 
     /** Applies this snapshot onto the live config, clamping and keeping blanks. */
@@ -92,6 +96,11 @@ public record ConfigData(
         c.fleeHealthPercent = clamp(fleeHealthPercent, 0.0, 1.0);
         if (notBlank(performancePreset)) c.performancePreset = performancePreset.trim();
         c.sneakToOpenMenu = sneakToOpenMenu;
+        // Only accept a real personality id (guards against a forged/garbage value).
+        if (com.milkdromeda.blockpal.ai.Personality.byId(defaultPersonality) != null) {
+            c.defaultPersonality = defaultPersonality.trim().toLowerCase(java.util.Locale.ROOT);
+        }
+        c.allowCustomPersonality = allowCustomPersonality;
     }
 
     private static boolean notBlank(String s) {
@@ -123,6 +132,8 @@ public record ConfigData(
         buf.writeDouble(d.fleeHealthPercent);
         buf.writeUtf(d.performancePreset == null ? "normal" : d.performancePreset);
         buf.writeBoolean(d.sneakToOpenMenu);
+        buf.writeUtf(d.defaultPersonality == null ? "friendly" : d.defaultPersonality);
+        buf.writeBoolean(d.allowCustomPersonality);
     }
 
     private static ConfigData read(FriendlyByteBuf buf) {
@@ -145,6 +156,8 @@ public record ConfigData(
                 buf.readInt(),
                 buf.readInt(),
                 buf.readDouble(),
+                buf.readUtf(),
+                buf.readBoolean(),
                 buf.readUtf(),
                 buf.readBoolean());
     }

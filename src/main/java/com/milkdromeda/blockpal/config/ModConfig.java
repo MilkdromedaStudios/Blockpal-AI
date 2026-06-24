@@ -26,7 +26,7 @@ public class ModConfig {
      * default instead of silently inheriting Java's zero/false. A file with no
      * version at all reads back as {@code 0} and is migrated from there.
      */
-    public static final int CURRENT_CONFIG_VERSION = 5;
+    public static final int CURRENT_CONFIG_VERSION = 6;
 
     // Settings (including the API key) live in their own folder under the game's
     // config directory. That directory is untouched when you replace the mod jar,
@@ -96,6 +96,12 @@ public class ModConfig {
     // "shy"). Drives both how the bot talks and the tone of its AI plans. Each bot
     // remembers its own personality; change one with /ai personality <id>.
     public String defaultPersonality = "friendly";
+
+    // When true, players may give their bot a free-text "custom" personality
+    // (/ai personality custom <text> or the My Settings panel). The text is checked
+    // by the language model for family-friendly safety before it's applied. Ops can
+    // turn this off to restrict players to the built-in personalities only.
+    public boolean allowCustomPersonality = true;
 
     // Safety cap: automatically stop a running task after this many seconds, so a
     // task stuck in an endless loop can't keep running (and lagging) forever.
@@ -257,6 +263,12 @@ public class ModConfig {
             // the historical tone, so default it to the friendly personality rather
             // than the empty string an older file deserializes to.
             defaultPersonality = "friendly";
+        }
+        if (configVersion < 6) {
+            // Custom personalities were added in v6; allow them by default (an old
+            // file deserializes the new boolean to false, which would silently
+            // disable a feature we mean to ship on).
+            allowCustomPersonality = true;
         }
         configVersion = CURRENT_CONFIG_VERSION;
     }
