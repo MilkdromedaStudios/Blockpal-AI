@@ -4,6 +4,19 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.5.0
+- **Your companion now has a personality.** Pick how it talks *and* how it acts with
+  **`/ai personality <id>`** — choose from **friendly** (the classic Ethan),
+  **cheerful**, **grumpy**, **stoic**, **heroic** or **shy**. Run `/ai personality`
+  on its own to see the list and which one your bot is using.
+- Each bot remembers its own personality, so different companions can have different
+  vibes. The personality flavours every quick reply (follow, come, stay, gear pick-ups,
+  …) and is woven into the AI planner, so the things it *says* mid-task stay in
+  character too.
+- Server owners can set the default for newly summoned bots (the new
+  `defaultPersonality` setting; defaults to **friendly**, so existing worlds sound
+  exactly as before).
+
 ## 3.4.1
 - **Behind-the-scenes / docs only — no gameplay changes.** The mod itself is identical
   to 3.4.0.

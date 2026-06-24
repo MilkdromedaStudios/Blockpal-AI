@@ -42,6 +42,21 @@ can do and how it evolved.
   dynamic texture at runtime — no rebuild needed). `/aiskins list` and
   `/aiskins reload` (client-side) manage the folder.
 
+### Personalities (3.5.0+)
+- Each bot has a **personality** that drives both *how it talks* and *how it acts*.
+  Six are built in (`Personality` enum): **friendly** (the historical default Ethan),
+  **cheerful**, **grumpy**, **stoic**, **heroic**, **shy**.
+- Change a nearby bot's personality with **`/ai personality <id>`**; `/ai personality`
+  with no argument lists them and marks the bot's current one. The chosen one is
+  persisted per-bot in NBT (`Personality` tag), so companions can differ.
+- A personality supplies the quick, no-API chat-response pools (come/follow/stay/stop,
+  autonomous hand-off, name acknowledgement, gear pick-ups and junk-tossing) **and** a
+  `style()` line appended to the planner's system prompt, so any `CHAT` action the LLM
+  writes stays in voice (without changing the JSON schema or chosen actions).
+- The server default for freshly summoned bots is `defaultPersonality` (config, default
+  `friendly`). Resolution: a bot's stored personality wins; an unknown/missing one falls
+  back to the server default. Config schema → v5.
+
 ### AI / LLM planning
 - Connects to any **OpenAI-compatible** API (HuggingFace, Ollama, OpenAI,
   LM Studio, etc.) via `apiUrl` + `hfToken`.
@@ -108,6 +123,7 @@ can do and how it evolved.
 | `/ai locate` / `/ai where` | Find assistant |
 | `/ai name <name>` | Rename |
 | `/ai skin <name>` | Change skin (built-in or your own PNG) |
+| `/ai personality [<id>]` | List / set how the bot talks & acts |
 | `/aiskins list\|reload` | (client) list/reload skins in `config/blockpal/skins/` |
 | `/ai inventory` / `/ai inv` | Show carried items |
 | `/ai mykey <token>\|clear` | Set/clear **your own** API key (any player) |
@@ -212,8 +228,8 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   `requireOwnApiKey`, `ownKeyWhitelist`, `playerApiKeysObf`, `allowPlayerModelChoice`,
   `allowedModels`, `playerModels`,
   `chatListening`, `activeMode`, `defaultName`,
-  `defaultSkin`, `maxTaskSeconds`, `performancePreset`, `sneakToOpenMenu`,
-  `configVersion`.
+  `defaultSkin`, `defaultPersonality`, `maxTaskSeconds`, `performancePreset`,
+  `sneakToOpenMenu`, `configVersion`.
 - **Settings are configured in the panel, not via commands (3.4.0).** The old
   `/ai settings <key> <value>` generic setter (and `/ai token|listen|active|commands`)
   were removed as too confusing. The **Settings** panel (`/ai menu`) covers the
@@ -268,6 +284,27 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 ---
 
 ## Changelog
+
+### 3.5.0
+- **Selectable personalities.** New `Personality` enum gives each bot a character that
+  drives both its chat voice and the tone of its AI plans: **friendly** (the historical
+  default), **cheerful**, **grumpy**, **stoic**, **heroic**, **shy**. Set a nearby bot's
+  with `/ai personality <id>` (or list them with `/ai personality`); it's persisted
+  per-bot in NBT (`Personality` tag). Each personality supplies the quick no-API
+  response pools (come/follow/stay/stop, autonomous hand-off, name acknowledgement,
+  gear pick-up / junk lines) and a `style()` fragment appended to the planner system
+  prompt (`HuggingFaceClient.requestPlan(..., personaStyle)` → `systemPrompt()`), so
+  `CHAT` actions stay in voice without altering the JSON schema or chosen actions.
+- **New `defaultPersonality` setting** (default `friendly`) sets the personality of
+  freshly summoned bots, used in the summon greeting. Resolution: a bot's stored
+  personality wins, else the server default, else `friendly`. Config schema → v5
+  (upgrading installs default to `friendly`, so existing worlds sound unchanged).
+- Threaded through `ModConfig` (field + normalize/migrate), `AiAssistantEntity`
+  (`personality` field, getter/setter, NBT save/load, all `broadcastMessage` response
+  sites), `AiTaskManager` (passes `entity.getPersonality().style()`), `ChatListener`
+  (name-acknowledgement pool) and `AiCommands` (`/ai personality`, summon greeting,
+  `/ai help`). Wiki: new `Personalities.md`, updated `Commands.md`, `Settings.md`,
+  `Talking-to-Your-Assistant.md`, `Home.md`, `_Sidebar.md`.
 
 ### 3.4.1
 - **Consistent, merge-only CI.** Brought the `build.yml` and `wiki.yml` workflows in

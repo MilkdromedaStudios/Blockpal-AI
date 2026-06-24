@@ -84,11 +84,7 @@ public final class ChatListener {
         if (addressedByName) {
             body = text.substring(name.length()).replaceFirst("^[,:\\s]+", "").trim();
             if (body.isEmpty()) {
-                ai.broadcastMessage(pick(
-                        "Yeah? What do you need?",
-                        "What's up?",
-                        "I'm listening.",
-                        "You called?"));
+                ai.broadcastMessage(ai.getPersonality().ack());
                 return;
             }
         }
@@ -174,9 +170,5 @@ public final class ChatListener {
             if (body.equals(option)) return true;
         }
         return false;
-    }
-
-    private static String pick(String... options) {
-        return options[RAND.nextInt(options.length)];
     }
 }

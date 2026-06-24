@@ -33,6 +33,11 @@ Every Blockpal screen has a shared **tab bar** at the top to move between the pa
 - Each setting has a hover **tooltip** explaining it.
 - Edits are held in a draft and captured on each tab switch, so moving between tabs
   doesn't lose changes.
+
+> **Personality** is set per-bot with `/ai personality <id>` (see
+> [Personalities](Personalities)), not in the panel. The server-wide default for newly
+> summoned bots is the `defaultPersonality` value in `config/blockpal/config.json`
+> (default `friendly`).
 - **Save / Apply / Cancel** bar is pinned at the bottom; **Esc** auto-saves.
 - The token field stays blank when one is set — leave it blank to keep the current
   token, or type a new one to replace it.
