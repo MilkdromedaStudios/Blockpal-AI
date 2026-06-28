@@ -41,6 +41,55 @@ Bedrock) is standard Geyser setup — see the
 
 ---
 
+## No server yet? Host one yourself for free
+
+You **don't** need to rent a paid host. But there's one fact you can't get around:
+
+> **Blockpal is a Java-Edition Fabric mod, so *some* Java PC has to run it.** A Bedrock
+> device (iPad, phone, console) can't run the mod *or* host the world — Geyser only lets
+> Bedrock players **connect** to a Java world that someone else is running. So at least
+> **one friend needs Minecraft: Java Edition on a PC.** With that, everyone else —
+> including iPads — can join. With *no* Java PC in the group, the mod can't be used at all.
+
+Given one Java PC, here are your options, lightest first:
+
+### 1. Just you — no server at all
+Install Fabric + Blockpal and play **single-player**. Works instantly; nobody else joins.
+
+### 2. Java friends on the same Wi-Fi — "Open to LAN"
+The host plays single-player and chooses **Open to LAN** from the pause menu. Other
+**Java** players on the same network join with no setup. *(Bedrock friends can't join a
+LAN world easily — that needs Geyser in standalone mode, which is fiddly; use option 3
+for iPad friends.)*
+
+### 3. Java **and** Bedrock friends over the internet — free self-host
+This is the route that lets your **iPad friends** join. One friend runs a **free Fabric
+dedicated server** on their PC (just the server jar — no rented hosting) with Geyser and
+Floodgate, and shares the address.
+
+1. **Get the Fabric dedicated server** — grab the server jar from the
+   [Fabric installer](https://fabricmc.net/use/server/) (pick "Server") and run it once
+   to generate the files; accept the EULA.
+2. **Add the mods** to the server's `mods/` folder:
+   [Fabric API](https://modrinth.com/mod/fabric-api), **Blockpal** (from
+   [`builds/`](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/tree/main/builds)),
+   **Geyser-Fabric**, and **Floodgate-Fabric**
+   ([downloads](https://geysermc.org/download)).
+3. **Let friends reach it without port-forwarding** — instead of editing your router,
+   run a free tunnel like **[playit.gg](https://playit.gg/)** (or ngrok). It gives you a
+   public address that forwards to your server. Point it at the Java port (**25565**) for
+   Java friends and the Bedrock/Geyser port (**UDP 19132**) for Bedrock friends.
+4. **Everyone joins:**
+   - **Java** friends → *Add Server* → the tunnel's Java address.
+   - **Bedrock** friends (iPad) → *Servers* tab → *Add Server* → the tunnel's Bedrock
+     address + port.
+
+> The PC running the server has to be **on and online** for anyone to play — that's the
+> trade-off for not renting a host. For a small group of friends, a spare laptop left
+> running is plenty.
+
+---
+
 ## What works from Bedrock
 
 Because the entity AI, chat handling and commands all live on the server, the heart of
