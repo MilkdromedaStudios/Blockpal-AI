@@ -10,7 +10,6 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,7 +21,6 @@ public class AiAssistantMod implements ModInitializer {
     public void onInitialize() {
         ModConfig.load();
         ModEntities.register();
-        ModItems.register();
         FabricDefaultAttributeRegistry.register(ModEntities.AI_ASSISTANT, AiAssistantEntity.createAttributes());
         AiNetworking.registerPayloads();
         AiNetworking.registerServerReceivers();
@@ -48,13 +46,9 @@ public class AiAssistantMod implements ModInitializer {
             ModConfig.get().tutorialShown = true;
             ModConfig.save();
             ServerPlayer player = handler.player;
-            // Always send a chat welcome (works on any client, and avoids the
-            // channel-handshake race); also try to pop the GUI tutorial if ready.
             player.sendSystemMessage(Component.literal(
                     "§6Welcome to Blockpal! §7New here? Run §a/ai tutorial§7 for a quick guide, "
                             + "or §a/ai summon§7 to spawn your companion."));
-            // Give the player the AI Manual (one-time; not craftable, not in creative menu).
-            player.addItem(new ItemStack(ModItems.AI_MANUAL));
             AiNetworking.openTutorialFor(player);
         });
     }
