@@ -12,9 +12,10 @@ and configures itself from a real in-game settings screen.
 
 ## New here? Start with these
 
-1. **[Installation](Installation)** — download the jar (or build it), install Fabric.
-2. **[Getting Started](Getting-Started)** — summon Ethan and add an AI token.
-3. **[Talking to Your Assistant](Talking-to-Your-Assistant)** — just type in chat.
+1. **[Quick Start](Quick-Start)** — up and running in under a minute.
+2. **[Installation](Installation)** — download the jar (or build it), install Fabric.
+3. **[Getting Started](Getting-Started)** — summon Ethan and add an AI token.
+4. **[Talking to Your Assistant](Talking-to-Your-Assistant)** — just type in chat.
 
 ## What it can do
 

@@ -2,8 +2,12 @@
 
 Once the mod is [installed](Installation), getting going takes about a minute.
 
-> **First time?** On your first join, Blockpal greets you and opens a short in-game
-> tutorial. You can reopen it any time with **`/ai tutorial`**.
+> **In a hurry?** See the [Quick Start](Quick-Start) page for the shortest path
+> to a working companion.
+
+> **First time?** On your first join, Blockpal greets you, opens a short in-game
+> tutorial, and gives you an **AI Manual** item. Right-click the manual any time
+> to open the full in-game wiki. Reopen the tutorial with **`/ai tutorial`**.
 
 ## 1. Summon your assistant
 

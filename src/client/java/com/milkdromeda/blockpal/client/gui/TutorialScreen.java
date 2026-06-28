@@ -25,7 +25,21 @@ public class TutorialScreen extends Screen {
                     "§f(default name §aEthan§f) to your world.",
                     "§fIt can build, mine, fight, run commands,",
                     "§fand react to what you say in chat.", "",
-                    "§7Spawn one with §a/ai summon§7."
+                    "§7Spawn one with §a/ai summon§7.", "",
+                    "§eYou received an §6AI Manual §ein your inventory.",
+                    "§7Right-click it any time to open the",
+                    "§7full in-game wiki and reference."
+            },
+            {
+                    "§l§6Quick Start", "",
+                    "§e1. §a/ai summon §f— spawn your companion", "",
+                    "§e2. §fTalk in chat (no slash needed):",
+                    "§7   \"follow me\"   \"come\"   \"stay\"   \"stop\"",
+                    "§7   \"Ethan, build a 5x5 floor\"", "",
+                    "§e3. §fFor AI tasks, add an API key:",
+                    "§7   §a/ai mymenu §7→ paste token → Save",
+                    "§7   (free tokens at hf.co/settings/tokens)", "",
+                    "§e4. §fTry: §a/ai mine 10 iron ore"
             },
             {
                     "§l§6Talking to it", "",
@@ -50,7 +64,10 @@ public class TutorialScreen extends Screen {
                     "§fAn admin can set a shared key in the panel,",
                     "§for each player can bring their own:",
                     "§a  /ai mykey <token>  §7or in §a/ai mymenu", "",
-                    "§fThat's it — have fun!"
+                    "§7That's it — have fun!", "",
+                    "§eRight-click your §6AI Manual §eto open the",
+                    "§efull in-game wiki with commands, settings,",
+                    "§epersonalities, skins, and more."
             },
     };
 
