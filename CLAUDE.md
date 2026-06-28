@@ -263,9 +263,13 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   persisted obfuscated (`hfTokenObf`) and can be supplied via the `BLOCKPAL_API_TOKEN`
   env var instead (then it's never written to disk). See *Security & API-key protection*.
 - **First-run tutorial** — on the first player join after a fresh install
-  (`tutorialShown` false), Blockpal greets the player and opens a paged
-  `TutorialScreen` (also on demand via `/ai tutorial`). Upgrading installs are
-  marked seen by `migrate()`. Config schema → v4.
+  (`tutorialShown` false), Blockpal greets the player, gives them the **AI Manual**
+  item, and opens a paged `TutorialScreen` (also on demand via `/ai tutorial`).
+  Upgrading installs are marked seen by `migrate()`. Config schema → v4.
+- **AI Manual item** — `blockpal:ai_manual`, given once on first join, not craftable,
+  not in any creative tab. Right-clicking sends `OpenManualPayload` to the client,
+  which opens `AiManualScreen`: 5 pages covering Quick Start, Commands, Personalities,
+  Settings & API key, and Custom Skins.
 
 ### In-game settings GUI
 - Opened via `/ai menu` (or `/ai panel`) or — unless disabled — sneak-right-click on
@@ -306,6 +310,12 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 ---
 
 ## Changelog
+
+### 3.7.0
+- **Quick Start wiki page.** New `wiki/Quick-Start.md` gives new players the shortest path to a working companion — summon, talk, add a key, try a task. Added to the sidebar and linked from `Home.md` and `Getting-Started.md`.
+- **AI Manual item.** New `blockpal:ai_manual` item (registered via `ModItems`, renders as a written book). Given once to each player on their first join (`AiAssistantMod.registerFirstRunTutorial`); not craftable and not in any creative tab. Right-clicking opens a paged in-game wiki (`AiManualScreen`, 5 pages: Quick Start, Commands, Personalities, Settings & API key, Custom Skins & More) via the `OpenManualPayload` server→client packet. Item registration lives in `ModItems.java`; item class in `item/AiManualItem.java`; screen in `client/gui/AiManualScreen.java`.
+- **Tutorial expanded.** `TutorialScreen` gains two extra pages (Quick Start and a "right-click your AI Manual" closing page), so it now has 5 pages. Every page references the manual for deeper reading.
+- **Plumbing.** `OpenManualPayload` added (mirrors `OpenTutorialPayload`); registered in `AiNetworking.registerPayloads()` and `AiNetworking.openManualFor(player)`; client receiver in `AiAssistantClient`. Item model at `assets/blockpal/items/ai_manual.json` (uses `minecraft:item/written_book` appearance). Lang key `item.blockpal.ai_manual`.
 
 ### 3.6.0
 - **Custom personalities + AI moderation.** Beyond the six built-ins, players can write a

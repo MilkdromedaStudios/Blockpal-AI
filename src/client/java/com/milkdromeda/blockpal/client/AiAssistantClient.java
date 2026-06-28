@@ -4,12 +4,14 @@ import com.milkdromeda.blockpal.ModEntities;
 import com.milkdromeda.blockpal.client.gui.AdminScreen;
 import com.milkdromeda.blockpal.client.gui.AiConfigScreen;
 import com.milkdromeda.blockpal.client.gui.PlayerSettingsScreen;
+import com.milkdromeda.blockpal.client.gui.AiManualScreen;
 import com.milkdromeda.blockpal.client.gui.TutorialScreen;
 import com.milkdromeda.blockpal.client.render.AiAssistantEntityModel;
 import com.milkdromeda.blockpal.client.render.AiAssistantEntityRenderer;
 import com.milkdromeda.blockpal.client.render.RuntimeSkins;
 import com.milkdromeda.blockpal.network.AdminSyncPayload;
 import com.milkdromeda.blockpal.network.ConfigSyncPayload;
+import com.milkdromeda.blockpal.network.OpenManualPayload;
 import com.milkdromeda.blockpal.network.OpenTutorialPayload;
 import com.milkdromeda.blockpal.network.PlayerPrefsSyncPayload;
 import net.fabricmc.api.ClientModInitializer;
@@ -59,6 +61,11 @@ public class AiAssistantClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(OpenTutorialPayload.TYPE, (payload, context) ->
                 context.client().execute(() ->
                         context.client().setScreenAndShow(new TutorialScreen())));
+
+        // Server asked us to open the AI Manual (player right-clicked the item).
+        ClientPlayNetworking.registerGlobalReceiver(OpenManualPayload.TYPE, (payload, context) ->
+                context.client().execute(() ->
+                        context.client().setScreenAndShow(new AiManualScreen())));
 
         // Extreme frame-rate watchdog: auto-disable the mod if FPS collapses.
         FpsGuardian.register();

@@ -11,5 +11,7 @@
   "chat.blockpal.low_health":     "[%s] Taking heavy damage, retreating!",
   "chat.blockpal.fighting":       "[%s] Engaging hostiles!",
 
-  "item_group.blockpal": "Blockpal"
+  "item_group.blockpal": "Blockpal",
+
+  "item.blockpal.ai_manual": "AI Manual"
 }

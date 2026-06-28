@@ -2,6 +2,7 @@
 
 **Start here**
 - [Home](Home)
+- [Quick Start](Quick-Start)
 - [Installation](Installation)
 - [Getting Started](Getting-Started)
 
