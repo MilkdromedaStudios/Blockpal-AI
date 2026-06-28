@@ -172,6 +172,10 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   and position. (Backed by static `AiAssistantEntity.all/countAll/countOwnedBy/killAll`.)
 - **Global controls** — `/ai admin disable|enable` toggles the mod-wide kill switch
   for everyone; `/ai admin reload` re-reads config from disk.
+- **Text AI config (3.8.0)** — `/ai admin token <key>`, `/ai admin apiurl <url>` and
+  `/ai admin model <id>` set the shared key, endpoint and default model from chat, so a
+  Bedrock or vanilla admin (no Java GUI) can fully configure the AI. The visual panel
+  covers the same fields.
 - **Stats** — total bots vs. cap, mod status, per-player bot counts and **live FPS**
   (clients report FPS ~1×/s via `ClientStatsPayload`; the server stores it in
   `PlayerStatsTracker`), plus token/command status.
@@ -307,9 +311,46 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 - Denylist blocks dangerous admin commands (`op`, `ban`, `whitelist`, etc.).
 - Toggled from the settings/admin panel (the "Allow commands" control).
 
+### Bedrock / Geyser compatibility (3.8.0+)
+- Blockpal is mostly **server-authoritative** (entity, chat, commands, AI planning), so
+  **Bedrock Edition** players who connect through a **Geyser** proxy can summon, talk to,
+  and task the companion with **no client mod on their device** (Bedrock can't run Fabric
+  mods). Admins add **Geyser-Fabric + Floodgate-Fabric** to the server; Blockpal does not
+  bundle them.
+- **Floodgate is an optional (`suggests`) dependency**, accessed only through reflection
+  in `compat/BedrockSupport.java` (gated on `FabricLoader.isModLoaded("floodgate")`), so
+  the mod compiles against nothing and loads/runs identically on servers without Geyser.
+  `BedrockSupport.isBedrockPlayer(player)` reflectively calls
+  `FloodgateApi.getInstance().isFloodgatePlayer(uuid)`, failing safe to `false`.
+- **Graceful fallbacks** — the Java-client features (GUI panels, FPS watchdog) can't run
+  on Bedrock. The menu commands already guard with `ServerPlayNetworking.canSend`; the
+  fallback messages are now Bedrock-aware (`AiCommands.noGuiHint`) and point to the text
+  alternative instead of "install the mod on your client".
+- **Text-based AI config** so a Bedrock/vanilla admin can configure without the GUI:
+  `/ai admin token <key>`, `/ai admin apiurl <url>`, `/ai admin model <id>` (ops-only,
+  in the existing `/ai admin` tree). Players still use `/ai mykey` / `/ai model`.
+- **Known limitation:** Geyser has no general custom-entity translation, so the custom
+  `blockpal:ai_assistant` entity may render incorrectly / invisibly on Bedrock even
+  though it's fully functional server-side. Improving rendering (Geyser resource pack /
+  player-type representation) is a future phase. Docs: `wiki/Geyser-Bedrock.md`.
+
 ---
 
 ## Changelog
+
+### 3.8.0
+- **Geyser/Bedrock compatibility.** Bedrock Edition players can join via a Geyser proxy
+  and use the full server-side feature set (summon, chat, tasks, personalities, commands)
+  with no Bedrock-side mod. New `compat/BedrockSupport.java` does reflection-only,
+  optional Floodgate detection (no compile dependency; gated on `isModLoaded`).
+  `fabric.mod.json` declares `floodgate` under `suggests`.
+- **Bedrock-aware fallbacks + text config.** `AiCommands.noGuiHint(player, …)` tailors the
+  "no GUI" message for Bedrock vs Java. New ops-only text commands `/ai admin token`,
+  `/ai admin apiurl`, `/ai admin model` let an admin configure the AI without the Java
+  panel (also fixes a stale `/ai settings model` reference in `adminModelsRemove`).
+- **Docs.** New `wiki/Geyser-Bedrock.md` (sidebar + `Home.md` updated); README gains a
+  "Play from Bedrock" section and the version badge is corrected to the current build.
+  Documents the known Geyser custom-entity rendering limitation.
 
 ### 3.7.0
 - **Quick Start wiki page.** New `wiki/Quick-Start.md` gives new players the shortest path to a working companion — summon, talk, add a key, try a task. Added to the sidebar and linked from `Home.md` and `Getting-Started.md`.

@@ -4,6 +4,29 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.8.0
+- **Play with Ethan from Bedrock (iPad, console, phone).** Blockpal now works for
+  **Minecraft Bedrock Edition** players who join through a [Geyser](https://geysermc.org)
+  proxy. Because the companion, chat and commands all run on the server, your Bedrock
+  friends can summon Ethan, talk to it, and give it tasks — with **no mod to install on
+  their device**. Set your server up with **Geyser-Fabric + Floodgate-Fabric**; Blockpal
+  treats Floodgate as **optional**, so a server without it still runs exactly as before.
+- **Bedrock-aware fallbacks.** The visual menus and FPS watchdog are Java-client
+  features a Bedrock device can't run, so Blockpal now recognises Bedrock players and
+  points them to a clear text/command alternative instead of a menu they can't open.
+- **Configure the AI without the GUI.** New ops-only text commands so a Bedrock (or
+  vanilla) admin can set everything from chat: **`/ai admin token <key>`**,
+  **`/ai admin apiurl <url>`**, **`/ai admin model <id>`**.
+- **New wiki page:** [Bedrock (Geyser)](Geyser-Bedrock) — full setup, what works, and the
+  one known limitation (Geyser has no general custom-entity support, so Ethan's
+  *appearance* may render oddly on Bedrock even though it works fully).
+
+## 3.7.0
+- **In-game AI Manual.** Every player gets a one-time **AI Manual** book on first join —
+  right-click it for a 5-page in-game guide (Quick Start, Commands, Personalities,
+  Settings & API key, Custom Skins). The first-run tutorial gained two pages, and a new
+  [Quick Start](Quick-Start) wiki page gives the shortest path to a working companion.
+
 ## 3.6.0
 - **Custom personalities.** Beyond the six built-ins, you can now write your *own*
   personality in plain words — "a wise old wizard", "a sarcastic robot butler", etc.

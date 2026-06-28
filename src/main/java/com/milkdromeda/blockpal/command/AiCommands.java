@@ -3,6 +3,7 @@ package com.milkdromeda.blockpal.command;
 import com.milkdromeda.blockpal.ModEntities;
 import com.milkdromeda.blockpal.admin.AdminAccess;
 import com.milkdromeda.blockpal.ai.Personality;
+import com.milkdromeda.blockpal.compat.BedrockSupport;
 import com.milkdromeda.blockpal.config.ModConfig;
 import com.milkdromeda.blockpal.entity.AiAssistantEntity;
 import com.milkdromeda.blockpal.network.AdminStatsData;
@@ -114,6 +115,19 @@ public class AiCommands {
                                 .then(Commands.literal("disable").executes(AiCommands::adminDisable))
                                 .then(Commands.literal("enable").executes(AiCommands::adminEnable))
                                 .then(Commands.literal("reload").executes(AiCommands::adminReload))
+                                // Text-based AI config so admins on a Bedrock/vanilla
+                                // client (no Java GUI) can still set the key, endpoint
+                                // and default model. The visual panel covers the same.
+                                .then(Commands.literal("token")
+                                        .then(Commands.argument("token", StringArgumentType.greedyString())
+                                                .executes(ctx -> adminSetToken(ctx, StringArgumentType.getString(ctx, "token")))))
+                                .then(Commands.literal("apiurl")
+                                        .then(Commands.argument("url", StringArgumentType.greedyString())
+                                                .executes(ctx -> adminSetApiUrl(ctx, StringArgumentType.getString(ctx, "url")))))
+                                .then(Commands.literal("model")
+                                        .then(Commands.argument("model", StringArgumentType.greedyString())
+                                                .suggests(ALLOWED_MODELS_SUGGEST)
+                                                .executes(ctx -> adminSetModel(ctx, StringArgumentType.getString(ctx, "model")))))
                                 .then(Commands.literal("maxbots")
                                         .then(Commands.argument("count", IntegerArgumentType.integer(0, 50))
                                                 .executes(ctx -> adminMaxBots(ctx,
@@ -409,9 +423,8 @@ public class AiCommands {
         if (denyIfNotAdmin(ctx)) return 0;
 
         if (!ServerPlayNetworking.canSend(player, ConfigSyncPayload.TYPE)) {
-            player.sendSystemMessage(Component.literal(
-                    "§eThe settings menu needs the Blockpal mod on your client. "
-                            + "On a vanilla client, use §f/ai admin§e for text-based controls."));
+            player.sendSystemMessage(noGuiHint(player,
+                    "§f/ai admin§e for text-based controls (e.g. §f/ai admin token <key>§e)"));
             return 0;
         }
         ServerPlayNetworking.send(player, new ConfigSyncPayload(ConfigData.fromConfig()));
@@ -458,10 +471,14 @@ public class AiCommands {
                 "§f/ai admin maxbots <0-50> §7— cap bots per server (0 = unlimited)\n" +
                 "§f/ai admin disable§7 / §fenable §7— turn all bots off / on\n" +
                 "§f/ai admin reload §7— reload config from disk\n" +
+                "§f/ai admin token <token> §7— set the shared AI API key (no GUI needed)\n" +
+                "§f/ai admin apiurl <url> §7— set the OpenAI-compatible API endpoint\n" +
+                "§f/ai admin model <id> §7— set the server default model\n" +
                 "§f/ai admin requirekey on|off §7— make players use their own API key\n" +
                 "§f/ai admin keylist add|remove|list <player> §7— who may use the shared key\n" +
                 "§f/ai admin models add|remove|list <id> §7— models players may pick\n" +
-                "§7Admin tier: §f/ai settings admin_level <0-4>§7 (default: ops = 2)"), false);
+                "§7Admin tier is set in the Admin panel (default: ops = 2).\n" +
+                "§7On Bedrock/vanilla (no Java GUI), these text commands are the way to configure."), false);
         return 1;
     }
 
@@ -473,9 +490,8 @@ public class AiCommands {
             return 0;
         }
         if (!ServerPlayNetworking.canSend(player, AdminSyncPayload.TYPE)) {
-            player.sendSystemMessage(Component.literal(
-                    "§eThe admin menu needs the Blockpal mod on your client. "
-                            + "Use §f/ai admin stats§e instead."));
+            player.sendSystemMessage(noGuiHint(player,
+                    "§f/ai admin stats§e and the §f/ai admin …§e commands"));
             return 0;
         }
         AiNetworking.openAdminMenuFor(player);
@@ -560,6 +576,37 @@ public class AiCommands {
         ModConfig.load();
         ctx.getSource().sendSuccess(() -> Component.literal(
                 "§a[Blockpal] Reloaded config from disk."), false);
+        return 1;
+    }
+
+    private static int adminSetToken(CommandContext<CommandSourceStack> ctx, String token) {
+        ModConfig cfg = ModConfig.get();
+        cfg.setToken(token);
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§a[Blockpal] Shared API token set ✓ §7(stored obfuscated, never shown to players).\n"
+                        + "§7Heads-up: typing a token in chat can expose it — on a server you control, "
+                        + "prefer the §fBLOCKPAL_API_TOKEN§7 env var (it's never written to disk)."), false);
+        return 1;
+    }
+
+    private static int adminSetApiUrl(CommandContext<CommandSourceStack> ctx, String url) {
+        ModConfig cfg = ModConfig.get();
+        cfg.apiUrl = url.trim();
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§a[Blockpal] API URL set to §f" + cfg.apiUrl), false);
+        return 1;
+    }
+
+    private static int adminSetModel(CommandContext<CommandSourceStack> ctx, String model) {
+        ModConfig cfg = ModConfig.get();
+        String m = model.trim();
+        cfg.hfModel = m;
+        cfg.addAllowedModel(m);   // keep the server default selectable by players
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§a[Blockpal] Server default model set to §f" + m), false);
         return 1;
     }
 
@@ -656,8 +703,8 @@ public class AiCommands {
         ServerPlayer player = getPlayer(ctx);
         if (player == null) return 0;
         if (!AiNetworking.openPlayerMenuFor(player)) {
-            player.sendSystemMessage(Component.literal(
-                    "§eThat menu needs the Blockpal mod on your client. Use §f/ai mykey§e and §f/ai model§e instead."));
+            player.sendSystemMessage(noGuiHint(player,
+                    "§f/ai mykey <token>§e and §f/ai model <id>§e"));
             return 0;
         }
         return 1;
@@ -669,15 +716,16 @@ public class AiCommands {
         if (player == null) return 0;
         if (AdminAccess.isAdmin(player)) {
             if (!ServerPlayNetworking.canSend(player, AdminSyncPayload.TYPE)) {
-                player.sendSystemMessage(Component.literal("§eThe panel needs the Blockpal mod on your client."));
+                player.sendSystemMessage(noGuiHint(player,
+                        "§f/ai admin§e for text-based controls (e.g. §f/ai admin token <key>§e)"));
                 return 0;
             }
             AiNetworking.openAdminMenuFor(player);
             return 1;
         }
         if (!AiNetworking.openPlayerMenuFor(player)) {
-            player.sendSystemMessage(Component.literal(
-                    "§eThe panel needs the Blockpal mod on your client. Use §f/ai mykey§e and §f/ai model§e instead."));
+            player.sendSystemMessage(noGuiHint(player,
+                    "§f/ai mykey <token>§e and §f/ai model <id>§e"));
             return 0;
         }
         return 1;
@@ -769,7 +817,7 @@ public class AiCommands {
         String m = model.trim();
         if (m.equals(cfg.hfModel)) {
             ctx.getSource().sendSuccess(() -> Component.literal(
-                    "§c[Blockpal] Can't remove the server default model — change it with /ai settings model <id> first."), false);
+                    "§c[Blockpal] Can't remove the server default model — change it with /ai admin model <id> first."), false);
             return 0;
         }
         boolean removed = cfg.removeAllowedModel(m);
@@ -796,6 +844,21 @@ public class AiCommands {
 
     private static ServerPlayer getPlayer(CommandContext<CommandSourceStack> ctx) {
         try { return ctx.getSource().getPlayerOrException(); } catch (Exception e) { return null; }
+    }
+
+    /**
+     * A client-appropriate explanation for why a visual menu can't open, plus the
+     * text alternative to use. Bedrock players (via Geyser/Floodgate) can never run
+     * the Java GUI, so we tell them so plainly instead of suggesting they "install
+     * the mod on your client".
+     */
+    private static Component noGuiHint(ServerPlayer player, String textAlternative) {
+        if (BedrockSupport.isBedrockPlayer(player)) {
+            return Component.literal("§eYou're on Bedrock — the visual menus need a Java client, "
+                    + "but everything works in chat: use " + textAlternative + "§e instead.");
+        }
+        return Component.literal("§eThis menu needs the Blockpal mod on your (Java) client. "
+                + "Use " + textAlternative + "§e instead.");
     }
 
     private static int noAi(ServerPlayer player) {

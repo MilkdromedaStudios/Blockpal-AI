@@ -15,6 +15,7 @@
 - [Personalities](Personalities)
 - [Running Commands](Running-Commands)
 - [AI Actions](AI-Actions)
+- [Bedrock (Geyser)](Geyser-Bedrock)
 
 **Admin & safety**
 - [Per-Player Keys & Models](Per-Player-Keys-and-Models)

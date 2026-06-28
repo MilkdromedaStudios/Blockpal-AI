@@ -39,6 +39,8 @@ and configures itself from a real in-game settings screen.
   settings; your API key is obfuscated at rest and can live in an env var. See
   [Security](Security).
 - **Works in every gamemode** — survival, adventure and creative.
+- **Bedrock-friendly** — friends on iPad/console/phone can join and play with Ethan
+  through a [Geyser](Geyser-Bedrock) proxy; no client mod needed on Bedrock.
 
 ## Full page index
 
@@ -54,6 +56,7 @@ and configures itself from a real in-game settings screen.
 | [Personalities](Personalities) | How your companion talks & acts |
 | [Running Commands](Running-Commands) | Command execution, permission levels, denylist |
 | [AI Actions](AI-Actions) | The 16 action types the planner can use |
+| [Bedrock (Geyser)](Geyser-Bedrock) | Let Bedrock players (iPad/console/phone) join via Geyser & Floodgate |
 | [Per-Player Keys & Models](Per-Player-Keys-and-Models) | Bring-your-own-key, exemptions, selectable models |
 | [Admin Menu](Admin-Menu) | Ops-only panel: manage/kill all bots, bot cap, live stats |
 | [Security](Security) | Permission gating, API-key protection, what `.gitignore` can't do |

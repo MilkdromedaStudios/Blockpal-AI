@@ -4,7 +4,7 @@
 
 **A Minecraft AI companion that builds, fights, and thinks.**
 
-[![Mod Version](https://img.shields.io/badge/mod-v3.1.0-6c63ff?style=for-the-badge)](builds/)
+[![Mod Version](https://img.shields.io/badge/mod-v3.8.0-6c63ff?style=for-the-badge)](builds/)
 [![Minecraft](https://img.shields.io/badge/Minecraft-26.2-62b96e?style=for-the-badge)](https://fabricmc.net/)
 [![Fabric](https://img.shields.io/badge/Fabric_Loader-0.19.3+-dbb74b?style=for-the-badge)](https://fabricmc.net/)
 [![Java](https://img.shields.io/badge/Java-25+-e76f51?style=for-the-badge)](https://adoptium.net/)
@@ -64,6 +64,7 @@ real in-game settings screen.*
 | 🖥️ **In-game panel** | Tabbed settings & admin GUI — no config-file editing, no setting commands. |
 | 🔑 **Bring-your-own-key** | Per-player API keys & selectable models so one server owner isn't billed for everyone. |
 | 🛟 **Safety rails** | Task watchdog, server bot cap, and an emergency FPS kill switch that pauses the bot if frames collapse. |
+| 📱 **Bedrock-friendly** | Friends on iPad/console/phone can join via a [Geyser](https://geysermc.org) proxy and play with Ethan — no client mod on Bedrock. |
 
 ---
 
@@ -82,6 +83,29 @@ Everything else — install details, tokens, every command — is in the wiki be
 
 ---
 
+## 📱 Play from Bedrock (iPad, console, phone)
+
+Blockpal is mostly **server-side**, so friends on **Minecraft Bedrock Edition** can
+join your server through a [**Geyser**](https://geysermc.org) proxy and play with Ethan
+too — summon it, talk to it, and give it tasks, all from chat and `/ai` commands. **No
+client mod is installed on the Bedrock device** (Bedrock can't run Fabric mods).
+
+```text
+On your Fabric server, add two mods to  mods/ :
+  • Geyser-Fabric    → lets Bedrock clients connect to a Java server
+  • Floodgate-Fabric → lets them join without a paid Java account
+Blockpal treats Floodgate as optional — your server still runs fine without it.
+```
+
+The visual menus and the FPS watchdog are Java-client features, so Bedrock players get
+clean **text/command fallbacks** instead — including `/ai admin token <key>` so an
+admin can set the AI key with no GUI. One rough edge: Geyser has no general custom-entity
+support, so Ethan's *appearance* may render oddly on Bedrock even though it works fully.
+
+➡️ Full setup, the works/doesn't table, and caveats: **[Bedrock (Geyser) »](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki/Geyser-Bedrock)**
+
+---
+
 ## 📖 Documentation lives in the Wiki
 
 **All setup, usage, and configuration docs are on the [Blockpal Wiki »](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki)**
@@ -95,6 +119,7 @@ Everything else — install details, tokens, every command — is in the wiki be
 | Change settings | [Settings](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki/Settings) |
 | Understand the **Developer menu** | [Developer Menu](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki/Developer-Menu) |
 | Learn how it all works (**More Info**) | [More Info](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki/More-Info) |
+| Play from Bedrock (iPad/console) | [Bedrock (Geyser)](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki/Geyser-Bedrock) |
 | Build from source | [Building From Source](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki/Building-From-Source) |
 | Fix a problem | [Troubleshooting](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki/Troubleshooting) |
 
