@@ -7,17 +7,22 @@ import net.minecraft.client.gui.layouts.LinearLayout;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
- * In-game wiki / manual opened by right-clicking the AI Manual item.
- * Contains a Quick Start section followed by reference pages covering
- * commands, personalities, settings, and custom skins.
+ * In-game wiki / manual screen. Opened from the "Open Wiki" button in
+ * {@link TutorialScreen} or from the Settings panel (Identity tab). Contains
+ * a Quick Start section followed by reference pages covering commands,
+ * personalities, settings, and custom skins.
+ *
+ * <p>Passing a {@code returnScreen} lets the wiki "go back" to wherever it
+ * was opened from; passing {@code null} just closes on Done.
  */
 public class AiManualScreen extends Screen {
 
     private static final int W = 310;
     private static final int FIELD_H = 20;
 
-    // Each entry: first line is the section heading (bold/coloured), rest are body lines.
     private static final String[][] PAGES = {
             // ── Page 1: Quick Start ────────────────────────────────────────────────
             {
@@ -29,7 +34,7 @@ public class AiManualScreen extends Screen {
                     "§7   \"Ethan, build a 5×5 floor\"", "",
                     "§e3. §fFor AI tasks, add an API key:",
                     "§7   Run §a/ai mymenu §7→ paste your token → Save.",
-                    "§7   Free tokens at §ahttps://hf.co/settings/tokens", "",
+                    "§7   Free tokens at hf.co/settings/tokens", "",
                     "§e4. §fTry it:",
                     "§a   /ai build a small house",
                     "§a   /ai mine 10 iron ore", "",
@@ -101,7 +106,7 @@ public class AiManualScreen extends Screen {
                     "§7  Admins manage the allowed-models list."
             },
 
-            // ── Page 5: Skins & advanced ───────────────────────────────────────────
+            // ── Page 5: Skins & more ───────────────────────────────────────────────
             {
                     "§l§6Custom Skins & More", "",
                     "§eBuilt-in skins:",
@@ -124,10 +129,14 @@ public class AiManualScreen extends Screen {
             },
     };
 
+    @Nullable
+    private final Screen returnScreen;
     private int page = 0;
 
-    public AiManualScreen() {
-        super(Component.literal("AI Manual"));
+    /** Open the wiki with a screen to return to when closed (e.g. the tutorial). */
+    public AiManualScreen(@Nullable Screen returnScreen) {
+        super(Component.literal("Blockpal — Wiki"));
+        this.returnScreen = returnScreen;
     }
 
     @Override
@@ -146,7 +155,7 @@ public class AiManualScreen extends Screen {
         scroll.setY(28);
         scroll.visitWidgets(this::addRenderableWidget);
 
-        // footer: Back · [chapter label] · Next/Done
+        // footer: Back · Close/Back-to-tutorial · Next/Done
         int bw = 96, gap = 8;
         int barW = bw * 3 + gap * 2;
         int bx = this.width / 2 - barW / 2;
@@ -158,13 +167,15 @@ public class AiManualScreen extends Screen {
         back.active = page > 0;
         addRenderableWidget(back);
 
-        addRenderableWidget(Button.builder(Component.literal("Close"),
-                        b -> onClose())
+        String middleLabel = returnScreen != null ? "◀ Tutorial" : "Close";
+        addRenderableWidget(Button.builder(Component.literal(middleLabel),
+                        b -> this.minecraft.setScreenAndShow(returnScreen))
                 .bounds(bx + bw + gap, by, bw, FIELD_H).build());
 
         boolean last = page == PAGES.length - 1;
         addRenderableWidget(Button.builder(Component.literal(last ? "Done ✓" : "Next ▶"),
-                        b -> { if (last) onClose(); else { page++; rebuildWidgets(); } })
+                        b -> { if (last) this.minecraft.setScreenAndShow(returnScreen);
+                               else { page++; rebuildWidgets(); } })
                 .bounds(bx + (bw + gap) * 2, by, bw, FIELD_H).build());
 
         // page indicator

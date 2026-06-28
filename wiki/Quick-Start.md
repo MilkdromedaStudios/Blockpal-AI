@@ -65,13 +65,12 @@ The bot thinks for a moment, then gets to work. Use `stop` or `/ai stop` any tim
 
 ---
 
-## Your AI Manual
+## The In-Game Wiki
 
-You received an **AI Manual** on first join. **Right-click it** to browse the full
-in-game reference — commands, personalities, settings, skins, and more.
+The full reference is built right into the mod — no need to tab out:
 
-> Can't find it? It won't be given again, but `/ai tutorial` reopens the short
-> how-to, and all the same content lives here in the wiki.
+- Open `/ai panel` → **Settings** → scroll to the bottom of the **Identity** tab → **Open In-Game Wiki**
+- Or click **Open Wiki** on any page of the tutorial (`/ai tutorial`)
 
 ---
 
