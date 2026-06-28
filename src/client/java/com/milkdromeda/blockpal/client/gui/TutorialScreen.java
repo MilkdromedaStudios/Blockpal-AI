@@ -10,7 +10,7 @@ import net.minecraft.network.chat.Component;
 /**
  * A short, paged "how to use Blockpal" walkthrough. It auto-opens once on a
  * player's first join after a fresh install, and can be reopened any time with
- * {@code /ai tutorial}. The closing page points players at the unified panel.
+ * {@code /ai tutorial}. The closing page points players at the full wiki panel.
  */
 public class TutorialScreen extends Screen {
 
@@ -26,9 +26,9 @@ public class TutorialScreen extends Screen {
                     "§fIt can build, mine, fight, run commands,",
                     "§fand react to what you say in chat.", "",
                     "§7Spawn one with §a/ai summon§7.", "",
-                    "§eYou received an §6AI Manual §ein your inventory.",
-                    "§7Right-click it any time to open the",
-                    "§7full in-game wiki and reference."
+                    "§eThis tutorial walks you through the basics.",
+                    "§eFor the full wiki, click §6Open Wiki§e below",
+                    "§eor any time from the settings panel."
             },
             {
                     "§l§6Quick Start", "",
@@ -64,10 +64,10 @@ public class TutorialScreen extends Screen {
                     "§fAn admin can set a shared key in the panel,",
                     "§for each player can bring their own:",
                     "§a  /ai mykey <token>  §7or in §a/ai mymenu", "",
-                    "§7That's it — have fun!", "",
-                    "§eRight-click your §6AI Manual §eto open the",
-                    "§efull in-game wiki with commands, settings,",
-                    "§epersonalities, skins, and more."
+                    "§fThat's it — have fun!", "",
+                    "§eFor commands, personalities, skins and more,",
+                    "§eclick §6Open Wiki §ebelow — or find it any time",
+                    "§ein §a/ai panel §e→ Settings."
             },
     };
 
@@ -93,7 +93,7 @@ public class TutorialScreen extends Screen {
         scroll.setY(28);
         scroll.visitWidgets(this::addRenderableWidget);
 
-        // -- footer: Back · Open panel · Next/Done --
+        // -- footer: Back · Open Wiki · Next/Done --
         int bw = 96, gap = 8;
         int barW = bw * 3 + gap * 2;
         int bx = this.width / 2 - barW / 2;
@@ -104,7 +104,8 @@ public class TutorialScreen extends Screen {
         back.active = page > 0;
         addRenderableWidget(back);
 
-        addRenderableWidget(Button.builder(Component.literal("Open panel"), b -> PanelNav.switchTo(PanelNav.Tab.ME))
+        addRenderableWidget(Button.builder(Component.literal("§6Open Wiki"),
+                        b -> this.minecraft.setScreenAndShow(new AiManualScreen(this)))
                 .bounds(bx + bw + gap, by, bw, FIELD_H).build());
 
         boolean last = page == PAGES.length - 1;

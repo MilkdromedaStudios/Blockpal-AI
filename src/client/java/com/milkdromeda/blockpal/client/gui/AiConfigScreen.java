@@ -207,6 +207,14 @@ public class AiConfigScreen extends Screen {
                         (btn, val) -> pDefaultPersonality = val));
         defaultPersonalityButton.setTooltip(Tooltip.create(Component.literal(
                 "Personality of newly summoned bots. Players change their own with /ai personality.")));
+
+        body.addChild(new StringWidget(W, LABEL_H + 4, Component.literal(""), this.font));
+        Button wikiBtn = Button.builder(Component.literal("§6📖 Open In-Game Wiki"),
+                        b -> this.minecraft.setScreenAndShow(new AiManualScreen(this)))
+                .bounds(0, 0, W, FIELD_H).build();
+        wikiBtn.setTooltip(Tooltip.create(Component.literal(
+                "Browse the full Blockpal reference: Quick Start, commands, personalities, settings, skins.")));
+        body.addChild(wikiBtn);
     }
 
     private static java.util.List<String> personalityIds() {

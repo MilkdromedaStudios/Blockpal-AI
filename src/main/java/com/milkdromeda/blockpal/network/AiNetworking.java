@@ -40,7 +40,6 @@ public final class AiNetworking {
         PayloadTypeRegistry.clientboundPlay().register(AdminSyncPayload.TYPE, AdminSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(PlayerPrefsSyncPayload.TYPE, PlayerPrefsSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(OpenTutorialPayload.TYPE, OpenTutorialPayload.CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(OpenManualPayload.TYPE, OpenManualPayload.CODEC);
     }
 
     /** Sends the current config to a player so their client opens the settings menu. */
@@ -62,13 +61,6 @@ public final class AiNetworking {
     public static boolean openPlayerMenuFor(ServerPlayer player) {
         if (!ServerPlayNetworking.canSend(player, PlayerPrefsSyncPayload.TYPE)) return false;
         ServerPlayNetworking.send(player, PlayerPrefsSyncPayload.forPlayer(player));
-        return true;
-    }
-
-    /** Opens the AI Manual in-game wiki screen for a player. @return false if their client can't show it. */
-    public static boolean openManualFor(ServerPlayer player) {
-        if (!ServerPlayNetworking.canSend(player, OpenManualPayload.TYPE)) return false;
-        ServerPlayNetworking.send(player, new OpenManualPayload());
         return true;
     }
 
