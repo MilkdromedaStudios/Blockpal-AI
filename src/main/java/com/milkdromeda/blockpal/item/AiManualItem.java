@@ -17,7 +17,7 @@ public class AiManualItem extends Item {
 
     @Override
     public InteractionResult use(Level level, Player player, InteractionHand hand) {
-        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+        if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
             AiNetworking.openManualFor(serverPlayer);
         }
         return InteractionResult.SUCCESS;
