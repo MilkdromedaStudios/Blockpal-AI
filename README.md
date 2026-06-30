@@ -1,138 +1,101 @@
-<div align="center">
+# Blockpal AI
 
-# ⬢ BLOCKPAL AI ⬢
+**A friendly AI companion for Minecraft (Fabric) that builds, fights, talks, and thinks.**
 
-**A Minecraft AI companion that builds, fights, and thinks.**
+Blockpal drops a player-like character named Ethan into your world. Give it a goal in
+plain language — in chat or with a command — and it plans the steps through a large
+language model and then carries them out: building, mining, gathering, fighting, and
+running commands. It defends itself on reflex, manages its own gear, talks back in its
+own voice, and is configured entirely from in-game screens. It works in singleplayer and
+multiplayer, and your Bedrock-edition friends can play with it too.
 
-[![Mod Version](https://img.shields.io/badge/mod-v3.8.0-6c63ff?style=for-the-badge)](builds/)
-[![Minecraft](https://img.shields.io/badge/Minecraft-26.2-62b96e?style=for-the-badge)](https://fabricmc.net/)
-[![Fabric](https://img.shields.io/badge/Fabric_Loader-0.19.3+-dbb74b?style=for-the-badge)](https://fabricmc.net/)
-[![Java](https://img.shields.io/badge/Java-25+-e76f51?style=for-the-badge)](https://adoptium.net/)
-[![License](https://img.shields.io/badge/License-MIT-264653?style=for-the-badge)](LICENSE)
-[![GitHub](https://img.shields.io/badge/github-%23121011.svg?style=for-the-badge&logo=github&logoColor=white)](https://github.com/MilkdromedaStudios/Blockpal-AI)
+Blockpal connects to any OpenAI-compatible API (Hugging Face, OpenAI, Ollama, LM Studio,
+and others), so you choose the model and supply the key.
 
-*Drop a friendly AI character named **Ethan** into your world. It reads your chat,
-plans tasks through an LLM, fights back on reflex, and configures itself from a
-real in-game settings screen.*
+![Mod version 3.10.0](https://img.shields.io/badge/mod-v3.10.0-6c63ff?style=for-the-badge)
+![Minecraft 26.2](https://img.shields.io/badge/Minecraft-26.2-62b96e?style=for-the-badge)
+![Fabric Loader 0.19.3+](https://img.shields.io/badge/Fabric_Loader-0.19.3+-dbb74b?style=for-the-badge)
+![Java 25+](https://img.shields.io/badge/Java-25+-e76f51?style=for-the-badge)
+![License MIT](https://img.shields.io/badge/License-MIT-264653?style=for-the-badge)
 
-</div>
+## Features
 
----
+- **Natural-language task planning.** Tell it what you want — "build a 5x5 floor", "clear these trees", "guard this spot" — and it turns that into a multi-step plan it actually performs.
+- **Talks back.** It listens to chat and replies in the first person. Common orders like come, follow, stay, and stop are handled instantly with no API call.
+- **Personalities.** Choose how it talks and acts — friendly, cheerful, grumpy, stoic, heroic, or shy — or write your own custom personality, which the AI checks to keep family-friendly.
+- **Fights on reflex.** It always watches for threats, defends itself in any mode, and retreats when its health gets low.
+- **Manages its own gear.** It picks up dropped items, equips the best weapon and armor it finds, eats food when hurt, and throws away harmful items.
+- **Per-bot management and trust.** Own several companions and set each one up differently. Let specific friends command a chosen bot through a per-bot trust list, while renames, dismissals, and trust changes stay owner-only.
+- **Play from Bedrock.** Friends on iPad, console, or phone can join through a Geyser proxy and play with Ethan — with no mod on the Bedrock device.
+- **One-click hosting.** From the pause menu, or with /aihost, a Java player can download and launch a Bedrock-ready server (Minecraft plus Fabric plus the latest Geyser and Floodgate) and share the connect address, so friends on either edition can join.
+- **In-game settings and admin panels.** Tabbed screens for settings, admin controls, and your personal preferences — no config-file editing required.
+- **Bring your own key and model.** Per-player API keys and a server-curated model list, so one server owner is not billed for everyone.
+- **Safety rails.** A task watchdog, a server-wide bot cap, command permission limits, and an emergency frame-rate kill switch that pauses bots if performance collapses.
 
-## 🎬 See it in action
+## Requirements
 
-<div align="center">
+- Minecraft (Java Edition) 26.2
+- Fabric Loader 0.19.3 or newer, plus Fabric API
+- An OpenAI-compatible API key for the AI features (a free Hugging Face token works)
 
-<!--
-  ▶ DROP YOUR DEMO HERE
-  ------------------------------------------------------------------
-  GitHub renders an uploaded video inline. To add yours:
-    1. Open a new GitHub Issue (or edit this README on github.com) and
-       drag-and-drop your recording (.mp4 / .mov / .webm, <100 MB) into
-       the text box. GitHub uploads it and gives you a URL like
-       https://github.com/user-attachments/assets/XXXXXXXX
-    2. Replace the placeholder block below with that URL on its own line:
-           https://github.com/user-attachments/assets/XXXXXXXX
-       (a bare video URL auto-embeds as a player — no <video> tag needed)
-    3. Prefer a looping GIF instead? Commit it to docs/demo.gif and use:
-           ![Blockpal AI demo](docs/demo.gif)
-  ------------------------------------------------------------------
--->
+## Getting started
 
-[![▶ Watch Ethan build, fight & follow](https://img.shields.io/badge/▶_Demo_video-record_%26_drop_in_here-6c63ff?style=for-the-badge)](#-see-it-in-action)
+1. Download the latest Blockpal jar and put it in your mods folder, next to Fabric API.
+2. Launch Minecraft on the matching Fabric version.
+3. In game, run /ai summon to meet Ethan.
+4. Give it an AI key with /ai mykey followed by your token, or, as a server admin, set a shared key in the settings panel.
+5. Try a task, for example /ai build a 5x5 floor, or just type "Ethan, follow me" in chat.
 
-*Gameplay clip coming soon — see the comment in this section to add it.*
+Full setup and configuration details are in the wiki, linked below.
 
-</div>
+## Play from Bedrock (iPad, console, phone)
 
-> **Tip:** the best 20–30 second clip shows three things back-to-back: a chat
-> command (`Ethan, build a 5×5 floor`), the bot auto-equipping gear, and a
-> `SurvivalReflexGoal` fight where it retreats at low health.
+Blockpal is mostly server-side, so friends on Minecraft Bedrock Edition can join a Java
+server through a Geyser proxy and play with Ethan — summon it, talk to it, and give it
+tasks from chat and commands, with no mod on the Bedrock device. On the server, add
+Geyser-Fabric and Floodgate-Fabric to the mods folder; Blockpal treats Floodgate as
+optional, so the server still runs fine without it.
 
----
+If you do not already have a server, a Java player can host one in a couple of clicks.
+From the pause menu choose "Host with Blockpal", or run /aihost: it downloads Minecraft,
+Fabric, and the latest Geyser and Floodgate from their official sources, launches a
+server, and shows the Java and Bedrock connect addresses. Only Java can host; Bedrock
+players join. The address shown is your own computer's, and friends on the internet still
+need a forwarded port, so share it only with people you trust.
 
-## ⚡ What Ethan can do
+The visual menus and the frame-rate watchdog are Java-client features, so Bedrock players
+get text and command fallbacks instead. One rough edge: Geyser has no general
+custom-entity support, so Ethan's appearance may render oddly on Bedrock even though it
+works fully.
 
-| | |
-|---|---|
-| 🧠 **LLM task planning** | Natural-language orders (`/ai build a tower`) become a 5–15 step JSON action plan over any OpenAI-compatible API. |
-| 💬 **Talks back** | Listens to chat, answers in first-person, handles `come` / `follow` / `stop` instantly with no API call. |
-| ⚔️ **Fights on reflex** | Always scans for threats, retaliates, and retreats below 25% health — in any mode. |
-| 🎒 **Manages its gear** | Picks up drops, auto-equips the best weapon & armor, eats food when hurt, tosses harmful items. |
-| 🛠️ **16 actions** | Move, place, break, mine, use blocks, run commands, attack, follow, look, chat, collect, and more. |
-| 🎨 **Custom skins** | Built-in skins or drop your own PNG into `config/blockpal/skins/` — no rebuild. |
-| 🖥️ **In-game panel** | Tabbed settings & admin GUI — no config-file editing, no setting commands. |
-| 🔑 **Bring-your-own-key** | Per-player API keys & selectable models so one server owner isn't billed for everyone. |
-| 🛟 **Safety rails** | Task watchdog, server bot cap, and an emergency FPS kill switch that pauses the bot if frames collapse. |
-| 📱 **Bedrock-friendly** | Friends on iPad/console/phone can join via a [Geyser](https://geysermc.org) proxy and play with Ethan — no client mod on Bedrock. |
+## Common commands
 
----
+A few to start with; the full list is in the wiki.
 
-## 🚀 Quick start
+- `/ai summon [name]` — spawn a companion
+- `/ai come`, `/ai follow`, `/ai stay`, `/ai stop` — basic orders
+- `/ai <task>` — give a natural-language task
+- `/ai personality [id]` — change how it talks and acts
+- `/ai trust <player>` — let a friend command your bot
+- `/ai panel` — open the settings and admin screens
+- `/ai mykey <token>` — set your personal AI key
+- `/aihost` — host a Bedrock-ready server (Java client only)
 
-```text
-1. Grab the latest jar from  builds/
-2. Drop it in your  mods/  folder, next to Fabric API
-3. Launch Minecraft (Fabric 26.2)
-4. In-game:  /ai summon      → meet Ethan
-            /ai mykey <token> → give it an LLM key
-            /ai build a 5x5 floor
-```
+## Documentation
 
-Everything else — install details, tokens, every command — is in the wiki below.
+Full documentation lives in the wiki:
 
----
-
-## 📱 Play from Bedrock (iPad, console, phone)
-
-Blockpal is mostly **server-side**, so friends on **Minecraft Bedrock Edition** can
-join your server through a [**Geyser**](https://geysermc.org) proxy and play with Ethan
-too — summon it, talk to it, and give it tasks, all from chat and `/ai` commands. **No
-client mod is installed on the Bedrock device** (Bedrock can't run Fabric mods).
-
-```text
-On your Fabric server, add two mods to  mods/ :
-  • Geyser-Fabric    → lets Bedrock clients connect to a Java server
-  • Floodgate-Fabric → lets them join without a paid Java account
-Blockpal treats Floodgate as optional — your server still runs fine without it.
-```
-
-The visual menus and the FPS watchdog are Java-client features, so Bedrock players get
-clean **text/command fallbacks** instead — including `/ai admin token <key>` so an
-admin can set the AI key with no GUI. One rough edge: Geyser has no general custom-entity
-support, so Ethan's *appearance* may render oddly on Bedrock even though it works fully.
-
-➡️ Full setup, the works/doesn't table, and caveats: **[Bedrock (Geyser) »](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki/Geyser-Bedrock)**
-
----
-
-## 📖 Documentation lives in the Wiki
-
-**All setup, usage, and configuration docs are on the [Blockpal Wiki »](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki)**
-
-| I want to… | Wiki page |
-|------------|-----------|
-| Download & install the mod | [Installation](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki/Installation) |
-| Get started & add my AI token | [Getting Started](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki/Getting-Started) |
-| See every command | [Commands](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki/Commands) |
-| Talk to it in chat | [Talking to Your Assistant](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki/Talking-to-Your-Assistant) |
-| Change settings | [Settings](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki/Settings) |
-| Understand the **Developer menu** | [Developer Menu](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki/Developer-Menu) |
-| Learn how it all works (**More Info**) | [More Info](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki/More-Info) |
-| Play from Bedrock (iPad/console) | [Bedrock (Geyser)](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki/Geyser-Bedrock) |
-| Build from source | [Building From Source](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki/Building-From-Source) |
-| Fix a problem | [Troubleshooting](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki/Troubleshooting) |
-
-> **In a hurry?** Grab the latest jar from [`builds/`](builds/), drop it into your
-> `mods/` folder alongside [Fabric API](https://modrinth.com/mod/fabric-api), launch
-> Minecraft, and run `/ai summon`. Everything else is in the wiki.
-
----
+- Installation: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Installation
+- Getting Started: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Getting-Started
+- Commands: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Commands
+- Talking to Your Assistant: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Talking-to-Your-Assistant
+- Settings: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Settings
+- Personalities: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Personalities
+- Trust and Per-Bot Management: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Trust-and-Per-Bot
+- Bedrock (Geyser) and one-click hosting: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Geyser-Bedrock
+- Building From Source: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Building-From-Source
+- Troubleshooting: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Troubleshooting
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
-
-<sub>Wiki sources are kept in [`wiki/`](wiki/) and published automatically. See [`wiki/README.md`](wiki/README.md) for how the sync works.</sub>
-</content>
-</invoke>
+Blockpal is released under the MIT License. See the LICENSE file for details.
