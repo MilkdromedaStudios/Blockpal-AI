@@ -32,6 +32,8 @@ and configures itself from a real in-game settings screen.
 - **Custom skins** — built-in palettes or your own PNG. See [Custom Skins](Custom-Skins).
 - **Personalities** — pick how it talks & acts: friendly, cheerful, grumpy, stoic,
   heroic, shy. See [Personalities](Personalities).
+- **Trust & per-bot management** — own several companions, set each up differently,
+  and trust friends to command a specific one. See [Trust & Per-Bot Management](Trust-and-Per-Bot).
 - **Emergency FPS kill-switch** — auto-disables the mod if framerate collapses.
 - **Admin menu (ops)** — manage/kill all bots, set a bot cap, and see live stats
   (bots, players, FPS). See [Admin Menu](Admin-Menu).
@@ -54,6 +56,7 @@ and configures itself from a real in-game settings screen.
 | [Performance Presets](Performance-Presets) | Normal / Opus / Potato |
 | [Custom Skins](Custom-Skins) | Built-in and drop-in skins |
 | [Personalities](Personalities) | How your companion talks & acts |
+| [Trust & Per-Bot Management](Trust-and-Per-Bot) | Own several bots; let friends command one |
 | [Running Commands](Running-Commands) | Command execution, permission levels, denylist |
 | [AI Actions](AI-Actions) | The 16 action types the planner can use |
 | [Bedrock (Geyser)](Geyser-Bedrock) | Let Bedrock players (iPad/console/phone) join via Geyser & Floodgate |

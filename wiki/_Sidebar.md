@@ -13,6 +13,7 @@
 - [Performance Presets](Performance-Presets)
 - [Custom Skins](Custom-Skins)
 - [Personalities](Personalities)
+- [Trust & Per-Bot Management](Trust-and-Per-Bot)
 - [Running Commands](Running-Commands)
 - [AI Actions](AI-Actions)
 - [Bedrock (Geyser)](Geyser-Bedrock)
