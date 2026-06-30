@@ -162,6 +162,37 @@ the appearance is the rough edge.
 
 ---
 
+## "Host with Blockpal" — one-click hosting (3.10.0+)
+
+Don't have a server already? A **Java** player can stand one up from inside the game,
+and it comes Bedrock-ready out of the box.
+
+- Open the **pause menu** (Esc) in a singleplayer world and click **"Host with
+  Blockpal"**, or run **`/aihost`**. (`/aihost status` and `/aihost stop` also work.)
+- Tick **"Minecraft EULA accepted"**, then **Start hosting**. Blockpal downloads — from
+  the official sites — the Minecraft server, the Fabric server, Fabric API, and the
+  **latest Geyser + Floodgate**, configures everything, and launches a real server. The
+  first launch takes a minute while it fetches libraries.
+- When it's running, the screen shows the **Java** (`ip:25565`) and **Bedrock**
+  (`ip:19132`) addresses for both **LAN** and **internet**, with copy buttons.
+
+**Only Java can host.** Bedrock players have no mod, so they can only *join* a Java host
+(the same Bedrock→Java direction Geyser supports) — there's no "host from Bedrock".
+
+> ⚠ **Read before you share an address.** The internet address shown is **your own
+> computer's public IP** — only give it to people you trust. And showing it doesn't make
+> you reachable: friends outside your network still need you to **port-forward** TCP
+> **25565** (Java) and UDP **19132** (Bedrock), or use a tunnel. On the same Wi-Fi/LAN the
+> local address just works. Auto-downloading and running a server pulls third-party
+> software (Geyser, Floodgate) onto your PC — it's all from official sources, but that's
+> why it's opt-in behind the EULA prompt. Running your game **and** a server (let alone a
+> big one) on one machine is resource-heavy.
+
+A no-port-forward **tunnel** option (so you needn't expose your IP or open ports) is a
+planned follow-up.
+
+---
+
 ## Troubleshooting
 
 - **Bedrock players can't connect at all** — that's Geyser/Floodgate setup, not
