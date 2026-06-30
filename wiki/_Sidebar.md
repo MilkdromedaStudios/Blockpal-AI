@@ -18,6 +18,10 @@
 - [AI Actions](AI-Actions)
 - [Bedrock (Geyser)](Geyser-Bedrock)
 
+**Multiplayer & games**
+- [Friend Sharing](Friend-Sharing)
+- [Minigames](Minigames)
+
 **Admin & safety**
 - [Per-Player Keys & Models](Per-Player-Keys-and-Models)
 - [Admin Menu](Admin-Menu)

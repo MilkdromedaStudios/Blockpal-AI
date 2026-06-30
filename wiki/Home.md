@@ -63,6 +63,8 @@ and configures itself from a real in-game settings screen.
 | [Running Commands](Running-Commands) | Command execution, permission levels, denylist |
 | [AI Actions](AI-Actions) | The 16 action types the planner can use |
 | [Bedrock (Geyser)](Geyser-Bedrock) | Let Bedrock players join via Geyser & Floodgate, plus one-click "Host with Blockpal" |
+| [Friend Sharing](Friend-Sharing) | Host, invite (Java + Bedrock), and share control of your bot |
+| [Minigames](Minigames) | Play game modes with the bot & friends — Chained, Same Health, One Block, Fusion *(in development)* |
 | [Per-Player Keys & Models](Per-Player-Keys-and-Models) | Bring-your-own-key, exemptions, selectable models |
 | [Admin Menu](Admin-Menu) | Ops-only panel: manage/kill all bots, bot cap, live stats |
 | [Security](Security) | Permission gating, API-key protection, what `.gitignore` can't do |
