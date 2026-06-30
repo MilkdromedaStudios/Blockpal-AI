@@ -361,9 +361,55 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   though it's fully functional server-side. Improving rendering (Geyser resource pack /
   player-type representation) is a future phase. Docs: `wiki/Geyser-Bedrock.md`.
 
+### One-click self-hosting — "Host with Blockpal" (3.10.0+)
+- A **Java-client-only** flow that stands up a Bedrock-capable dedicated server so friends
+  (Java **and** Bedrock) can join, without hand-installing anything. Opened from the
+  **pause menu** ("Host with Blockpal" button, singleplayer only) or **`/aihost`** (client
+  command); Bedrock players have no mod, so they can only *join*, never host — matching the
+  Bedrock→Java-only cross-play direction.
+- **Auto-downloads the latest components from their official sources** (so "latest Geyser"
+  is always honoured): the Minecraft server jar (Mojang piston manifest, SHA-1 verified),
+  the Fabric server launcher (FabricMC meta), Fabric API (Modrinth), and the latest
+  **Geyser-Fabric + Floodgate-Fabric** builds (GeyserMC download API). It also copies the
+  running Blockpal jar into the server so the hosted world has the companion too.
+- **Launches a real dedicated server** as a child process (reusing the game's own JVM via
+  `java.home`), captures its console, detects the "Done" ready line, and stops it cleanly
+  (`stop` on stdin, force-kill fallback). Everything lives under `<gamedir>/blockpal-host/`.
+- **Shows both connect addresses** — Java `ip:25565` and Bedrock `ip:19132` — for **LAN**
+  (site-local IP) and **internet** (public IP), with copy buttons.
+- **Safety gates baked in:** opt-in, a one-time **Minecraft EULA** accept toggle (no server
+  starts until it's on), and a prominent warning that the shown IP is the host's own and
+  that internet friends still need **port-forwarding** (a tunnel option is a planned
+  follow-up so people needn't expose their IP / forward ports).
+- **Code:** client-only, under `client/host/` — `HostManager` (state machine + threads),
+  `ComponentResolver` (official URLs), `Http` (download + SHA-1), `HostConfig`,
+  `ServerProcess`, `NetAddresses`; UI in `client/gui/HostScreen.java`; pause-menu button +
+  `/aihost` wired in `AiAssistantClient`.
+- **Caveat:** the download/launch path needs verification on a real machine with internet
+  (it can't run inside CI). The reachability constraint is physics, not a bug — a home host
+  is behind NAT until a port is forwarded or a tunnel is used.
+
 ---
 
 ## Changelog
+
+### 3.10.0
+- **"Host with Blockpal" — one-click self-hosting for cross-play.** A Java-client-only flow
+  (pause-menu button in singleplayer, or `/aihost`) that downloads the **latest** Geyser +
+  Floodgate (plus the Minecraft server, Fabric server launcher and Fabric API) from their
+  official sources, configures and **launches a real dedicated server** as a child process,
+  and shows the **Java + Bedrock connect addresses** (LAN and internet) so Bedrock friends
+  can join a Java host with no mod on their device. Bedrock can't host (no mod) — only join.
+- **Safety:** opt-in, one-time **Minecraft EULA** accept, SHA-1-verified Minecraft download,
+  and a clear warning that the shown IP is the host's own and that internet play still needs
+  port-forwarding (a no-port-forward **tunnel** option is a planned follow-up).
+- **New code:** `client/host/` (`HostManager`, `ComponentResolver`, `Http`, `HostConfig`,
+  `ServerProcess`, `NetAddresses`, `HostPaths`), `client/gui/HostScreen.java`, and the
+  pause-menu hook + `/aihost` command in `AiAssistantClient`. Everything is written under
+  `<gamedir>/blockpal-host/`. Compiles against MC 26.2 / Fabric; the live download+launch
+  needs real-machine testing (can't run a server in CI).
+- *(Next in the multiplayer arc: the custom party/invite system that seats friends into the
+  hosted world, the mini-game modes, and the tunnel option.)*
 
 ### 3.9.0
 - **Per-bot trust.** Owners can now let other players command a *specific* companion.
