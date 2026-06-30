@@ -1,5 +1,6 @@
 package com.milkdromeda.blockpal.chat;
 
+import com.milkdromeda.blockpal.admin.AdminAccess;
 import com.milkdromeda.blockpal.config.ModConfig;
 import com.milkdromeda.blockpal.entity.AiAssistantEntity;
 import com.milkdromeda.blockpal.util.Locator;
@@ -63,17 +64,18 @@ public final class ChatListener {
         boolean addressedByName = lower.equals(name) || lower.startsWith(name + " ")
                 || lower.startsWith(name + ",") || lower.startsWith(name + ":");
 
-        // Owner-only enforcement: only the player who spawned this assistant can command it.
-        // We still check if addressed by name so non-owners get a reply rather than silence.
-        if (!ai.isOwner(sender)) {
+        // Obedience: the owner, anyone the owner has TRUSTED, and server admins can
+        // command this bot. We still reply when addressed by name so others get a
+        // polite refusal rather than silence.
+        if (!ai.canCommand(sender) && !AdminAccess.isAdmin(sender)) {
             if (addressedByName) {
                 String ownerName = ai.getOwnerPlayer() != null
                         ? ai.getOwnerPlayer().getName().getString() : "someone else";
                 String[] dismissals = {
-                    "Sorry, I only take orders from " + ownerName + ".",
-                    "You're not my boss — " + ownerName + " is.",
-                    "I answer to " + ownerName + ", not you.",
-                    "I appreciate the enthusiasm, but " + ownerName + " is the one who gives me orders."
+                    "Sorry, I only take orders from " + ownerName + " and players they trust.",
+                    "You're not on my trusted list — " + ownerName + " would have to add you.",
+                    "I answer to " + ownerName + " (and their trusted friends), not just anyone.",
+                    "I appreciate the enthusiasm, but only " + ownerName + " or someone they trust can boss me around."
                 };
                 ai.broadcastMessage(dismissals[RAND.nextInt(dismissals.length)]);
             }

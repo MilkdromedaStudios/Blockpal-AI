@@ -6,6 +6,7 @@ import com.milkdromeda.blockpal.ai.Personality;
 import com.milkdromeda.blockpal.compat.BedrockSupport;
 import com.milkdromeda.blockpal.config.ModConfig;
 import com.milkdromeda.blockpal.entity.AiAssistantEntity;
+import com.milkdromeda.blockpal.entity.TrustEntry;
 import com.milkdromeda.blockpal.network.AdminStatsData;
 import com.milkdromeda.blockpal.network.AdminSyncPayload;
 import com.milkdromeda.blockpal.network.AiNetworking;
@@ -15,6 +16,8 @@ import com.milkdromeda.blockpal.util.Locator;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import java.util.List;
+import java.util.UUID;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.commands.CommandSourceStack;
@@ -66,6 +69,22 @@ public class AiCommands {
                         .then(Commands.literal("skin")
                                 .then(Commands.argument("skin", StringArgumentType.greedyString())
                                         .executes(ctx -> setSkin(ctx, StringArgumentType.getString(ctx, "skin")))))
+
+                        // ── per-bot management & trust (owner) ───────────────────────
+                        // List every companion you own, and choose who else may command
+                        // each one. Trust is per-bot, so your companions can differ.
+                        .then(Commands.literal("bots").executes(AiCommands::listBots))
+                        .then(Commands.literal("trust")
+                                .executes(AiCommands::trustShow)
+                                .then(Commands.literal("list").executes(AiCommands::trustShow))
+                                .then(Commands.literal("clear").executes(AiCommands::trustClear))
+                                .then(Commands.argument("player", StringArgumentType.word())
+                                        .suggests(ONLINE_PLAYERS_SUGGEST)
+                                        .executes(ctx -> trustAdd(ctx, StringArgumentType.getString(ctx, "player")))))
+                        .then(Commands.literal("untrust")
+                                .then(Commands.argument("player", StringArgumentType.word())
+                                        .suggests(TRUSTED_PLAYERS_SUGGEST)
+                                        .executes(ctx -> trustRemove(ctx, StringArgumentType.getString(ctx, "player")))))
 
                         // Give the nearby bot a personality (how it talks + the tone of its plans).
                         .then(Commands.literal("personality")
@@ -188,6 +207,8 @@ public class AiCommands {
                 "§f/ai skin <name> §7— give it a skin (built-in, or your own PNG; see /aiskins)\n" +
                 "§f/ai name <name> §7— rename it\n" +
                 "§f/ai personality [<id>|custom <text>] §7— change how it talks & acts\n" +
+                "§f/ai bots §7— list every companion you own (manage each separately)\n" +
+                "§f/ai trust <player> §7· §funtrust <player> §7— let friends command this bot\n" +
                 "§f/ai <task> §7— tell it what to do (e.g. /ai build a 5x5 floor)\n" +
                 "§f/ai dismiss §7— send it away\n" +
                 "§6\n" +
@@ -239,6 +260,7 @@ public class AiCommands {
 
         AiAssistantEntity ai = AiAssistantEntity.findFor(player, 128);
         if (ai == null) return noAi(player);
+        if (!ensureCanManage(player, ai)) return 0;
 
         String name = ai.getAssistantName();
         ai.discard();
@@ -253,6 +275,7 @@ public class AiCommands {
         if (player == null) return 0;
         AiAssistantEntity ai = AiAssistantEntity.findFor(player, 256);
         if (ai == null) return noAi(player);
+        if (!ensureCanCommand(player, ai)) return 0;
         ai.comeTo(player);
         return 1;
     }
@@ -262,6 +285,7 @@ public class AiCommands {
         if (player == null) return 0;
         AiAssistantEntity ai = AiAssistantEntity.findFor(player, 128);
         if (ai == null) return noAi(player);
+        if (!ensureCanCommand(player, ai)) return 0;
         ai.followPlayer();
         return 1;
     }
@@ -271,6 +295,7 @@ public class AiCommands {
         if (player == null) return 0;
         AiAssistantEntity ai = AiAssistantEntity.findFor(player, 128);
         if (ai == null) return noAi(player);
+        if (!ensureCanCommand(player, ai)) return 0;
         ai.stayHere();
         return 1;
     }
@@ -280,6 +305,7 @@ public class AiCommands {
         if (player == null) return 0;
         AiAssistantEntity ai = AiAssistantEntity.findFor(player, 128);
         if (ai == null) return noAi(player);
+        if (!ensureCanCommand(player, ai)) return 0;
         ai.stopTask();
         return 1;
     }
@@ -293,6 +319,7 @@ public class AiCommands {
                     "§cI can't find your assistant nearby. It may be in an unloaded area — try /ai summon."));
             return 0;
         }
+        if (!ensureCanCommand(player, ai)) return 0;
         player.sendSystemMessage(Component.literal("§b" + ai.getAssistantName() + ": §f\"" + Locator.describe(player, ai) + "\""));
         return 1;
     }
@@ -302,6 +329,7 @@ public class AiCommands {
         if (player == null) return 0;
         AiAssistantEntity ai = AiAssistantEntity.findFor(player, 128);
         if (ai == null) return noAi(player);
+        if (!ensureCanCommand(player, ai)) return 0;
         player.sendSystemMessage(Component.literal(ai.describeInventory()));
         return 1;
     }
@@ -312,6 +340,7 @@ public class AiCommands {
 
         AiAssistantEntity ai = AiAssistantEntity.findFor(player, 64);
         if (ai == null) return noAi(player);
+        if (!ensureCanManage(player, ai)) return 0;
 
         String old = ai.getAssistantName();
         ai.setAssistantName(newName);
@@ -325,6 +354,7 @@ public class AiCommands {
 
         AiAssistantEntity ai = AiAssistantEntity.findFor(player, 64);
         if (ai == null) return noAi(player);
+        if (!ensureCanManage(player, ai)) return 0;
 
         ai.setSkin(skin);
         player.sendSystemMessage(Component.literal(
@@ -376,6 +406,7 @@ public class AiCommands {
         if (player == null) return 0;
         AiAssistantEntity ai = AiAssistantEntity.findFor(player, 128);
         if (ai == null) return noAi(player);
+        if (!ensureCanManage(player, ai)) return 0;
         ai.requestCustomPersonality(text, player);   // async safety check, then applies
         return 1;
     }
@@ -386,6 +417,7 @@ public class AiCommands {
 
         AiAssistantEntity ai = AiAssistantEntity.findFor(player, 128);
         if (ai == null) return noAi(player);
+        if (!ensureCanManage(player, ai)) return 0;
 
         Personality p = Personality.byId(id);
         if (p == null) {
@@ -397,6 +429,148 @@ public class AiCommands {
         player.sendSystemMessage(Component.literal(
                 "§a" + ai.getAssistantName() + " is now §f" + p.display() + "§a — " + p.desc()));
         ai.broadcastMessage(p.greet());   // a line in the new voice, so the change is felt
+        return 1;
+    }
+
+    // ── per-bot management & trust ──────────────────────────────────────────────
+
+    /** Suggests online players (other than yourself) for /ai trust <player>. */
+    private static final com.mojang.brigadier.suggestion.SuggestionProvider<CommandSourceStack> ONLINE_PLAYERS_SUGGEST =
+            (ctx, builder) -> {
+                MinecraftServer server = ctx.getSource().getServer();
+                ServerPlayer self = getPlayer(ctx);
+                if (server != null) {
+                    for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+                        if (self == null || !p.getUUID().equals(self.getUUID())) {
+                            builder.suggest(p.getName().getString());
+                        }
+                    }
+                }
+                return builder.buildFuture();
+            };
+
+    /** Suggests the players already trusted on your nearby owned bot, for /ai untrust. */
+    private static final com.mojang.brigadier.suggestion.SuggestionProvider<CommandSourceStack> TRUSTED_PLAYERS_SUGGEST =
+            (ctx, builder) -> {
+                ServerPlayer self = getPlayer(ctx);
+                if (self != null) {
+                    AiAssistantEntity ai = AiAssistantEntity.findOwnedFor(self, 64);
+                    if (ai != null) {
+                        for (TrustEntry e : ai.trustedEntries()) {
+                            if (e.name() != null && !e.name().isBlank()) builder.suggest(e.name());
+                        }
+                    }
+                }
+                return builder.buildFuture();
+            };
+
+    /** Lists every companion the player owns, with mode, place, health and trust count. */
+    private static int listBots(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        MinecraftServer server = player.level().getServer();
+        if (server == null) return 0;
+        List<AiAssistantEntity> mine = AiAssistantEntity.ownedBy(server, player.getUUID());
+        if (mine.isEmpty()) {
+            player.sendSystemMessage(Component.literal(
+                    "§7You don't have any companions out. Summon one with §f/ai summon§7."));
+            return 1;
+        }
+        StringBuilder sb = new StringBuilder("§6=== Your companions (" + mine.size() + ") ===");
+        for (AiAssistantEntity ai : mine) {
+            sb.append("\n§f").append(ai.getAssistantName())
+                    .append(" §7— ").append(ai.getMode().name().toLowerCase(java.util.Locale.ROOT))
+                    .append(" §7— ").append(ai.level().dimension().identifier().getPath())
+                    .append(" §7@ ").append((int) ai.getX()).append(",").append((int) ai.getY()).append(",").append((int) ai.getZ())
+                    .append(" §7— hp ").append((int) ai.getHealth()).append("/").append((int) ai.getMaxHealth())
+                    .append(" §7— ").append(ai.getPersonalityLabel())
+                    .append(" §7— trusted: §f").append(ai.trustedCount());
+        }
+        sb.append("\n§7Stand near one and use §f/ai name§7, §f/ai skin§7, §f/ai personality§7 or §f/ai trust§7 to manage it.");
+        final String out = sb.toString();
+        player.sendSystemMessage(Component.literal(out));
+        return 1;
+    }
+
+    /** Shows who is trusted on your nearby owned bot. */
+    private static int trustShow(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        AiAssistantEntity ai = AiAssistantEntity.findOwnedFor(player, 64);
+        if (ai == null) return noOwnedAi(player);
+        List<TrustEntry> list = ai.trustedEntries();
+        StringBuilder sb = new StringBuilder(
+                "§6=== " + ai.getAssistantName() + "'s trusted players (" + list.size() + ") ===");
+        if (list.isEmpty()) sb.append("\n§7  (none yet — only you can command this companion)");
+        for (TrustEntry e : list) {
+            sb.append("\n§f  ").append(e.name() == null || e.name().isBlank()
+                    ? e.uuid().toString() : e.name());
+        }
+        sb.append("\n§7Add with §f/ai trust <player>§7 (they must be online), remove with §f/ai untrust <player>§7.");
+        final String out = sb.toString();
+        player.sendSystemMessage(Component.literal(out));
+        return 1;
+    }
+
+    /** Trusts an online player to command your nearby owned bot. */
+    private static int trustAdd(CommandContext<CommandSourceStack> ctx, String name) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        AiAssistantEntity ai = AiAssistantEntity.findOwnedFor(player, 64);
+        if (ai == null) return noOwnedAi(player);
+        MinecraftServer server = player.level().getServer();
+        ServerPlayer target = server == null ? null : server.getPlayerList().getPlayerByName(name);
+        if (target == null) {
+            player.sendSystemMessage(Component.literal(
+                    "§cCan't find an online player named §f" + name + "§c — they must be online to be trusted."));
+            return 0;
+        }
+        if (target.getUUID().equals(player.getUUID())) {
+            player.sendSystemMessage(Component.literal(
+                    "§7You already own §f" + ai.getAssistantName() + "§7 — no need to trust yourself."));
+            return 0;
+        }
+        boolean added = ai.addTrust(target);
+        player.sendSystemMessage(Component.literal(added
+                ? "§aTrusted §f" + target.getName().getString() + "§a to command §f" + ai.getAssistantName() + "§a."
+                : "§7" + target.getName().getString() + " was already trusted on " + ai.getAssistantName() + "."));
+        if (added) {
+            target.sendSystemMessage(Component.literal(
+                    "§a" + player.getName().getString() + " trusted you to command their companion §f"
+                            + ai.getAssistantName() + "§a."));
+        }
+        return 1;
+    }
+
+    /** Removes a player (online or by stored name) from your nearby owned bot's trust list. */
+    private static int trustRemove(CommandContext<CommandSourceStack> ctx, String name) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        AiAssistantEntity ai = AiAssistantEntity.findOwnedFor(player, 64);
+        if (ai == null) return noOwnedAi(player);
+        UUID removed = ai.removeTrustByName(name);
+        if (removed == null) {
+            // Name may have changed since they were trusted — fall back to the online player's UUID.
+            MinecraftServer server = player.level().getServer();
+            ServerPlayer target = server == null ? null : server.getPlayerList().getPlayerByName(name);
+            if (target != null && ai.removeTrust(target.getUUID()) != null) removed = target.getUUID();
+        }
+        final UUID done = removed;
+        player.sendSystemMessage(Component.literal(done != null
+                ? "§aRemoved §f" + name + "§a from §f" + ai.getAssistantName() + "§a's trusted players."
+                : "§7" + name + " wasn't on " + ai.getAssistantName() + "'s trusted list."));
+        return 1;
+    }
+
+    /** Clears the entire trust list of your nearby owned bot. */
+    private static int trustClear(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        AiAssistantEntity ai = AiAssistantEntity.findOwnedFor(player, 64);
+        if (ai == null) return noOwnedAi(player);
+        int n = ai.clearTrust();
+        player.sendSystemMessage(Component.literal(
+                "§aCleared " + n + " trusted player" + (n == 1 ? "" : "s") + " from §f" + ai.getAssistantName() + "§a."));
         return 1;
     }
 
@@ -447,6 +621,7 @@ public class AiCommands {
 
         AiAssistantEntity ai = AiAssistantEntity.findFor(player, 128);
         if (ai == null) return noAi(player);
+        if (!ensureCanCommand(player, ai)) return 0;
 
         if (!ai.hasUsableApiKey()) {
             player.sendSystemMessage(Component.literal(ModConfig.get().requireOwnApiKey
@@ -865,5 +1040,38 @@ public class AiCommands {
         player.sendSystemMessage(Component.literal(
                 "§cNo AI assistant nearby. Summon one with §f/ai summon"));
         return 0;
+    }
+
+    private static int noOwnedAi(ServerPlayer player) {
+        player.sendSystemMessage(Component.literal(
+                "§cStand near a companion you own. Summon one with §f/ai summon§c, "
+                        + "or see all of yours with §f/ai bots§c."));
+        return 0;
+    }
+
+    /**
+     * Gate for giving a bot ORDERS (come/follow/stay/stop/locate/inventory/tasks):
+     * the owner, anyone the owner trusts, or a server admin. Messages the player and
+     * returns false when they're not allowed.
+     */
+    private static boolean ensureCanCommand(ServerPlayer player, AiAssistantEntity ai) {
+        if (ai.canCommand(player) || AdminAccess.isAdmin(player)) return true;
+        player.sendSystemMessage(Component.literal(
+                "§cThat's not your companion. Its owner can let you command it with "
+                        + "§f/ai trust " + player.getName().getString() + "§c."));
+        return false;
+    }
+
+    /**
+     * Gate for MANAGING a bot's identity (name/skin/personality), dismissing it, or
+     * editing its trust list: the owner or a server admin only. Messages the player
+     * and returns false when they're not allowed.
+     */
+    private static boolean ensureCanManage(ServerPlayer player, AiAssistantEntity ai) {
+        if (ai.isOwner(player) || AdminAccess.isAdmin(player)) return true;
+        String owner = ai.getOwnerName().isBlank() ? "its owner" : ai.getOwnerName();
+        player.sendSystemMessage(Component.literal(
+                "§cOnly " + owner + " can change " + ai.getAssistantName() + "."));
+        return false;
     }
 }

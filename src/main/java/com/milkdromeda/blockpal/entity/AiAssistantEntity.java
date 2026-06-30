@@ -41,7 +41,10 @@ import net.minecraft.world.phys.AABB;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.function.ToDoubleFunction;
@@ -72,6 +75,12 @@ public class AiAssistantEntity extends PathfinderMob {
     // Owner's username, kept so per-player-key whitelist checks work even while the
     // owner is offline (the bot can keep planning autonomously).
     private String ownerName = "";
+    // Players the owner has TRUSTED to command this bot (UUID -> last-seen name).
+    // Per-bot, so each companion can have its own trusted circle. Only the owner
+    // (or a server admin) can edit this set; trusted players may give the bot
+    // orders (come/follow/stay/stop/tasks) but cannot manage it (rename, dismiss,
+    // re-trust). Insertion order is kept so the list reads consistently.
+    private final LinkedHashMap<UUID, String> trusted = new LinkedHashMap<>();
     private String pendingTask;
     private final AiTaskManager taskManager;
     private BuildGoal buildGoal;
@@ -654,6 +663,7 @@ public class AiAssistantEntity extends PathfinderMob {
         output.putString("Mode", mode.name());
         if (ownerUuid != null) output.store("OwnerUuid", UUIDUtil.STRING_CODEC, ownerUuid);
         if (ownerName != null && !ownerName.isBlank()) output.putString("OwnerName", ownerName);
+        if (!trusted.isEmpty()) output.store("Trusted", TrustEntry.LIST_CODEC, trustedEntries());
         if (pendingTask != null) output.putString("PendingTask", pendingTask);
         output.putBoolean("AutonomousMode", autonomousMode);
         ContainerHelper.saveAllItems(output.child("Inventory"), inventorySnapshot());
@@ -671,6 +681,12 @@ public class AiAssistantEntity extends PathfinderMob {
         try { mode = Mode.valueOf(modeStr); } catch (IllegalArgumentException ignored) { mode = Mode.FOLLOWING; }
         input.read("OwnerUuid", UUIDUtil.STRING_CODEC).ifPresent(uuid -> ownerUuid = uuid);
         ownerName = input.getStringOr("OwnerName", "");
+        trusted.clear();
+        input.read("Trusted", TrustEntry.LIST_CODEC).ifPresent(list -> {
+            for (TrustEntry e : list) {
+                if (e.uuid() != null) trusted.put(e.uuid(), e.name() == null ? "" : e.name());
+            }
+        });
         pendingTask = input.getString("PendingTask").orElse(null);
         autonomousMode = input.getBooleanOr("AutonomousMode", false);
         NonNullList<ItemStack> items = NonNullList.withSize(INVENTORY_SIZE, ItemStack.EMPTY);
@@ -788,6 +804,67 @@ public class AiAssistantEntity extends PathfinderMob {
         this.ownerName = player.getName().getString();
     }
 
+    // ---- Trust (who, besides the owner, may command this bot) ----
+
+    /** True if {@code id} is a player the owner has trusted to command this bot. */
+    public boolean isTrusted(UUID id) {
+        return id != null && trusted.containsKey(id);
+    }
+
+    /** True when {@code player} may give this bot ORDERS (owner or a trusted player). */
+    public boolean canCommand(Player player) {
+        return player != null && (isOwner(player) || isTrusted(player.getUUID()));
+    }
+
+    /** Adds (or refreshes the stored name of) a trusted player. @return false if already trusted. */
+    public boolean addTrust(ServerPlayer player) {
+        if (player == null) return false;
+        boolean isNew = !trusted.containsKey(player.getUUID());
+        trusted.put(player.getUUID(), player.getName().getString());
+        return isNew;
+    }
+
+    /** Removes a trusted player by UUID. @return the removed player's name, or null. */
+    public String removeTrust(UUID id) {
+        return id == null ? null : trusted.remove(id);
+    }
+
+    /**
+     * Removes a trusted player by username (case-insensitive) so offline players can
+     * be un-trusted too. @return the matched UUID that was removed, or null.
+     */
+    public UUID removeTrustByName(String name) {
+        if (name == null || name.isBlank()) return null;
+        String want = name.trim().toLowerCase(Locale.ROOT);
+        for (Map.Entry<UUID, String> e : trusted.entrySet()) {
+            if (e.getValue() != null && e.getValue().toLowerCase(Locale.ROOT).equals(want)) {
+                trusted.remove(e.getKey());
+                return e.getKey();
+            }
+        }
+        return null;
+    }
+
+    /** Clears the whole trust list. @return how many entries were removed. */
+    public int clearTrust() {
+        int n = trusted.size();
+        trusted.clear();
+        return n;
+    }
+
+    /** A snapshot of the trusted players (UUID + last-seen name), for listing. */
+    public List<TrustEntry> trustedEntries() {
+        List<TrustEntry> list = new ArrayList<>(trusted.size());
+        for (Map.Entry<UUID, String> e : trusted.entrySet()) {
+            list.add(new TrustEntry(e.getKey(), e.getValue() == null ? "" : e.getValue()));
+        }
+        return list;
+    }
+
+    public int trustedCount() {
+        return trusted.size();
+    }
+
     /** Whether this bot's owner currently has a usable API key (personal or shared). */
     public boolean hasUsableApiKey() {
         return !ModConfig.get().resolveTokenFor(ownerUuid, getOwnerName()).isBlank();
@@ -860,6 +937,30 @@ public class AiAssistantEntity extends PathfinderMob {
             if (owner.equals(ai.getOwnerUuid())) n++;
         }
         return n;
+    }
+
+    /** Every live assistant a given owner has out, across all dimensions. */
+    public static List<AiAssistantEntity> ownedBy(MinecraftServer server, UUID owner) {
+        List<AiAssistantEntity> list = new ArrayList<>();
+        if (owner == null) return list;
+        for (AiAssistantEntity ai : all(server)) {
+            if (owner.equals(ai.getOwnerUuid())) list.add(ai);
+        }
+        return list;
+    }
+
+    /**
+     * The nearest assistant {@code player} actually OWNS within range (for owner-only
+     * management like trust/rename/dismiss), or null. Unlike {@link #findFor}, this
+     * never returns a bot owned by someone else.
+     */
+    public static AiAssistantEntity findOwnedFor(ServerPlayer player, double range) {
+        AABB box = AABB.ofSize(player.position(), range * 2, range, range * 2);
+        return player.level()
+                .getEntitiesOfClass(AiAssistantEntity.class, box, e -> e.isOwnedBy(player))
+                .stream()
+                .min(Comparator.comparingDouble(a -> a.distanceToSqr(player)))
+                .orElse(null);
     }
 
     /** Removes every assistant on the server; returns how many were removed. */
