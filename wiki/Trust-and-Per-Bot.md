@@ -13,18 +13,33 @@ two companions can be set up completely differently:
 - `/ai skin <name>` — re-skin it (see [Custom Skins](Custom-Skins))
 - `/ai personality [<id>]` — change how it talks & acts (see [Personalities](Personalities))
 
-To see everything you own at a glance:
+## The Bots panel (visual manager)
+
+On a busy server with lots of companions, run:
 
 ```
 /ai bots
 ```
 
-`/ai bots` lists every companion **you** own across all dimensions, with each one's
-mode, dimension, position, health, personality and how many players it trusts — so a
-group of bots is no longer indistinguishable.
+On a Java client this opens the **Bots** panel — a tab alongside Settings, Admin, and My
+Settings. It lists **every bot on the server**, each labelled with **who owns it**, in a
+scrollable picker. Select one and you'll see its details (owner, mode, dimension,
+position, health, personality, trusted count) and buttons to:
 
-> A dedicated per-bot GUI panel is planned; for now management is by standing next to
-> the bot you want to change (and `/ai bots` to find them).
+- **Command** it — Come, Follow, Stay, Stop — if you're the owner, a trusted player, or an
+  admin;
+- **Manage** it — rename, re-skin, change personality, or dismiss — if you're the owner or
+  an admin.
+
+Buttons you're not allowed to use are greyed out, and the server checks again when you
+press one, so the panel can't be used to control a bot you don't have rights to. This is
+the visual way to manage many bots individually instead of acting on "the nearest one".
+
+> On Bedrock or a vanilla client (no Blockpal GUI), `/ai bots` instead prints a text list
+> of the companions you own. The text command is always available.
+
+The everyday `/ai name`, `/ai skin`, `/ai personality` and `/ai trust` commands still work
+on the companion you're standing next to, if you prefer commands to the panel.
 
 ## Trusting other players
 

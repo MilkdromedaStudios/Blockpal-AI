@@ -110,12 +110,25 @@ can do and how it evolved.
   `PlayerPrefsSyncPayload` (S→C) / `PlayerPrefsPayload` (C→S).
 
 ### Per-bot management & trust (3.9.0+)
+- **Visual Bots panel (3.11.0)** — `/ai bots` (Java client) opens a **Bots** panel: a
+  scrollable picker of **every** bot on the server, each showing **who owns it**, so on a
+  busy server you can find and manage a specific companion instead of "the nearest one".
+  Selecting a bot shows its details (owner, mode, dimension, position, health, personality,
+  trusted count) and gives buttons to **command** it (come/follow/stay/stop) and **manage**
+  it (rename, re-skin, change personality, dismiss). The panel is server-authoritative: it
+  carries per-viewer `canCommand`/`canManage` flags (so disallowed buttons are greyed) and
+  the server **re-checks permission again when an action runs** (`BotActionPayload` →
+  `AiNetworking.applyBotAction`), so a modified client can't bypass it. It's a tab in the
+  shared `PanelNav` (`Settings · Admin · Bots · My Settings`). Backed by `BotListData`
+  (`gather(server, viewer)`), `BotListRequestPayload` (C→S), `BotListSyncPayload` (S→C),
+  `BotActionPayload` (C→S); UI in `client/gui/BotManagerScreen.java`. Bedrock/vanilla
+  clients can't open it, so `/ai bots` falls back to the text listing for them.
 - **Manage bots individually** — `/ai bots` lists every companion **you** own across
   all dimensions (name, mode, dimension, position, health, personality and trusted
   count), so they're no longer an indistinguishable group. The everyday management
   commands (`/ai name`, `/ai skin`, `/ai personality`, `/ai trust`) act on the
-  companion you're standing next to, so each can be set up differently. (This is the
-  first step of full per-bot management; a dedicated per-bot GUI panel is planned.)
+  companion you're standing next to, so each can be set up differently — or pick any
+  bot directly in the visual Bots panel above.
 - **Trust** — the owner can let other players command a specific bot. `/ai trust
   <player>` (player must be online) adds them; `/ai untrust <player>` removes them
   (by current name, or stored name if they're offline); `/ai trust list` shows the
@@ -392,6 +405,24 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 ---
 
 ## Changelog
+
+### 3.11.0
+- **Visual per-bot manager ("Bots" panel).** `/ai bots` on a Java client now opens a new
+  **Bots** panel (a tab in the shared `PanelNav`, alongside Settings/Admin/My Settings)
+  instead of only printing text. It lists **every bot on the server with its owner** in a
+  scrollable picker; selecting one shows its details and gives buttons to command it
+  (come/follow/stay/stop) and — for the owner/admin — manage it (rename, re-skin, change
+  personality, dismiss). Built for busy servers with lots of bots, so you can act on a
+  specific companion rather than "the nearest one".
+- **Server-authoritative + safe.** New `BotListData` (`gather(server, viewer)` with
+  per-viewer `canCommand`/`canManage` flags), `BotListRequestPayload` (C→S),
+  `BotListSyncPayload` (S→C) and `BotActionPayload` (C→S). The action handler
+  (`AiNetworking.applyBotAction`) finds the bot by network id across dimensions and
+  **re-checks the sender's permission** before acting, so greyed buttons can't be forged.
+  UI in `client/gui/BotManagerScreen.java`; `/ai bots` keeps a text fallback for
+  Bedrock/vanilla clients (`AiNetworking.openBotsFor`).
+- *(Multiplayer arc continues; the party/invite system, the mini-game modes and the
+  no-port-forward tunnel are still the planned follow-ups.)*
 
 ### 3.10.0
 - **"Host with Blockpal" — one-click self-hosting for cross-play.** A Java-client-only flow
