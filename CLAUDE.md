@@ -109,6 +109,28 @@ can do and how it evolved.
   `resolveModelFor`, threaded through `HuggingFaceClient.ApiAuth`. Player prefs ride
   `PlayerPrefsSyncPayload` (S→C) / `PlayerPrefsPayload` (C→S).
 
+### Per-bot management & trust (3.9.0+)
+- **Manage bots individually** — `/ai bots` lists every companion **you** own across
+  all dimensions (name, mode, dimension, position, health, personality and trusted
+  count), so they're no longer an indistinguishable group. The everyday management
+  commands (`/ai name`, `/ai skin`, `/ai personality`, `/ai trust`) act on the
+  companion you're standing next to, so each can be set up differently. (This is the
+  first step of full per-bot management; a dedicated per-bot GUI panel is planned.)
+- **Trust** — the owner can let other players command a specific bot. `/ai trust
+  <player>` (player must be online) adds them; `/ai untrust <player>` removes them
+  (by current name, or stored name if they're offline); `/ai trust list` shows the
+  list and `/ai trust clear` empties it. Trust is **per bot**, stored in the entity's
+  NBT (`Trusted`, a `TrustEntry(uuid, name)` list — see `entity/TrustEntry.java`), so
+  each companion keeps its own trusted circle.
+- **Two authority tiers.** `AiAssistantEntity.canCommand(player)` = owner **or** a
+  trusted player; server admins (`AdminAccess`) are always allowed on top. Trusted
+  players (and admins) may give a bot **orders** — come/follow/stay/stop, locate,
+  inventory, and AI tasks — in chat and via `/ai …`. **Managing** a bot (rename, skin,
+  personality, dismiss, and editing the trust list itself) stays owner-or-admin only.
+  The chat owner-gate and the `/ai` command handlers both enforce this server-side
+  (`ensureCanCommand` / `ensureCanManage`), closing the old gap where any nearby player
+  could `/ai follow`/`dismiss` someone else's bot.
+
 ### Chat system
 - **Chat listening** — monitors all server chat; trigger words activate the
   assistant without using its name.
@@ -121,8 +143,10 @@ can do and how it evolved.
   in `Name: "message"` format; randomised response pools so replies vary naturally.
 - **Calls for help** — when health drops critically low in combat, the assistant
   calls out to nearby players for help before retreating.
-- **Owner-only** — only the player who spawned the assistant can give it orders;
-  other players are politely turned away.
+- **Owner-only (plus trust)** — by default only the player who spawned the assistant
+  can give it orders; other players are politely turned away. The owner can **trust**
+  specific players (see *Per-bot management & trust* below) so they may command it too;
+  server admins can always command/moderate any bot.
 - **Autonomous mode** — owner can say "do it yourself" to hand off control; the
   bot self-directs, picks its own tasks, and narrates its decisions every ~30 s.
   Cancelled by "stop", "follow me", or "stay".
@@ -146,6 +170,9 @@ can do and how it evolved.
 | `/ai skin <name>` | Change skin (built-in or your own PNG) |
 | `/ai personality [<id>]` | List / set how the bot talks & acts |
 | `/ai personality custom <text>` | Give it your own (AI-moderated) personality |
+| `/ai bots` | List every companion **you** own (mode, place, health, trust count) |
+| `/ai trust <player>` / `/ai untrust <player>` | Let / stop another player command this bot |
+| `/ai trust list` / `/ai trust clear` | Show / clear this bot's trusted players |
 | `/aiskins list\|reload` | (client) list/reload skins in `config/blockpal/skins/` |
 | `/ai inventory` / `/ai inv` | Show carried items |
 | `/ai mykey <token>\|clear` | Set/clear **your own** API key (any player) |
@@ -337,6 +364,26 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 ---
 
 ## Changelog
+
+### 3.9.0
+- **Per-bot trust.** Owners can now let other players command a *specific* companion.
+  New `/ai trust <player>` (online), `/ai untrust <player>`, `/ai trust list` and
+  `/ai trust clear`. Trust is stored per bot in NBT (`Trusted` — a list of
+  `TrustEntry(uuid, name)`, new `entity/TrustEntry.java`), so each companion keeps its
+  own trusted circle. `AiAssistantEntity.canCommand(player)` = owner or trusted; admins
+  always allowed. Trusted players/admins may give **orders** (come/follow/stay/stop,
+  locate, inventory, tasks) in chat and via commands; identity edits (name/skin/
+  personality), dismiss and trust-editing stay owner-or-admin only.
+- **Per-bot visibility.** New `/ai bots` lists every companion you own across all
+  dimensions (name, mode, dimension, position, health, personality, trusted count) so
+  they're no longer an indistinguishable group; the existing per-bot commands act on
+  the one you stand next to. (Foundation for a future per-bot GUI panel.)
+- **Authorization hardening.** The `/ai` order/management commands are now gated
+  server-side (`ensureCanCommand` / `ensureCanManage`) and the chat owner-gate honours
+  trust + admin — closing the gap where any nearby player could `/ai follow` or even
+  `/ai dismiss` someone else's bot. New entity helpers `ownedBy` / `findOwnedFor`.
+- *(First slice of a larger multiplayer/mini-games effort; the mini-game modes, the
+  invite/party system and the settings search box are planned follow-ups.)*
 
 ### 3.8.0
 - **Geyser/Bedrock compatibility.** Bedrock Edition players can join via a Geyser proxy

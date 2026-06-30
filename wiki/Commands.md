@@ -20,6 +20,9 @@ All commands are under `/ai`. Type `/ai help` in-game for the live list.
 | `/ai skin <name>` | Change skin (built-in or custom PNG) — see [Custom Skins](Custom-Skins) |
 | `/ai personality [<id>]` | List or set how it talks & acts — see [Personalities](Personalities) |
 | `/ai personality custom <text>` | Give it your own AI-moderated personality |
+| `/ai bots` | List every companion **you** own — see [Trust & Per-Bot Management](Trust-and-Per-Bot) |
+| `/ai trust <player>` · `/ai untrust <player>` | Let / stop another player command this bot |
+| `/ai trust list` · `/ai trust clear` | Show / clear this bot's trusted players |
 | `/ai inventory` · `/ai inv` | Show carried items |
 | `/ai mykey <token>\|clear` | Set/clear **your own** API key — see [Per-Player Keys & Models](Per-Player-Keys-and-Models) |
 | `/ai model [<id>]` · `/ai models` | Pick your bot's model / list allowed models |
@@ -34,6 +37,15 @@ All commands are under `/ai`. Type `/ai help` in-game for the live list.
 > (`adminPermissionLevel`, default 2 = ops). Everyday commands above stay open to all
 > players. Ops on a **vanilla** client can still configure via the text `/ai admin …`
 > tree (and the `BLOCKPAL_API_TOKEN` environment variable for the shared key).
+
+## Who can command a bot
+
+By default only the **owner** (the player who summoned it) can give a companion
+orders. The owner can **trust** other players with `/ai trust <player>` so they may
+command it too, and server admins can always command or moderate any bot. Trusted
+players can give orders (come/follow/stay/stop, locate, inventory, tasks) but cannot
+rename, re-skin, change the personality of, dismiss, or re-trust someone else's bot —
+those stay owner-only. See **[Trust & Per-Bot Management](Trust-and-Per-Bot)**.
 
 ## Admin commands (ops only)
 
