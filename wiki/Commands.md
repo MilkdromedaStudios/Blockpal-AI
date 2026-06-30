@@ -28,6 +28,7 @@ All commands are under `/ai`. Type `/ai help` in-game for the live list.
 | `/ai model [<id>]` · `/ai models` | Pick your bot's model / list allowed models |
 | `/ai mymenu` | Personal settings screen (your model + your key) |
 | `/aiskins list\|reload` | *(client)* List or hot-reload the skins folder |
+| `/aihost` · `/aihost status\|stop` | *(client, Java only)* Host a Bedrock-capable server — see [Bedrock (Geyser)](Geyser-Bedrock) |
 | `/ai admin …` | *(ops only)* Admin panel — see below |
 | `/ai <task>` | Give a natural-language task |
 
