@@ -1,6 +1,7 @@
 package com.milkdromeda.blockpal.client.gui;
 
 import com.milkdromeda.blockpal.network.AdminActionPayload;
+import com.milkdromeda.blockpal.network.BotListRequestPayload;
 import com.milkdromeda.blockpal.network.ConfigRequestPayload;
 import com.milkdromeda.blockpal.network.PlayerPrefsPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -26,7 +27,7 @@ public final class PanelNav {
 
     private PanelNav() {}
 
-    public enum Tab { SETTINGS, ADMIN, ME }
+    public enum Tab { SETTINGS, ADMIN, BOTS, ME }
 
     /** Adds the cross-panel tab buttons via {@code sink} (usually {@code this::addRenderableWidget}). */
     public static void build(int screenWidth, int width, int y, int h,
@@ -36,6 +37,7 @@ public final class PanelNav {
             tabs.add(Tab.SETTINGS);
             tabs.add(Tab.ADMIN);
         }
+        tabs.add(Tab.BOTS);   // every player can browse/manage the bots they're allowed to
         tabs.add(Tab.ME);
 
         int gap = 2;
@@ -59,6 +61,7 @@ public final class PanelNav {
         return switch (t) {
             case SETTINGS -> "Settings";
             case ADMIN -> "Admin";
+            case BOTS -> "Bots";
             case ME -> "My Settings";
         };
     }
@@ -74,6 +77,11 @@ public final class PanelNav {
             case ADMIN -> {
                 if (ClientPlayNetworking.canSend(AdminActionPayload.TYPE)) {
                     ClientPlayNetworking.send(new AdminActionPayload("refresh", 0));
+                }
+            }
+            case BOTS -> {
+                if (ClientPlayNetworking.canSend(BotListRequestPayload.TYPE)) {
+                    ClientPlayNetworking.send(new BotListRequestPayload());
                 }
             }
             case ME -> {

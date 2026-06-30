@@ -464,12 +464,15 @@ public class AiCommands {
                 return builder.buildFuture();
             };
 
-    /** Lists every companion the player owns, with mode, place, health and trust count. */
+    /** Opens the visual Bots manager if the client supports it, else lists owned bots as text. */
     private static int listBots(CommandContext<CommandSourceStack> ctx) {
         ServerPlayer player = getPlayer(ctx);
         if (player == null) return 0;
         MinecraftServer server = player.level().getServer();
         if (server == null) return 0;
+        // Java client with the mod → open the visual panel (shows every bot + owner).
+        if (AiNetworking.openBotsFor(player)) return 1;
+        // Bedrock/vanilla fallback: a text list of the player's own bots.
         List<AiAssistantEntity> mine = AiAssistantEntity.ownedBy(server, player.getUUID());
         if (mine.isEmpty()) {
             player.sendSystemMessage(Component.literal(

@@ -3,6 +3,7 @@ package com.milkdromeda.blockpal.client;
 import com.milkdromeda.blockpal.ModEntities;
 import com.milkdromeda.blockpal.client.gui.AdminScreen;
 import com.milkdromeda.blockpal.client.gui.AiConfigScreen;
+import com.milkdromeda.blockpal.client.gui.BotManagerScreen;
 import com.milkdromeda.blockpal.client.gui.HostScreen;
 import com.milkdromeda.blockpal.client.gui.PlayerSettingsScreen;
 import com.milkdromeda.blockpal.client.gui.TutorialScreen;
@@ -11,6 +12,7 @@ import com.milkdromeda.blockpal.client.render.AiAssistantEntityModel;
 import com.milkdromeda.blockpal.client.render.AiAssistantEntityRenderer;
 import com.milkdromeda.blockpal.client.render.RuntimeSkins;
 import com.milkdromeda.blockpal.network.AdminSyncPayload;
+import com.milkdromeda.blockpal.network.BotListSyncPayload;
 import com.milkdromeda.blockpal.network.ConfigSyncPayload;
 import com.milkdromeda.blockpal.network.OpenTutorialPayload;
 import com.milkdromeda.blockpal.network.PlayerPrefsSyncPayload;
@@ -66,6 +68,13 @@ public class AiAssistantClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(OpenTutorialPayload.TYPE, (payload, context) ->
                 context.client().execute(() ->
                         context.client().setScreenAndShow(new TutorialScreen())));
+
+        // Server sent the bot list (via /ai bots or the Bots panel tab) — open/refresh
+        // the visual Bots manager, keeping the current selection across refreshes.
+        ClientPlayNetworking.registerGlobalReceiver(BotListSyncPayload.TYPE, (payload, context) ->
+                context.client().execute(() ->
+                        context.client().setScreenAndShow(
+                                new BotManagerScreen(payload.data(), BotManagerScreen.lastSelected()))));
 
         // Extreme frame-rate watchdog: auto-disable the mod if FPS collapses.
         FpsGuardian.register();

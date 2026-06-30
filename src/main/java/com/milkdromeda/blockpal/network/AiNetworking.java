@@ -4,13 +4,16 @@ import com.milkdromeda.blockpal.AiAssistantMod;
 import com.milkdromeda.blockpal.EmergencyState;
 import com.milkdromeda.blockpal.admin.AdminAccess;
 import com.milkdromeda.blockpal.admin.PlayerStatsTracker;
+import com.milkdromeda.blockpal.ai.Personality;
 import com.milkdromeda.blockpal.config.ModConfig;
 import com.milkdromeda.blockpal.entity.AiAssistantEntity;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 
 import java.util.Locale;
 
@@ -36,10 +39,13 @@ public final class AiNetworking {
         PayloadTypeRegistry.serverboundPlay().register(AdminActionPayload.TYPE, AdminActionPayload.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(ClientStatsPayload.TYPE, ClientStatsPayload.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(PlayerPrefsPayload.TYPE, PlayerPrefsPayload.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(BotListRequestPayload.TYPE, BotListRequestPayload.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(BotActionPayload.TYPE, BotActionPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(ConfigSyncPayload.TYPE, ConfigSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(AdminSyncPayload.TYPE, AdminSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(PlayerPrefsSyncPayload.TYPE, PlayerPrefsSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(OpenTutorialPayload.TYPE, OpenTutorialPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(BotListSyncPayload.TYPE, BotListSyncPayload.CODEC);
     }
 
     /** Sends the current config to a player so their client opens the settings menu. */
@@ -61,6 +67,14 @@ public final class AiNetworking {
     public static boolean openPlayerMenuFor(ServerPlayer player) {
         if (!ServerPlayNetworking.canSend(player, PlayerPrefsSyncPayload.TYPE)) return false;
         ServerPlayNetworking.send(player, PlayerPrefsSyncPayload.forPlayer(player));
+        return true;
+    }
+
+    /** Opens (or refreshes) the visual Bots manager panel for a player. @return false if their client can't show it. */
+    public static boolean openBotsFor(ServerPlayer player) {
+        MinecraftServer server = player.level().getServer();
+        if (server == null || !ServerPlayNetworking.canSend(player, BotListSyncPayload.TYPE)) return false;
+        ServerPlayNetworking.send(player, new BotListSyncPayload(BotListData.gather(server, player)));
         return true;
     }
 
@@ -186,6 +200,103 @@ public final class AiNetworking {
                 }
             });
         });
+
+        // A client opened/refreshed the Bots panel — reply with the current bot list.
+        ServerPlayNetworking.registerGlobalReceiver(BotListRequestPayload.TYPE, (payload, context) -> {
+            ServerPlayer player = context.player();
+            MinecraftServer server = player.level().getServer();
+            if (server == null) return;
+            server.execute(() ->
+                    ServerPlayNetworking.send(player, new BotListSyncPayload(BotListData.gather(server, player))));
+        });
+
+        // A client triggered an action on a specific bot from the Bots panel. The
+        // sender's permission for THAT bot is re-checked here, then the panel is re-synced.
+        ServerPlayNetworking.registerGlobalReceiver(BotActionPayload.TYPE, (payload, context) -> {
+            ServerPlayer player = context.player();
+            MinecraftServer server = player.level().getServer();
+            if (server == null) return;
+            server.execute(() -> {
+                AiAssistantEntity bot = findBot(server, payload.entityId());
+                if (bot == null) {
+                    player.sendSystemMessage(Component.literal("§cThat companion is no longer available."));
+                } else {
+                    applyBotAction(player, bot, payload.action(), payload.arg());
+                }
+                if (ServerPlayNetworking.canSend(player, BotListSyncPayload.TYPE)) {
+                    ServerPlayNetworking.send(player, new BotListSyncPayload(BotListData.gather(server, player)));
+                }
+            });
+        });
+    }
+
+    /** Finds a live bot by its network id across every dimension, or null. */
+    private static AiAssistantEntity findBot(MinecraftServer server, int entityId) {
+        for (ServerLevel level : server.getAllLevels()) {
+            Entity e = level.getEntity(entityId);
+            if (e instanceof AiAssistantEntity ai && ai.isAlive()) return ai;
+        }
+        return null;
+    }
+
+    /** Applies a Bots-panel action after re-checking the sender's permission for this bot. */
+    private static void applyBotAction(ServerPlayer player, AiAssistantEntity bot, String action, String arg) {
+        String a = action == null ? "" : action.toLowerCase(Locale.ROOT);
+        boolean admin = AdminAccess.isAdmin(player);
+        boolean canCommand = bot.canCommand(player) || admin;
+        boolean canManage = bot.isOwner(player) || admin;
+        String name = bot.getAssistantName();
+        switch (a) {
+            case "come" -> {
+                if (!canCommand) { denyCommand(player); return; }
+                if (bot.level() == player.level()) {
+                    bot.comeTo(player);
+                } else {
+                    player.sendSystemMessage(Component.literal(
+                            "§e" + name + " is in another dimension — go there or use /ai come."));
+                }
+            }
+            case "follow" -> { if (!canCommand) { denyCommand(player); return; } bot.followPlayer(); }
+            case "stay"   -> { if (!canCommand) { denyCommand(player); return; } bot.stayHere(); }
+            case "stop"   -> { if (!canCommand) { denyCommand(player); return; } bot.stopTask(); }
+            case "dismiss" -> {
+                if (!canManage) { denyManage(player, bot); return; }
+                bot.discard();
+                player.sendSystemMessage(Component.literal("§7Dismissed " + name + "."));
+            }
+            case "rename" -> {
+                if (!canManage) { denyManage(player, bot); return; }
+                String nm = arg == null ? "" : arg.trim();
+                if (nm.isEmpty()) return;
+                if (nm.length() > 32) nm = nm.substring(0, 32);
+                bot.setAssistantName(nm);
+                player.sendSystemMessage(Component.literal("§aRenamed §f" + name + " §a→ §f" + nm));
+            }
+            case "skin" -> {
+                if (!canManage) { denyManage(player, bot); return; }
+                bot.setSkin(arg);
+                player.sendSystemMessage(Component.literal("§a" + name + "'s skin set to §f" + bot.getSkin()));
+            }
+            case "personality" -> {
+                if (!canManage) { denyManage(player, bot); return; }
+                Personality p = Personality.byId(arg);
+                if (p == null) return;
+                bot.setPersonality(p);
+                player.sendSystemMessage(Component.literal("§a" + name + " is now §f" + p.display()));
+            }
+            default -> { /* unknown action — ignore */ }
+        }
+    }
+
+    private static void denyCommand(ServerPlayer player) {
+        player.sendSystemMessage(Component.literal(
+                "§cYou're not allowed to command that companion. Its owner can /ai trust you."));
+    }
+
+    private static void denyManage(ServerPlayer player, AiAssistantEntity bot) {
+        String owner = bot.getOwnerName().isBlank() ? "its owner" : bot.getOwnerName();
+        player.sendSystemMessage(Component.literal(
+                "§cOnly " + owner + " can manage " + bot.getAssistantName() + "."));
     }
 
     /** Applies a personality choice from the My Settings panel to the player's nearby bot. */
