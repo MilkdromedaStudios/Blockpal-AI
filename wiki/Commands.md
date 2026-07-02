@@ -81,6 +81,16 @@ everyone and server-side, so Java and Bedrock players use them the same. See
 | `/party kick <player>` | *(leader)* Remove a member |
 | `/party disband` | *(leader)* End the party |
 
+## Mini-game commands
+
+Play game modes with the bot and your party. See **[Minigames](Minigames)**.
+
+| Command | Description |
+|---------|-------------|
+| `/game list` | Show the modes (and your current game) |
+| `/game start <mode>` | Start a game for your party — `chained`, `samehealth`, `oneblock`, `fusion` |
+| `/game stop` | *(leader)* End the game, or *(member)* leave it |
+
 ## Quick intents (no API token)
 
 These common phrases — whether as a command or just typed in chat — are handled
