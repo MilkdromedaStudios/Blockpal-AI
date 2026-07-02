@@ -188,8 +188,15 @@ and it comes Bedrock-ready out of the box.
 > why it's opt-in behind the EULA prompt. Running your game **and** a server (let alone a
 > big one) on one machine is resource-heavy.
 
-A no-port-forward **tunnel** option (so you needn't expose your IP or open ports) is a
-planned follow-up.
+### No-port-forward tunnel (3.14.0)
+
+Don't want to forward ports or share your IP? The Host screen has a **"Start tunnel
+(no port-forward)"** button that runs the **[playit.gg](https://playit.gg/)** agent — the
+one relay that carries both Java (TCP) and Bedrock (UDP). Blockpal downloads the official
+agent and runs it; on first run it prints a **free, one-time setup link** (shown in the
+screen with a "Copy link" button). Open it, sign in, and map your Java (25565) and Bedrock
+(19132) ports on the playit dashboard — after that friends connect to your playit address
+with no port-forwarding on your end.
 
 ---
 

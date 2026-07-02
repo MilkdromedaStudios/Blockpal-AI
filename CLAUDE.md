@@ -392,12 +392,18 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   (site-local IP) and **internet** (public IP), with copy buttons.
 - **Safety gates baked in:** opt-in, a one-time **Minecraft EULA** accept toggle (no server
   starts until it's on), and a prominent warning that the shown IP is the host's own and
-  that internet friends still need **port-forwarding** (a tunnel option is a planned
-  follow-up so people needn't expose their IP / forward ports).
+  that internet friends need **port-forwarding** — or the tunnel below.
+- **No-port-forward tunnel (3.14.0)** — an optional **playit.gg** tunnel (the one relay that
+  carries both Java TCP and Bedrock UDP) so friends can join without the host forwarding
+  ports or sharing their IP. `TunnelManager` downloads the official playit agent for the OS
+  (latest GitHub release, matched by OS/arch), runs it as a child process, and surfaces its
+  one-time **setup link** (`https://playit.gg/…`) plus status/log in the Host screen (a
+  "Start tunnel" toggle + "Copy link"). The host visits the link once (free account) to claim
+  the tunnel and map the ports; the playit dashboard then shows the public address.
 - **Code:** client-only, under `client/host/` — `HostManager` (state machine + threads),
   `ComponentResolver` (official URLs), `Http` (download + SHA-1), `HostConfig`,
-  `ServerProcess`, `NetAddresses`; UI in `client/gui/HostScreen.java`; pause-menu button +
-  `/aihost` wired in `AiAssistantClient`.
+  `ServerProcess`, `NetAddresses`, `TunnelManager` (playit agent); UI in
+  `client/gui/HostScreen.java`; pause-menu button + `/aihost` wired in `AiAssistantClient`.
 - **Caveat:** the download/launch path needs verification on a real machine with internet
   (it can't run inside CI). The reachability constraint is physics, not a bug — a home host
   is behind NAT until a port is forwarded or a tunnel is used.
@@ -438,6 +444,18 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 ---
 
 ## Changelog
+
+### 3.14.0
+- **No-port-forward tunnel for hosting.** The "Host with Blockpal" screen gains an optional
+  **playit.gg** tunnel (the one relay that carries both Java TCP and Bedrock UDP), so friends
+  can join a home host without port-forwarding or the host sharing their IP. New
+  `client/host/TunnelManager.java` downloads the official playit agent for the OS, runs it as
+  a child process, and surfaces its one-time setup link + status in the Host screen (a "Start
+  tunnel" toggle + "Copy link"). Opt-in; the live download/run path needs a real machine to
+  verify (can't run in CI). This closes out the multiplayer arc (trust → hosting → party →
+  mini-games → tunnel).
+- **Code:** `client/host/TunnelManager.java`, `HostPaths` (tunnel dir + binary), and the
+  tunnel section in `client/gui/HostScreen.java`.
 
 ### 3.13.0
 - **Mini-games.** New `/game start <mode>` (with `/game list` and `/game stop`) runs a game
