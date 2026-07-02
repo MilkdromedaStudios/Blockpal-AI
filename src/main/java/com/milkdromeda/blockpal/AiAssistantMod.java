@@ -2,9 +2,11 @@ package com.milkdromeda.blockpal;
 
 import com.milkdromeda.blockpal.chat.ChatListener;
 import com.milkdromeda.blockpal.command.AiCommands;
+import com.milkdromeda.blockpal.command.PartyCommands;
 import com.milkdromeda.blockpal.config.ModConfig;
 import com.milkdromeda.blockpal.entity.AiAssistantEntity;
 import com.milkdromeda.blockpal.network.AiNetworking;
+import com.milkdromeda.blockpal.party.PartyManager;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
@@ -25,8 +27,12 @@ public class AiAssistantMod implements ModInitializer {
         AiNetworking.registerPayloads();
         AiNetworking.registerServerReceivers();
         AiCommands.register();
+        PartyCommands.register();
         ChatListener.register();
         registerFirstRunTutorial();
+        // Keep parties tidy: drop a player from their party when they disconnect.
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
+                PartyManager.handleDisconnect(handler.player));
 
         LOGGER.info("Blockpal mod initialized.");
         if (!ModConfig.get().hasApiToken()) {

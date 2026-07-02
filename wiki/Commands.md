@@ -66,6 +66,21 @@ permission level. See **[Admin Menu](Admin-Menu)** for the full guide.
 | `/ai admin keylist add\|remove\|list <player>` | Who may use the shared key when BYOK is on |
 | `/ai admin models add\|remove\|list <id>` | Curate the models players may pick |
 
+## Party commands
+
+Team up with friends (the group that [Minigames](Minigames) will run on). Open to
+everyone and server-side, so Java and Bedrock players use them the same. See
+**[Friend Sharing](Friend-Sharing)**.
+
+| Command | Description |
+|---------|-------------|
+| `/party invite <player>` | Invite an online player (auto-creates your party) |
+| `/party accept` · `/party deny` | Accept / decline an invite (expires after 2 min) |
+| `/party list` | Show your party and its leader |
+| `/party leave` | Leave your party |
+| `/party kick <player>` | *(leader)* Remove a member |
+| `/party disband` | *(leader)* End the party |
+
 ## Quick intents (no API token)
 
 These common phrases — whether as a command or just typed in chat — are handled

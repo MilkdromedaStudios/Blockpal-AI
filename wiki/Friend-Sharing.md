@@ -54,18 +54,29 @@ Trusted friends can tell the bot to come/follow/stay/stop and give it tasks; ren
 dismissing, and editing the trust list stay owner-only. Full details:
 **[Trust & Per-Bot Management](Trust-and-Per-Bot)**.
 
-## Invite a group / party (coming soon)
+## Invite a group / party (available now)
 
-> **Status: in development.** The party/invite system below is planned and not in the
-> current release yet.
+Gather a group with the built-in **party** system — the team that [Minigames](Minigames)
+will run on. It's entirely command-driven and handled on the server, so **Java and Bedrock
+players use it the same way**.
 
-The next step is a built-in **party/invite system** so you can gather a group — up to a
-large number of players — and play together, especially in [Minigames](Minigames):
+```
+/party invite <player>   # invite an online player (auto-creates your party)
+/party accept            # accept an invite (expires after 2 minutes)
+/party deny              # decline an invite
+/party list              # show your party and its leader
+/party leave             # leave your party
+/party kick <player>     # leader: remove a member
+/party disband           # leader: end the party
+```
 
-- Invite friends from the **pause menu** (or a command), and they accept to join your
-  party.
-- The party is the group a minigame round uses, so everyone (and the bot) plays together.
-- Works for **Java and Bedrock** players alike, since it's handled on the server.
+- One **leader**, up to **100 members**.
+- The leader invites, kicks, and disbands; if the leader leaves or disconnects, leadership
+  passes to another member automatically.
+- Parties live for the session (they aren't saved across a server restart).
+
+> The minigame modes (coming next) will start a round for your whole party, so everyone —
+> and the bot — plays together.
 
 ## Related pages
 

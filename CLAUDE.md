@@ -402,9 +402,36 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   (it can't run inside CI). The reachability constraint is physics, not a bug — a home host
   is behind NAT until a port is forwarded or a tunnel is used.
 
+### Party / invites (3.12.0+)
+- A **server-side party system** — the social layer the hosted world and the upcoming
+  minigames run on. Open to everyone and entirely command-driven, so **Java and Bedrock**
+  players use it identically (no client mod needed). `/party invite <player>` (online),
+  `/party accept` / `deny`, `/party leave`, `/party list`, `/party kick <player>` and
+  `/party disband`. Inviting auto-creates your party; invites lapse after 2 minutes.
+- **One leader, up to `PartyManager.MAX_PARTY` (100) members.** The leader invites/kicks/
+  disbands; leaving or disconnecting drops you from the party and **hands off leadership**
+  to another member (or evaporates an empty party). State is in-memory (not persisted
+  across restart), like most party systems.
+- **Code:** `party/Party.java` (group model) and `party/PartyManager.java` (registry +
+  invites + leader transfer + disconnect cleanup), driven by `command/PartyCommands.java`
+  (`/party`), registered in `AiAssistantMod` along with a `ServerPlayConnectionEvents.
+  DISCONNECT` cleanup hook. The minigame modes will start a game on a party.
+
 ---
 
 ## Changelog
+
+### 3.12.0
+- **Party / invite system.** New server-side `/party` commands so players can team up —
+  the social layer for the hosted world and the upcoming minigames. `/party invite
+  <player>`, `/party accept` / `deny`, `/party leave`, `/party list`, `/party kick
+  <player>`, `/party disband`. One leader, up to 100 members; inviting auto-creates your
+  party; invites lapse after 2 minutes; leaving/disconnecting hands off leadership.
+  Entirely command-driven and server-side, so **Java and Bedrock** players use it the same.
+- **Code:** `party/Party.java`, `party/PartyManager.java`, `command/PartyCommands.java`,
+  registered in `AiAssistantMod` with a `ServerPlayConnectionEvents.DISCONNECT` cleanup hook.
+- *(Next: the mini-game modes — Chained, Same Health, One Block, Fusion — which start a
+  game on a party; then the no-port-forward tunnel.)*
 
 ### 3.11.0
 - **Visual per-bot manager ("Bots" panel).** `/ai bots` on a Java client now opens a new
