@@ -24,18 +24,21 @@ public class HostScreen extends Screen {
 
     private final Screen parent;
     private StringWidget statusLabel, javaLabel, bedrockLabel, logLabel;
-    private Button startBtn, stopBtn;
+    private Button startBtn, stopBtn, syncBtn;
     private StringWidget tunnelStatusLabel, claimLabel;
     private Button tunnelStartBtn, tunnelStopBtn, copyClaimBtn;
 
     public HostScreen(Screen parent) {
         super(Component.literal("Host with Blockpal"));
         this.parent = parent;
+        // Crash recovery: if a played world copy was never synced back, offer it now.
+        HostManager.get().checkPendingSyncMarker();
     }
 
     @Override
     protected void init() {
         HostManager host = HostManager.get();
+        builtPendingSync = host.pendingSync();
         int cx = this.width / 2;
         int w = 320;
         int left = cx - w / 2;
@@ -64,6 +67,31 @@ public class HostScreen extends Screen {
         addRenderableWidget(copyBedrock);
         y += 28;
 
+        // Host the CURRENT world (copy → play → sync back → delete the copy), or a
+        // pending sync-back from a previous run — one slot, mutually exclusive states.
+        if (host.pendingSync()) {
+            syncBtn = Button.builder(Component.literal("Sync world back: " + host.sourceWorldName()),
+                            b -> host.syncNow())
+                    .bounds(left, y, w, 20).build();
+            syncBtn.setTooltip(Tooltip.create(Component.literal(
+                    "Your hosted world's changes haven't been saved back to the singleplayer save yet. "
+                            + "Leave that world (if it's open) and press this — a backup of the old save is kept.")));
+            addRenderableWidget(syncBtn);
+            y += 26;
+        } else if (host.hasSourceWorld()) {
+            CycleButton<Boolean> worldToggle = CycleButton.onOffBuilder(host.hostCurrentWorld())
+                    .create(left, y, w, 20,
+                            Component.literal("Host current world (" + host.sourceWorldName() + ")"),
+                            (btn, val) -> host.setHostCurrentWorld(val));
+            worldToggle.setTooltip(Tooltip.create(Component.literal(
+                    "ON: your world is saved, copied into the server, and hosted — you rejoin it via "
+                            + "Direct Connect → localhost. When you stop, the changes are saved back to your "
+                            + "singleplayer world (with a backup) and the server's copy is deleted.\n"
+                            + "OFF: hosts a separate fresh world instead.")));
+            addRenderableWidget(worldToggle);
+            y += 26;
+        }
+
         // Minecraft EULA — a server may not start until this is accepted.
         CycleButton<Boolean> eula = CycleButton.onOffBuilder(host.eulaAccepted())
                 .create(left, y, w, 20, Component.literal("Minecraft EULA accepted"),
@@ -73,8 +101,16 @@ public class HostScreen extends Screen {
         addRenderableWidget(eula);
         y += 26;
 
-        // Start / Stop.
-        startBtn = Button.builder(Component.literal("Start hosting"), b -> host.start())
+        // Start / Stop. Hosting the current world first saves it and leaves it (the
+        // save can't be copied while open); reopen this screen from the title-screen
+        // "Blockpal Host" button to watch progress and grab the addresses.
+        startBtn = Button.builder(Component.literal("Start hosting"), b -> {
+                    if (host.hostCurrentWorld() && !host.pendingSync()
+                            && this.minecraft != null && this.minecraft.hasSingleplayerServer()) {
+                        this.minecraft.disconnectWithSavingScreen();
+                    }
+                    host.start();
+                })
                 .bounds(left, y, half, 20).build();
         stopBtn = Button.builder(Component.literal("Stop"), b -> host.stop())
                 .bounds(left + half + 8, y, half, 20).build();
@@ -125,9 +161,18 @@ public class HostScreen extends Screen {
                 Component.literal(text).withStyle(ChatFormatting.RED), this.font);
     }
 
+    /** The pendingSync state the widgets were built for; a flip rebuilds the layout. */
+    private boolean builtPendingSync;
+
     @Override
     public void tick() {
         super.tick();
+        HostManager host = HostManager.get();
+        if (host.pendingSync() != builtPendingSync) {
+            builtPendingSync = host.pendingSync();
+            rebuildWidgets();
+            return;
+        }
         refresh();
     }
 

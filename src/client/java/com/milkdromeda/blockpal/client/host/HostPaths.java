@@ -24,4 +24,10 @@ final class HostPaths {
         boolean windows = System.getProperty("os.name", "").toLowerCase().contains("win");
         return tunnelDir().resolve(windows ? "playit.exe" : "playit");
     }
+
+    /** Level-name (and folder) the server uses when hosting a COPY of a singleplayer world. */
+    static final String HOSTED_COPY_NAME = "hosted-copy";
+    static Path hostedCopyDir()     { return serverDir().resolve(HOSTED_COPY_NAME); }
+    static Path backupsDir()        { return ROOT.resolve("backups"); }
+    static Path pendingSyncMarker() { return ROOT.resolve("pending-sync.json"); }
 }
