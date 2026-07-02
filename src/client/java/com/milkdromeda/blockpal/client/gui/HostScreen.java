@@ -1,6 +1,7 @@
 package com.milkdromeda.blockpal.client.gui;
 
 import com.milkdromeda.blockpal.client.host.HostManager;
+import com.milkdromeda.blockpal.client.host.TunnelManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
@@ -24,6 +25,8 @@ public class HostScreen extends Screen {
     private final Screen parent;
     private StringWidget statusLabel, javaLabel, bedrockLabel, logLabel;
     private Button startBtn, stopBtn;
+    private StringWidget tunnelStatusLabel, claimLabel;
+    private Button tunnelStartBtn, tunnelStopBtn, copyClaimBtn;
 
     public HostScreen(Screen parent) {
         super(Component.literal("Host with Blockpal"));
@@ -79,11 +82,31 @@ public class HostScreen extends Screen {
         addRenderableWidget(stopBtn);
         y += 28;
 
+        // No-port-forward tunnel (playit.gg) — optional.
+        TunnelManager tun = TunnelManager.get();
+        tunnelStatusLabel = addRenderableWidget(new StringWidget(left, y, w, 11, Component.empty(), this.font));
+        y += 13;
+        tunnelStartBtn = Button.builder(Component.literal("Start tunnel (no port-forward)"), b -> tun.start())
+                .bounds(left, y, half, 20).build();
+        tunnelStopBtn = Button.builder(Component.literal("Stop tunnel"), b -> tun.stop())
+                .bounds(left + half + 8, y, half, 20).build();
+        tunnelStartBtn.setTooltip(Tooltip.create(Component.literal(
+                "Runs the playit.gg tunnel so friends can join without you forwarding ports or sharing your IP. "
+                        + "A free, one-time setup link appears below on first run.")));
+        addRenderableWidget(tunnelStartBtn);
+        addRenderableWidget(tunnelStopBtn);
+        y += 22;
+        claimLabel = addRenderableWidget(new StringWidget(left, y, w - 56, 11, Component.empty(), this.font));
+        copyClaimBtn = Button.builder(Component.literal("Copy link"), b -> copy(tun.claimUrl()))
+                .bounds(left + w - 52, y, 52, 18).build();
+        addRenderableWidget(copyClaimBtn);
+        y += 22;
+
         // Safety warning (kept in view, in red).
         addRenderableWidget(redLine(left, y, w,
                 "⚠ The addresses below are YOUR computer's — only share with people you trust.")); y += 12;
         addRenderableWidget(redLine(left, y, w,
-                "Internet friends also need ports 25565 (Java) & 19132/UDP (Bedrock) forwarded.")); y += 12;
+                "Internet friends need ports 25565 (Java) & 19132/UDP (Bedrock) forwarded — OR use the tunnel above.")); y += 12;
         addRenderableWidget(redLine(left, y, w,
                 "Auto-downloads Minecraft, Fabric, Geyser & Floodgate from their official sites.")); y += 18;
 
@@ -136,6 +159,21 @@ public class HostScreen extends Screen {
         }
         if (startBtn != null) startBtn.active = !host.isRunning() && !host.isBusy() && host.eulaAccepted();
         if (stopBtn != null) stopBtn.active = host.isRunning() || host.isBusy();
+
+        TunnelManager tun = TunnelManager.get();
+        if (tunnelStatusLabel != null) {
+            tunnelStatusLabel.setMessage(Component.literal("Tunnel: " + tun.phase().label + " — " + tun.status())
+                    .withStyle(tun.phase() == TunnelManager.Phase.RUNNING ? ChatFormatting.GREEN
+                            : tun.phase() == TunnelManager.Phase.ERROR ? ChatFormatting.RED : ChatFormatting.GRAY));
+        }
+        if (claimLabel != null) {
+            claimLabel.setMessage(tun.claimUrl().isEmpty()
+                    ? Component.literal("Setup link appears here on first run.").withStyle(ChatFormatting.DARK_GRAY)
+                    : Component.literal(tun.claimUrl()).withStyle(ChatFormatting.AQUA));
+        }
+        if (tunnelStartBtn != null) tunnelStartBtn.active = !tun.isRunning() && !tun.isBusy();
+        if (tunnelStopBtn != null) tunnelStopBtn.active = tun.isRunning();
+        if (copyClaimBtn != null) copyClaimBtn.active = !tun.claimUrl().isEmpty();
     }
 
     private void copy(String text) {

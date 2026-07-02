@@ -28,8 +28,17 @@ Full walkthrough and caveats: **[Bedrock (Geyser)](Geyser-Bedrock)**.
 > ⚠ **Share addresses carefully.** The internet address shown is your own computer's
 > public IP — give it only to people you trust. And showing it doesn't make you
 > reachable: friends outside your network still need a forwarded port (TCP 25565 for
-> Java, UDP 19132 for Bedrock). On the same Wi-Fi/LAN the local address just works. A
-> no-port-forward **tunnel** option (so you needn't expose your IP) is planned.
+> Java, UDP 19132 for Bedrock), **or** use the no-port-forward tunnel below. On the same
+> Wi-Fi/LAN the local address just works.
+
+### No port-forwarding? Use the tunnel (3.14.0)
+
+The Host screen has a **"Start tunnel (no port-forward)"** button that runs the
+**[playit.gg](https://playit.gg/)** agent — the one relay that carries both Java (TCP) and
+Bedrock (UDP). It prints a free, one-time setup link (with a "Copy link" button); open it,
+map your Java and Bedrock ports on the playit dashboard, and friends join your playit
+address with no port-forwarding and without you sharing your real IP. Details:
+**[Bedrock (Geyser)](Geyser-Bedrock)**.
 
 ## Let Bedrock friends join (available now)
 
