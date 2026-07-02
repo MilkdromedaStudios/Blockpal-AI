@@ -6,11 +6,11 @@ Minigames turn Blockpal from "an AI companion in your world" into "an AI compani
 more players join, and each one is a self-contained, **resumeable** game you can leave
 and come back to later.
 
-> **Status: in development.** Minigames are the next big feature in Blockpal's
-> multiplayer arc. This page describes what they are and how they'll work so you know
-> what's coming; the modes below aren't playable in the current release yet. The
-> foundations that ship today — [per-bot trust](Trust-and-Per-Bot) and one-click
-> [hosting + Bedrock cross-play](Friend-Sharing) — are what they build on.
+> **Available now (3.13.0).** Start a game with `/game start <mode>` (see *How to play*
+> below). Games currently run **in your current world** — One Block builds a sky platform.
+> The "each game is its own separate, resumeable world" vision (custom dimensions) is a
+> planned enhancement, so for now a game lasts until it's stopped rather than being saved
+> and reloaded later.
 
 ## What a minigame is
 
@@ -45,24 +45,29 @@ nothing. Resources are scarce at the start, so early cooperation (and the bot's 
 matters a lot.
 
 ### Fusion
-An experimental mode still being designed — the idea is to "fuse" things together for a
-twist on the others (for example, combining players or bots into a single stronger unit).
-The exact rules aren't locked yet; this section will be filled in as it takes shape.
+A **fusion of the two signature co-op modes**: everyone is **Chained together** *and*
+shares **one health pool** at the same time. Stay close, stay alive — together or not at
+all.
 
-## Resuming a game
+## How to play
 
-Because each minigame is its own saved game space, you can stop partway through and pick
-it back up later — the round you set up (and its progress) is still there when you come
-back, rather than being lost the moment you leave.
+1. (Optional) Gather friends into a party — see [Friend Sharing](Friend-Sharing):
+   `/party invite <player>`, and they `/party accept`.
+2. The party leader starts a round:
 
-## How you'll start one
+```
+/game list            # show the modes
+/game start <mode>    # chained | samehealth | oneblock | fusion
+/game stop            # leader ends it; a member just leaves
+```
 
-The intended flow (subject to change as the feature lands):
+Everyone in the party — and their bots — is pulled into the game, and Ethan plays
+alongside you. Solo works too: run `/game start` with no party and it's just you and your
+bot.
 
-1. Open the minigame menu and pick a mode (Chained, Same Health, One Block, …).
-2. Invite the friends you want to play with — see [Friend Sharing](Friend-Sharing).
-3. Start the round; Ethan joins in and plays alongside everyone.
-4. Leave any time and resume the same game later.
+> Games run in your current world for now. One Block drops you on a fresh sky platform;
+> the other modes play wherever you are. A separate, saved, resumeable world per game is a
+> planned enhancement.
 
 ## Related pages
 

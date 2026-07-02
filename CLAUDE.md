@@ -417,9 +417,40 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   (`/party`), registered in `AiAssistantMod` along with a `ServerPlayConnectionEvents.
   DISCONNECT` cleanup hook. The minigame modes will start a game on a party.
 
+### Mini-games (3.13.0+)
+- **Play game modes with the bot and your party.** `/game start <mode>` starts a game for
+  the leader's party (or just you); participants are the online party members **and their
+  owned bots**, so the companion really plays. `/game list` shows the modes, `/game stop`
+  ends it (leader) or leaves it (member). Server-side, so Java and Bedrock play together.
+- **Four modes** (`GameMode`): **Chained** (participants tethered to the leader — a tug back
+  past ~12 blocks, a teleport past ~40), **Same Health** (everyone clamped to the group's
+  lowest health each tick; any death ends it for all), **One Block** (a regenerating single
+  block on a sky platform, skyblock-style), and **Fusion** (Chained + Same Health at once).
+- **Code:** `minigame/GameMode.java`, `minigame/GameSession.java`, `minigame/MinigameManager.java`
+  (tick / `AFTER_DEATH` / `PlayerBlockBreakEvents.AFTER` hooks, registered via
+  `MinigameManager.registerEvents()`), `command/GameCommands.java` (`/game`). Disconnect
+  cleanup shares the party hook in `AiAssistantMod`.
+- **Honest limits:** games run **in the current world** (One Block builds a sky platform) —
+  the "each game is its own resumeable world" vision (custom dimensions/persistence) is a
+  future enhancement. The mechanics compile and follow standard server APIs but need
+  in-world play-testing and tuning (leash feel, One Block placement, shared-death timing).
+
 ---
 
 ## Changelog
+
+### 3.13.0
+- **Mini-games.** New `/game start <mode>` (with `/game list` and `/game stop`) runs a game
+  for your [party](#party--invites-3120), with the bot playing too. Four modes: **Chained**
+  (tethered to the leader), **Same Health** (shared health pool; one death ends it for all),
+  **One Block** (regenerating single block on a sky platform), and **Fusion** (Chained +
+  Same Health). Server-side, so Java and Bedrock players share games.
+- **Code:** `minigame/GameMode.java`, `minigame/GameSession.java`, `minigame/MinigameManager.java`
+  (server-tick + `AFTER_DEATH` + block-break hooks), `command/GameCommands.java`; wired in
+  `AiAssistantMod`.
+- Games run in the current world for now (One Block makes a sky platform); the resumeable
+  separate-world vision and the no-port-forward tunnel are the remaining follow-ups.
+  Mechanics compile and use standard server APIs but want in-world play-testing/tuning.
 
 ### 3.12.0
 - **Party / invite system.** New server-side `/party` commands so players can team up —
