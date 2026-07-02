@@ -18,4 +18,10 @@ final class HostPaths {
     static Path modsDir()        { return serverDir().resolve("mods"); }
     static Path serverJar()      { return serverDir().resolve("server.jar"); }
     static Path fabricLauncher() { return serverDir().resolve("fabric-server-launch.jar"); }
+
+    static Path tunnelDir()      { return ROOT.resolve("tunnel"); }
+    static Path playitBinary() {
+        boolean windows = System.getProperty("os.name", "").toLowerCase().contains("win");
+        return tunnelDir().resolve(windows ? "playit.exe" : "playit");
+    }
 }
