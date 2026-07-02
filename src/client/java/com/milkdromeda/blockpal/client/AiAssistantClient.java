@@ -27,6 +27,7 @@ import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.network.chat.Component;
 
 import java.util.Set;
@@ -110,19 +111,54 @@ public class AiAssistantClient implements ClientModInitializer {
 
         // Add a "Host with Blockpal" button to the pause menu, but only in singleplayer
         // (hosting a separate server from inside someone else's server makes no sense).
+        // Opening it remembers WHICH world you're in, so the screen can offer to host
+        // that exact world (copy → play → sync back).
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             if (screen instanceof PauseScreen && client.hasSingleplayerServer()) {
                 Button host = Button.builder(Component.literal("Host with Blockpal"),
-                                b -> client.setScreenAndShow(new HostScreen(screen)))
+                                b -> {
+                                    captureSourceWorld(client);
+                                    client.setScreenAndShow(new HostScreen(screen));
+                                })
                         .bounds(scaledWidth / 2 - 102, scaledHeight - 52, 204, 20)
+                        .build();
+                Screens.getWidgets(screen).add(host);
+            }
+            // While a host is active (or a world sync is waiting), the title screen gets a
+            // re-entry button — after "host current world" leaves the world, this is how
+            // you get back to the status screen and the connect addresses.
+            if (screen instanceof TitleScreen
+                    && (HostManager.get().phase() != HostManager.Phase.IDLE
+                        || HostManager.get().isRunning() || HostManager.get().pendingSync())) {
+                Button host = Button.builder(Component.literal("Blockpal Host…"),
+                                b -> client.setScreenAndShow(new HostScreen(screen)))
+                        .bounds(4, 4, 110, 20)
                         .build();
                 Screens.getWidgets(screen).add(host);
             }
         });
     }
 
+    /** Remembers the open singleplayer world so the Host screen can offer to host it. */
+    private static void captureSourceWorld(net.minecraft.client.Minecraft client) {
+        try {
+            if (client.hasSingleplayerServer() && client.getSingleplayerServer() != null) {
+                java.nio.file.Path root = client.getSingleplayerServer()
+                        .getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
+                        .toAbsolutePath().normalize();
+                String name = root.getFileName() == null ? "world" : root.getFileName().toString();
+                HostManager.get().setSourceWorld(root, name);
+            }
+        } catch (Exception ignored) {
+            // No world captured — the screen simply offers fresh-world hosting.
+        }
+    }
+
     private static int openHost(FabricClientCommandSource src) {
-        src.getClient().execute(() -> src.getClient().setScreenAndShow(new HostScreen(null)));
+        src.getClient().execute(() -> {
+            captureSourceWorld(src.getClient());
+            src.getClient().setScreenAndShow(new HostScreen(null));
+        });
         return 1;
     }
 

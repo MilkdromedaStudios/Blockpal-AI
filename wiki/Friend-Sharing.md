@@ -20,6 +20,10 @@ A Java player can stand up a Bedrock-ready server from inside the game — no ma
 - Accept the Minecraft EULA, then **Start hosting**. Blockpal downloads the Minecraft
   server, Fabric, and the **latest Geyser + Floodgate** from their official sites,
   configures everything, and launches a real server.
+- **It hosts your current world (3.15.0):** the world you were playing is saved, copied
+  into the server, and hosted — you rejoin via Direct Connect → `localhost:25565`. When
+  you stop, the changes are **saved back to your singleplayer world** (with a timestamped
+  backup) and the server's copy is deleted. Toggle it off to host a fresh world instead.
 - When it's running it shows the **Java** (`ip:25565`) and **Bedrock** (`ip:19132`)
   connect addresses, for both your local network and the internet, with copy buttons.
 

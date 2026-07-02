@@ -176,6 +176,26 @@ and it comes Bedrock-ready out of the box.
 - When it's running, the screen shows the **Java** (`ip:25565`) and **Bedrock**
   (`ip:19132`) addresses for both **LAN** and **internet**, with copy buttons.
 
+### Host your current world (3.15.0)
+
+By default (the **"Host current world"** toggle, ON when you opened the screen from a
+world), the server hosts **the very world you were just playing**:
+
+1. **Start hosting** saves the world and exits it (a save can't be hosted while open),
+   copies it into the server, and launches. Watch progress via the **"Blockpal Host…"**
+   button that appears on the title screen.
+2. You rejoin your own world via **Multiplayer → Direct Connect → `localhost:25565`**;
+   friends use the addresses shown (Java and Bedrock).
+3. When you **Stop**, everything that happened on the server is **saved back into your
+   singleplayer world**, the pre-host original is kept as a backup
+   (`blockpal-host/backups/<world>-<timestamp>`), and the server's copy is **deleted** —
+   so there's always exactly one true version of your world.
+
+If that world is open in singleplayer when the server stops, Blockpal won't overwrite it —
+a **"Sync world back"** button appears so you can run it after leaving the world (this
+offer survives a crash or restart). Turn the toggle **OFF** to host a separate fresh world
+instead (the old behaviour).
+
 **Only Java can host.** Bedrock players have no mod, so they can only *join* a Java host
 (the same Bedrock→Java direction Geyser supports) — there's no "host from Bedrock".
 

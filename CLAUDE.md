@@ -393,6 +393,19 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 - **Safety gates baked in:** opt-in, a one-time **Minecraft EULA** accept toggle (no server
   starts until it's on), and a prominent warning that the shown IP is the host's own and
   that internet friends need **port-forwarding** — or the tunnel below.
+- **Host your CURRENT world (3.15.0)** — the Host screen offers a **"Host current world"**
+  toggle (default ON when opened from a singleplayer world): Start saves + leaves the world
+  (`disconnectWithSavingScreen`), waits for the integrated server to close, **copies the
+  save** into the server (`server/hosted-copy`, `level-name=hosted-copy`), and hosts it —
+  the host rejoins via Direct Connect → `localhost:25565`. When the server stops, the played
+  world is **synced back over the singleplayer save** (the pre-host original is kept in
+  `blockpal-host/backups/<world>-<timestamp>`) and the server's copy is **deleted**, so
+  there's always exactly one true world. Sync-back is refused while that save is open in
+  singleplayer (a **"Sync world back"** button runs it later), and a
+  `blockpal-host/pending-sync.json` marker makes the offer survive a crash/restart. While a
+  host is active (or a sync is pending) the **title screen** gains a "Blockpal Host…"
+  re-entry button (after leaving the world there's no pause menu / `/aihost`). File plumbing
+  in `client/host/WorldSync.java`; world capture in `AiAssistantClient.captureSourceWorld`.
 - **No-port-forward tunnel (3.14.0)** — an optional **playit.gg** tunnel (the one relay that
   carries both Java TCP and Bedrock UDP) so friends can join without the host forwarding
   ports or sharing their IP. `TunnelManager` downloads the official playit agent for the OS
@@ -444,6 +457,23 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 ---
 
 ## Changelog
+
+### 3.15.0
+- **Host your actual world.** "Host with Blockpal" can now host the singleplayer world
+  you're playing, not just a fresh one: a **"Host current world"** toggle (default ON when
+  opened from a world) saves + leaves the world, **copies the save into the server**, and
+  hosts it for Java + Bedrock friends — you rejoin via `localhost:25565`. Stopping the
+  server **syncs the changes back** to your singleplayer save (pre-host original kept in
+  `blockpal-host/backups/<world>-<timestamp>`) and **deletes the server's copy** — one true
+  world, no divergence. If the save is open when the server stops, a **"Sync world back"**
+  button defers it safely; a `pending-sync.json` marker survives crashes so the played
+  world can't be silently lost. New title-screen "Blockpal Host…" button while hosting
+  (re-entry after leaving the world).
+- **Code:** new `client/host/WorldSync.java` (copy/backup/sync-back + marker), copy-mode
+  pipeline + sync logic in `HostManager`, world toggle + sync button in `HostScreen`,
+  world capture + title-screen button in `AiAssistantClient`. Verified against the 26.2
+  mappings (`disconnectWithSavingScreen`, `getWorldPath(LevelResource.ROOT)`); the live
+  copy/host/sync loop needs real-machine testing (can't run in CI).
 
 ### 3.14.0
 - **No-port-forward tunnel for hosting.** The "Host with Blockpal" screen gains an optional
