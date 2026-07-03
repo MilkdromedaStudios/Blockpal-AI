@@ -12,6 +12,7 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.time.Instant;
 
 /**
  * Tiny HTTP helper for the host setup: fetch JSON as text, and download a file
@@ -38,6 +39,33 @@ final class Http {
             throw new IOException("HTTP " + resp.statusCode() + " for " + url);
         }
         return resp.body();
+    }
+
+    /**
+     * Downloads {@code url} to {@code dest} unless a previous download is still
+     * usable, so repeat hosting doesn't re-fetch tens of megabytes on every Start.
+     * With a known SHA-1 a matching existing file is reused outright; without one,
+     * a non-empty file newer than {@code maxAge} is reused (older files are
+     * re-fetched so "latest" components still track upstream releases).
+     *
+     * @return true when the existing file was reused, false when it was downloaded.
+     */
+    static boolean downloadCached(String url, Path dest, String expectedSha1, Duration maxAge)
+            throws IOException, InterruptedException {
+        if (Files.isRegularFile(dest)) {
+            try {
+                if (expectedSha1 != null && !expectedSha1.isBlank()) {
+                    if (sha1(dest).equalsIgnoreCase(expectedSha1)) return true;
+                } else if (maxAge != null && Files.size(dest) > 0) {
+                    Instant modified = Files.getLastModifiedTime(dest).toInstant();
+                    if (modified.isAfter(Instant.now().minus(maxAge))) return true;
+                }
+            } catch (IOException ignored) {
+                // Unreadable cache entry — fall through and download fresh.
+            }
+        }
+        download(url, dest, expectedSha1);
+        return false;
     }
 
     /**

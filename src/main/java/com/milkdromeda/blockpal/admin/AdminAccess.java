@@ -2,6 +2,7 @@ package com.milkdromeda.blockpal.admin;
 
 import com.milkdromeda.blockpal.config.ModConfig;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.permissions.PermissionSet;
 import net.minecraft.server.permissions.Permissions;
@@ -27,11 +28,26 @@ public final class AdminAccess {
     }
 
     public static boolean isAdmin(CommandSourceStack src) {
+        if (src.getEntity() instanceof ServerPlayer player && isSingleplayerOwner(player)) return true;
         return meetsLevel(src.permissions(), level());
     }
 
     public static boolean isAdmin(ServerPlayer player) {
+        if (isSingleplayerOwner(player)) return true;
         return meetsLevel(player.permissions(), level());
+    }
+
+    /**
+     * The host of a singleplayer (or LAN-opened) world is always a Blockpal admin,
+     * even with cheats off. An integrated server grants the host no command
+     * permissions when cheats are disabled, which used to make the world's own
+     * owner "not an admin": their settings saves (including the API key) were
+     * silently refused and the menu re-synced with the old values, wiping what
+     * they had just typed. It's their world and their disk — they may configure it.
+     */
+    private static boolean isSingleplayerOwner(ServerPlayer player) {
+        MinecraftServer server = player.level().getServer();
+        return server != null && server.isSingleplayerOwner(player.nameAndId());
     }
 
     /**

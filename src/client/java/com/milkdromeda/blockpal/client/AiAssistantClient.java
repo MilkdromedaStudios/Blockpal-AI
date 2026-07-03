@@ -124,12 +124,17 @@ public class AiAssistantClient implements ClientModInitializer {
         // that exact world (copy → play → sync back).
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             if (screen instanceof PauseScreen && client.hasSingleplayerServer()) {
+                // Bottom-LEFT corner, hugging the screen edge. The pause menu's own
+                // buttons are a vertically-centered column, so a centered position
+                // near the bottom (the old scaledHeight - 52) landed right on top of
+                // "Save and Quit to Title" at larger GUI scales — and client overlays
+                // like Lunar's crowd the center even more. The corner is always clear.
                 Button host = Button.builder(Component.literal("Host with Blockpal"),
                                 b -> {
                                     captureSourceWorld(client);
                                     client.setScreenAndShow(new HostScreen(screen));
                                 })
-                        .bounds(scaledWidth / 2 - 102, scaledHeight - 52, 204, 20)
+                        .bounds(4, scaledHeight - 24, 130, 20)
                         .build();
                 Screens.getWidgets(screen).add(host);
             }

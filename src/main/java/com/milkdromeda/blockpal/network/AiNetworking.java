@@ -102,13 +102,23 @@ public final class AiNetworking {
 
     /** Registers the handlers that run on the (integrated or dedicated) server. */
     public static void registerServerReceivers() {
-        // A client asked for the current config — reply with a sync so it can open the menu.
+        // A client asked for the current config — reply with a sync so it can open the
+        // menu. The Settings panel edits server-wide config, so it's admin-gated here
+        // too (the singleplayer world owner always counts): a non-admin would otherwise
+        // open a screen whose every save gets refused. They get their own panel instead.
         ServerPlayNetworking.registerGlobalReceiver(ConfigRequestPayload.TYPE, (payload, context) -> {
             ServerPlayer player = context.player();
             MinecraftServer server = player.level().getServer();
             if (server == null) return;
-            server.execute(() ->
-                    ServerPlayNetworking.send(player, new ConfigSyncPayload(ConfigData.fromConfig())));
+            server.execute(() -> {
+                if (!AdminAccess.isAdmin(player)) {
+                    player.sendSystemMessage(Component.literal(
+                            "§e[Blockpal] The Settings panel is admin-only — opening My Settings instead."));
+                    openPlayerMenuFor(player);
+                    return;
+                }
+                ServerPlayNetworking.send(player, new ConfigSyncPayload(ConfigData.fromConfig()));
+            });
         });
 
         // A client saved settings from the menu — these are server-wide, so only an
@@ -129,8 +139,18 @@ public final class AiNetworking {
                     return;
                 }
                 payload.data().applyTo(ModConfig.get());
-                ModConfig.save();
-                player.sendSystemMessage(Component.literal("§a[Blockpal] Settings saved ✓"));
+                // Never fail silently: say where the settings landed on disk (launchers
+                // like Lunar use a different game folder than vanilla's .minecraft, so
+                // players hunting for config/blockpal/ need the real path), and surface
+                // a write failure instead of pretending it saved.
+                if (ModConfig.save()) {
+                    player.sendSystemMessage(Component.literal(
+                            "§a[Blockpal] Settings saved ✓ §7" + ModConfig.configPath()));
+                } else {
+                    player.sendSystemMessage(Component.literal(
+                            "§c[Blockpal] Settings applied for this session but could NOT be written to "
+                                    + ModConfig.configPath() + " — check the log."));
+                }
             });
         });
 
@@ -201,14 +221,17 @@ public final class AiNetworking {
                 } else if (payload.token() != null && !payload.token().isBlank()) {
                     cfg.setPlayerToken(player.getUUID(), payload.token());
                 }
-                ModConfig.save();
+                boolean saved = ModConfig.save();
 
                 // Personality applies to the player's nearest owned bot. A custom text
                 // is safety-checked (async) by the bot before it's applied; a built-in
                 // id is applied immediately. Both blank = a no-op refresh, so we skip.
                 applyPersonality(player, payload);
 
-                player.sendSystemMessage(Component.literal("§a[Blockpal] Saved your preferences ✓"));
+                player.sendSystemMessage(Component.literal(saved
+                        ? "§a[Blockpal] Saved your preferences ✓"
+                        : "§c[Blockpal] Couldn't write your preferences to "
+                                + ModConfig.configPath() + " — check the log."));
                 // Re-sync so the screen shows the saved state.
                 if (ServerPlayNetworking.canSend(player, PlayerPrefsSyncPayload.TYPE)) {
                     ServerPlayNetworking.send(player, PlayerPrefsSyncPayload.forPlayer(player));
