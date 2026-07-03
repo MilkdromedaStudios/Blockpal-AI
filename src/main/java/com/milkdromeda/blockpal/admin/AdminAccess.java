@@ -47,7 +47,7 @@ public final class AdminAccess {
      */
     private static boolean isSingleplayerOwner(ServerPlayer player) {
         MinecraftServer server = player.level().getServer();
-        return server != null && server.isSingleplayerOwner(player.getGameProfile());
+        return server != null && server.isSingleplayerOwner(player.nameAndId());
     }
 
     /**
