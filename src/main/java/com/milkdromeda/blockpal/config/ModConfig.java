@@ -215,7 +215,8 @@ public class ModConfig {
         save();
     }
 
-    public static void save() {
+    /** @return true when the file was written; false is also logged so it's never silent. */
+    public static boolean save() {
         try {
             Files.createDirectories(CONFIG_DIR);
             // Persist the token only in obfuscated form, and never an env-provided
@@ -228,9 +229,22 @@ public class ModConfig {
             } finally {
                 instance.hfToken = plain;
             }
+            return true;
         } catch (IOException e) {
-            System.err.println("[Blockpal] Failed to save config: " + e.getMessage());
+            System.err.println("[Blockpal] Failed to save config to "
+                    + CONFIG_PATH.toAbsolutePath() + ": " + e.getMessage());
+            return false;
         }
+    }
+
+    /**
+     * Where the settings actually live on disk — {@code config/blockpal/config.json}
+     * under the game directory of whatever launcher is running (a third-party
+     * launcher like Lunar may use a different game folder than vanilla's
+     * {@code .minecraft}, which is why the path is surfaced to players on save).
+     */
+    public static Path configPath() {
+        return CONFIG_PATH.toAbsolutePath();
     }
 
     /**

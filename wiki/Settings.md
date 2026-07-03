@@ -6,7 +6,9 @@ there are no per-setting commands (`/ai settings`, `/ai token`, `/ai listen`,
 writes to `config/blockpal/config.json`.
 
 > **Operator-only.** Server-wide settings are admin-gated (`adminPermissionLevel`,
-> default 2 = ops). Players can always change *their own* model and key (see
+> default 2 = ops). **The owner of a singleplayer/LAN world always counts as an
+> admin (3.16.1)** — even with cheats off — so you can always configure your own
+> world. Players can always change *their own* model and key (see
 > [Per-Player Keys & Models](Per-Player-Keys-and-Models)). See also [Security](Security).
 
 ## Opening the panel

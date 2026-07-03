@@ -1,6 +1,7 @@
 package com.milkdromeda.blockpal.client.gui;
 
 import com.milkdromeda.blockpal.client.host.HostManager;
+import com.milkdromeda.blockpal.client.host.LunarDetect;
 import com.milkdromeda.blockpal.client.host.TunnelManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.components.Button;
@@ -66,6 +67,25 @@ public class HostScreen extends Screen {
         addRenderableWidget(copyJava);
         addRenderableWidget(copyBedrock);
         y += 28;
+
+        // Lunar Client has its own one-click world hosting, but no API a mod can call
+        // to trigger it — so when we detect Lunar, we say so and point the player at
+        // it for Java-only friends. Blockpal hosting stays the Bedrock cross-play path.
+        if (LunarDetect.isLunarClient()) {
+            StringWidget lunar = new StringWidget(left, y, w, 11, Component.literal(
+                    "Lunar Client detected — Lunar's built-in world hosting is easiest for Java-only friends;")
+                    .withStyle(ChatFormatting.AQUA), this.font);
+            lunar.setTooltip(Tooltip.create(Component.literal(
+                    "Lunar Client ships its own \"host my world\" feature for friends who also use Lunar "
+                            + "(no mod can start it automatically — Lunar has no API for that). "
+                            + "Use Blockpal hosting when you want Bedrock (phone/console) friends to join too.")));
+            addRenderableWidget(lunar);
+            y += 11;
+            addRenderableWidget(new StringWidget(left, y, w, 11, Component.literal(
+                    "host with Blockpal when Bedrock friends should join too.")
+                    .withStyle(ChatFormatting.AQUA), this.font));
+            y += 15;
+        }
 
         // Host the CURRENT world (copy → play → sync back → delete the copy), or a
         // pending sync-back from a previous run — one slot, mutually exclusive states.
