@@ -66,11 +66,12 @@ public class AiConfigScreen extends Screen {
     private String pPreset;
     private String pDefaultPersonality;
     private boolean pAllowCustom;
+    private boolean pAllowPossession;
     private boolean tokenSet;
 
     // ── widgets for the current tab (null when not on that tab) ──
     private EditBox nameBox, skinBox, modelBox, apiUrlBox, tokenBox;
-    private CycleButton<Boolean> listenButton, activeButton, commandsButton, debugButton, sneakButton, allowCustomButton;
+    private CycleButton<Boolean> listenButton, activeButton, commandsButton, debugButton, sneakButton, allowCustomButton, allowPossessionButton;
     private CycleButton<String> presetButton, defaultPersonalityButton;
     private OptionSlider tempSlider, maxTokensSlider, followSlider, guardSlider, cmdLevelSlider;
     private OptionSlider actionDelaySlider, maxTaskSlider, fleeSlider;
@@ -106,6 +107,7 @@ public class AiConfigScreen extends Screen {
         pDefaultPersonality = (d.defaultPersonality() != null && !d.defaultPersonality().isBlank())
                 ? d.defaultPersonality() : Personality.DEFAULT.id();
         pAllowCustom = d.allowCustomPersonality();
+        pAllowPossession = d.allowPossession();
         // Capture the as-loaded state once so dirty-tracking survives tab switches
         // (init() runs on every tab change, so we must NOT recompute it there).
         baseline = buildData();
@@ -161,7 +163,7 @@ public class AiConfigScreen extends Screen {
 
     private void clearWidgetRefs() {
         nameBox = skinBox = modelBox = apiUrlBox = tokenBox = null;
-        listenButton = activeButton = commandsButton = debugButton = sneakButton = allowCustomButton = null;
+        listenButton = activeButton = commandsButton = debugButton = sneakButton = allowCustomButton = allowPossessionButton = null;
         presetButton = defaultPersonalityButton = null;
         tempSlider = maxTokensSlider = followSlider = guardSlider = cmdLevelSlider = null;
         actionDelaySlider = maxTaskSlider = fleeSlider = null;
@@ -240,6 +242,7 @@ public class AiConfigScreen extends Screen {
         cmdLevelSlider = bodySlider(body, "Command perm level", 0, 4, pCmdLevel, true, "Permission tier for those commands (2 = command-block tier).");
         sneakButton = bodyToggle(body, "Sneak-click opens menu", pSneakMenu, "When off, sneak-right-click just toggles follow/stay; the menu is still on /ai menu.");
         allowCustomButton = bodyToggle(body, "Allow custom personalities", pAllowCustom, "Let players give their bot a free-text personality (AI-checked to be family-friendly). Off = built-ins only.");
+        allowPossessionButton = bodyToggle(body, "Allow possession mode", pAllowPossession, "Let players hand their own character to their nearby companion (/ai possess), which then drives them from typed instructions.");
         debugButton = bodyToggle(body, "Debug logging", pDebug, "Verbose logging to the game log for troubleshooting.");
     }
 
@@ -356,6 +359,7 @@ public class AiConfigScreen extends Screen {
         if (debugButton != null) pDebug = debugButton.getValue();
         if (sneakButton != null) pSneakMenu = sneakButton.getValue();
         if (allowCustomButton != null) pAllowCustom = allowCustomButton.getValue();
+        if (allowPossessionButton != null) pAllowPossession = allowPossessionButton.getValue();
         if (presetButton != null) pPreset = presetButton.getValue();
         if (defaultPersonalityButton != null) pDefaultPersonality = defaultPersonalityButton.getValue();
         if (tempSlider != null) pTemp = tempSlider.current();
@@ -374,7 +378,7 @@ public class AiConfigScreen extends Screen {
                 pListen, pActive, pDebug, pName, pToken, tokenSet, pModel, pApiUrl,
                 pTemp, pMaxTokens, pFollow, pGuard, pCommands, pCmdLevel, pSkin,
                 pActionDelay, pMaxTask, pFlee, pPreset, pSneakMenu,
-                pDefaultPersonality, pAllowCustom);
+                pDefaultPersonality, pAllowCustom, pAllowPossession);
     }
 
     private void sendCurrent() {

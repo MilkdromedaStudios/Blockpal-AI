@@ -12,6 +12,8 @@ import com.milkdromeda.blockpal.network.AdminSyncPayload;
 import com.milkdromeda.blockpal.network.AiNetworking;
 import com.milkdromeda.blockpal.network.ConfigData;
 import com.milkdromeda.blockpal.network.ConfigSyncPayload;
+import com.milkdromeda.blockpal.network.PossessionSyncPayload;
+import com.milkdromeda.blockpal.possession.PossessionManager;
 import com.milkdromeda.blockpal.util.Locator;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -52,6 +54,15 @@ public class AiCommands {
                         .then(actionCommand("stay",   AiCommands::stay))
 
                         .then(Commands.literal("stop").executes(AiCommands::stop))
+
+                        // Possession mode: hand your own character's controls to your
+                        // nearby companion. Opens a console on a Java client; on any
+                        // client you can steer it with text ("/ai possess <what to do>").
+                        .then(Commands.literal("possess")
+                                .executes(AiCommands::possessStart)
+                                .then(Commands.literal("stop").executes(AiCommands::possessStop))
+                                .then(Commands.argument("instruction", StringArgumentType.greedyString())
+                                        .executes(ctx -> possessDo(ctx, StringArgumentType.getString(ctx, "instruction")))))
 
                         .then(Commands.literal("resume").executes(AiCommands::resume))
                         .then(Commands.literal("enable").executes(AiCommands::resume))
@@ -154,6 +165,9 @@ public class AiCommands {
                                 .then(Commands.literal("requirekey")
                                         .then(Commands.literal("on").executes(ctx -> adminRequireKey(ctx, true)))
                                         .then(Commands.literal("off").executes(ctx -> adminRequireKey(ctx, false))))
+                                .then(Commands.literal("possession")
+                                        .then(Commands.literal("on").executes(ctx -> adminPossession(ctx, true)))
+                                        .then(Commands.literal("off").executes(ctx -> adminPossession(ctx, false))))
                                 .then(Commands.literal("keylist")
                                         .executes(AiCommands::adminKeyListShow)
                                         .then(Commands.literal("list").executes(AiCommands::adminKeyListShow))
@@ -202,6 +216,7 @@ public class AiCommands {
                 "§eCommands:\n" +
                 "§f/ai summon [name] §7— bring a new assistant into the world\n" +
                 "§f/ai come §7· §ffollow §7· §fstay §7· §fstop §7— basic orders\n" +
+                "§f/ai possess §7— let it drive YOUR character (a console to type instructions)\n" +
                 "§f/ai locate §7— find where it is\n" +
                 "§f/ai inventory §7— see what it's carrying and wearing\n" +
                 "§f/ai skin <name> §7— give it a skin (built-in, or your own PNG; see /aiskins)\n" +
@@ -307,6 +322,36 @@ public class AiCommands {
         if (ai == null) return noAi(player);
         if (!ensureCanCommand(player, ai)) return 0;
         ai.stopTask();
+        return 1;
+    }
+
+    // ── possession mode ───────────────────────────────────────────────────────
+
+    /** Starts possessing yourself with your nearby companion (opens the console on Java). */
+    private static int possessStart(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        PossessionManager.start(player);
+        // On a client without the console GUI, point them at the text controls.
+        if (!ServerPlayNetworking.canSend(player, PossessionSyncPayload.TYPE)) {
+            player.sendSystemMessage(Component.literal(
+                    "§7Steer it with §f/ai possess <what to do>§7 and end it with §f/ai possess stop§7."));
+        }
+        return 1;
+    }
+
+    private static int possessStop(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        PossessionManager.stop(player);
+        return 1;
+    }
+
+    /** Queues a possession instruction (starting possession first if needed). */
+    private static int possessDo(CommandContext<CommandSourceStack> ctx, String instruction) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        PossessionManager.queue(player, instruction);
         return 1;
     }
 
@@ -653,6 +698,7 @@ public class AiCommands {
                 "§f/ai admin apiurl <url> §7— set the OpenAI-compatible API endpoint\n" +
                 "§f/ai admin model <id> §7— set the server default model\n" +
                 "§f/ai admin requirekey on|off §7— make players use their own API key\n" +
+                "§f/ai admin possession on|off §7— allow/deny possession mode (/ai possess)\n" +
                 "§f/ai admin keylist add|remove|list <player> §7— who may use the shared key\n" +
                 "§f/ai admin models add|remove|list <id> §7— models players may pick\n" +
                 "§7Admin tier is set in the Admin panel (default: ops = 2).\n" +
@@ -936,6 +982,15 @@ public class AiCommands {
         ctx.getSource().sendSuccess(() -> Component.literal(
                 "§a[Blockpal] Players must use their own API key: " + (on ? "§eON" : "§7off")
                         + (on ? " §7(exempt trusted players with §f/ai admin keylist add <player>§7)" : "")), false);
+        return 1;
+    }
+
+    private static int adminPossession(CommandContext<CommandSourceStack> ctx, boolean on) {
+        ModConfig.get().allowPossession = on;
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§a[Blockpal] Possession mode: " + (on ? "§aON" : "§7off")
+                        + " §7(players hand their character to their own companion with §f/ai possess§7)"), false);
         return 1;
     }
 
