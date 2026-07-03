@@ -41,11 +41,13 @@ public final class AiNetworking {
         PayloadTypeRegistry.serverboundPlay().register(PlayerPrefsPayload.TYPE, PlayerPrefsPayload.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(BotListRequestPayload.TYPE, BotListRequestPayload.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(BotActionPayload.TYPE, BotActionPayload.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(PossessionInputPayload.TYPE, PossessionInputPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(ConfigSyncPayload.TYPE, ConfigSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(AdminSyncPayload.TYPE, AdminSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(PlayerPrefsSyncPayload.TYPE, PlayerPrefsSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(OpenTutorialPayload.TYPE, OpenTutorialPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(BotListSyncPayload.TYPE, BotListSyncPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(PossessionSyncPayload.TYPE, PossessionSyncPayload.CODEC);
     }
 
     /** Sends the current config to a player so their client opens the settings menu. */
@@ -76,6 +78,19 @@ public final class AiNetworking {
         if (server == null || !ServerPlayNetworking.canSend(player, BotListSyncPayload.TYPE)) return false;
         ServerPlayNetworking.send(player, new BotListSyncPayload(BotListData.gather(server, player)));
         return true;
+    }
+
+    /**
+     * Pushes a possession-mode update to a player's console. When the client can't
+     * receive the packet (Bedrock/vanilla), any status {@code line} is delivered as a
+     * plain chat message instead, so text-driven possession still gives feedback.
+     */
+    public static void sendPossession(ServerPlayer player, boolean open, boolean active, String line) {
+        if (ServerPlayNetworking.canSend(player, PossessionSyncPayload.TYPE)) {
+            ServerPlayNetworking.send(player, new PossessionSyncPayload(open, active, line == null ? "" : line));
+        } else if (line != null && !line.isBlank()) {
+            player.sendSystemMessage(Component.literal(line));
+        }
     }
 
     /** Opens the how-to tutorial screen for a player. @return false if their client can't show it. */
@@ -225,6 +240,23 @@ public final class AiNetworking {
                 }
                 if (ServerPlayNetworking.canSend(player, BotListSyncPayload.TYPE)) {
                     ServerPlayNetworking.send(player, new BotListSyncPayload(BotListData.gather(server, player)));
+                }
+            });
+        });
+
+        // Possession-mode console input (start / stop / a free-text instruction). A
+        // player can only ever possess their OWN character with their OWN bot, so the
+        // handler always acts on the sender — no cross-player control is possible.
+        ServerPlayNetworking.registerGlobalReceiver(PossessionInputPayload.TYPE, (payload, context) -> {
+            ServerPlayer player = context.player();
+            MinecraftServer server = player.level().getServer();
+            if (server == null) return;
+            server.execute(() -> {
+                switch (payload.action() == null ? "" : payload.action().toLowerCase(Locale.ROOT)) {
+                    case "start"       -> com.milkdromeda.blockpal.possession.PossessionManager.start(player);
+                    case "stop"        -> com.milkdromeda.blockpal.possession.PossessionManager.stop(player);
+                    case "instruction" -> com.milkdromeda.blockpal.possession.PossessionManager.queue(player, payload.text());
+                    default            -> { /* unknown — ignore */ }
                 }
             });
         });

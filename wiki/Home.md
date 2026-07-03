@@ -32,6 +32,8 @@ and configures itself from a real in-game settings screen.
 - **Custom skins** — built-in palettes or your own PNG. See [Custom Skins](Custom-Skins).
 - **Personalities** — pick how it talks & acts: friendly, cheerful, grumpy, stoic,
   heroic, shy. See [Personalities](Personalities).
+- **Possession mode** — hand your *own* character to your companion and let the AI
+  drive you from a typed console. See [Possession Mode](Possession-Mode).
 - **Trust & per-bot management** — own several companions, set each up differently,
   and trust friends to command a specific one. See [Trust & Per-Bot Management](Trust-and-Per-Bot).
 - **Emergency FPS kill-switch** — auto-disables the mod if framerate collapses.
@@ -55,6 +57,7 @@ and configures itself from a real in-game settings screen.
 | [Getting Started](Getting-Started) | First summon, AI token setup |
 | [Commands](Commands) | Every `/ai` command |
 | [Talking to Your Assistant](Talking-to-Your-Assistant) | Chat, quick intents, addressing by name |
+| [Possession Mode](Possession-Mode) | Let your companion drive your own character from a typed console |
 | [Settings](Settings) | The in-game settings panel (no more setting commands) |
 | [Performance Presets](Performance-Presets) | Normal / Opus / Potato |
 | [Custom Skins](Custom-Skins) | Built-in and drop-in skins |

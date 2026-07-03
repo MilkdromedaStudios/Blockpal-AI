@@ -41,7 +41,8 @@ public record ConfigData(
         String performancePreset,
         boolean sneakToOpenMenu,
         String defaultPersonality,
-        boolean allowCustomPersonality
+        boolean allowCustomPersonality,
+        boolean allowPossession
 ) {
     public static final StreamCodec<FriendlyByteBuf, ConfigData> STREAM_CODEC =
             StreamCodec.of(ConfigData::write, ConfigData::read);
@@ -71,7 +72,8 @@ public record ConfigData(
                 c.performancePreset,
                 c.sneakToOpenMenu,
                 c.defaultPersonality,
-                c.allowCustomPersonality);
+                c.allowCustomPersonality,
+                c.allowPossession);
     }
 
     /** Applies this snapshot onto the live config, clamping and keeping blanks. */
@@ -101,6 +103,7 @@ public record ConfigData(
             c.defaultPersonality = defaultPersonality.trim().toLowerCase(java.util.Locale.ROOT);
         }
         c.allowCustomPersonality = allowCustomPersonality;
+        c.allowPossession = allowPossession;
     }
 
     private static boolean notBlank(String s) {
@@ -134,6 +137,7 @@ public record ConfigData(
         buf.writeBoolean(d.sneakToOpenMenu);
         buf.writeUtf(d.defaultPersonality == null ? "friendly" : d.defaultPersonality);
         buf.writeBoolean(d.allowCustomPersonality);
+        buf.writeBoolean(d.allowPossession);
     }
 
     private static ConfigData read(FriendlyByteBuf buf) {
@@ -159,6 +163,7 @@ public record ConfigData(
                 buf.readUtf(),
                 buf.readBoolean(),
                 buf.readUtf(),
+                buf.readBoolean(),
                 buf.readBoolean());
     }
 }

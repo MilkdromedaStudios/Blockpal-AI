@@ -25,7 +25,7 @@ Every Blockpal screen has a shared **tab bar** at the top to move between the pa
 | Sub-tab | What's here |
 |-----|-------------|
 | **Identity** | Name, skin, **Open skins folder** button, **Default personality** |
-| **Behavior** | Chat listening, active analysis, sneak-to-open-menu, **allow custom personalities**, follow distance, guard radius, [performance preset](Performance-Presets) |
+| **Behavior** | Chat listening, active analysis, sneak-to-open-menu, **allow custom personalities**, **allow possession mode**, follow distance, guard radius, [performance preset](Performance-Presets) |
 | **AI** | API URL, model, token, temperature, max tokens |
 | **Combat** | Allow commands, permission level, flee health |
 | **Developer** | Action tick delay, task watchdog timeout, flee health *(high-risk — see [Developer Menu](Developer-Menu))* |
@@ -56,6 +56,7 @@ commands needed:
 | Max bots | Most bots allowed on the server at once (0 = unlimited). Default **8** |
 | Require own API key | Players must bring their own key (except the whitelist) |
 | Players may pick model | Allow players to choose their bot's model |
+| Allow possession mode | Let players hand their character to their companion (`/ai possess`) — see [Possession Mode](Possession-Mode) |
 
 The two lists — the **allowed models** and the **own-key whitelist** — are managed
 with `/ai admin models …` and `/ai admin keylist …` (see
