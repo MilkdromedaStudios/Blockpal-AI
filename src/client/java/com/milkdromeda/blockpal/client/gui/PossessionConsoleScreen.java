@@ -8,15 +8,14 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.network.chat.Component;
 import net.minecraft.client.gui.screens.Screen;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * The possession-mode console — the "little textbox" for driving your own character
- * with your companion. Type an instruction and press Send (or Enter); the AI turns it
- * into actions and drives you, streaming a live status feed into the log above.
+ * with your companion. Type an instruction and press Send; the AI turns it into
+ * actions and drives you, streaming a live status feed into the log above.
  *
  * <p>The log is a static tail buffer so it survives the screen being rebuilt when a
  * new status line arrives (which keeps the whole thing widget-based — no manual
@@ -30,6 +29,8 @@ public class PossessionConsoleScreen extends Screen {
     private static final int FIELD_H = 20;
     private static final int MAX_LOG = 200;
 
+    /** The console the player currently has open, if any (for in-place updates). */
+    private static PossessionConsoleScreen instance;
     /** Shared log tail, kept across screen rebuilds/reopens. */
     private static final List<String> LOG = new ArrayList<>();
 
@@ -50,13 +51,12 @@ public class PossessionConsoleScreen extends Screen {
      */
     public static void handleSync(Minecraft mc, boolean open, boolean active, String line) {
         if (line != null && !line.isBlank()) addLog(line);
-        PossessionConsoleScreen shown = (mc.screen instanceof PossessionConsoleScreen c) ? c : null;
         if (open) {
-            if (shown != null) { shown.active = active; shown.refresh(); }
+            if (instance != null) { instance.active = active; instance.refresh(); }
             else mc.setScreenAndShow(new PossessionConsoleScreen(active));
-        } else if (shown != null) {
-            shown.active = active;
-            shown.refresh();
+        } else if (instance != null) {
+            instance.active = active;
+            instance.refresh();
         }
         // If not open and no console is showing, the line is simply buffered for next time.
     }
@@ -75,6 +75,7 @@ public class PossessionConsoleScreen extends Screen {
 
     @Override
     protected void init() {
+        instance = this;
         int x = this.width / 2 - W / 2;
 
         // -- title + status line --
@@ -136,12 +137,9 @@ public class PossessionConsoleScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
-            send();
-            return true;
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+    public void removed() {
+        if (instance == this) instance = null;
+        super.removed();
     }
 
     @Override
