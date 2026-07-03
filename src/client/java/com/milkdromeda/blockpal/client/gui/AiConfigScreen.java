@@ -71,6 +71,7 @@ public class AiConfigScreen extends Screen {
 
     // ── widgets for the current tab (null when not on that tab) ──
     private EditBox nameBox, skinBox, modelBox, apiUrlBox, tokenBox;
+    private StringWidget tokenStatus;
     private CycleButton<Boolean> listenButton, activeButton, commandsButton, debugButton, sneakButton, allowCustomButton, allowPossessionButton;
     private CycleButton<String> presetButton, defaultPersonalityButton;
     private OptionSlider tempSlider, maxTokensSlider, followSlider, guardSlider, cmdLevelSlider;
@@ -163,6 +164,7 @@ public class AiConfigScreen extends Screen {
 
     private void clearWidgetRefs() {
         nameBox = skinBox = modelBox = apiUrlBox = tokenBox = null;
+        tokenStatus = null;
         listenButton = activeButton = commandsButton = debugButton = sneakButton = allowCustomButton = allowPossessionButton = null;
         presetButton = defaultPersonalityButton = null;
         tempSlider = maxTokensSlider = followSlider = guardSlider = cmdLevelSlider = null;
@@ -252,6 +254,9 @@ public class AiConfigScreen extends Screen {
         apiUrlBox = bodyBox(body, "API URL", pApiUrl, 256, "Any OpenAI-compatible chat-completions endpoint (HuggingFace, OpenAI, Ollama, LM Studio…).");
         tokenBox = bodyBox(body, "API token", "", 256, "Your API key. Never shown back for privacy — leave blank to keep the current one.");
         tokenBox.setHint(Component.literal(tokenSet ? "set - blank keeps it" : "not set"));
+        // The key is never echoed back, so the emptying box needs an explicit "it IS
+        // saved" signal or players think Apply lost it.
+        tokenStatus = body.addChild(new StringWidget(W, LABEL_H, tokenStatusText(), this.font));
         tempSlider = bodySlider(body, "Temperature", 0.0, 2.0, pTemp, false, "Creativity of the model — lower is more focused, higher is more varied.");
         maxTokensSlider = bodySlider(body, "Max tokens", 32, 2048, pMaxTokens, true, "Upper bound on the length of each plan the model returns.");
     }
@@ -381,6 +386,12 @@ public class AiConfigScreen extends Screen {
                 pDefaultPersonality, pAllowCustom, pAllowPossession);
     }
 
+    private Component tokenStatusText() {
+        return Component.literal(tokenSet
+                ? "§a✔ API key saved — hidden here for privacy; blank keeps it"
+                : "§7No API key saved yet — paste one above, then Apply");
+    }
+
     private void sendCurrent() {
         ClientPlayNetworking.send(new ConfigUpdatePayload(buildData()));
         if (!pToken.isBlank()) {
@@ -390,6 +401,7 @@ public class AiConfigScreen extends Screen {
                 tokenBox.setValue("");
                 tokenBox.setHint(Component.literal("set - blank keeps it"));
             }
+            if (tokenStatus != null) tokenStatus.setMessage(tokenStatusText());
         }
         baseline = buildData();
     }

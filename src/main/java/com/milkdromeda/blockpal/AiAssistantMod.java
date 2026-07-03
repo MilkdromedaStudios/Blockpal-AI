@@ -44,6 +44,9 @@ public class AiAssistantMod implements ModInitializer {
         });
 
         LOGGER.info("Blockpal mod initialized.");
+        // Third-party launchers (e.g. Lunar) may use a game folder other than
+        // .minecraft — log the real location so "where did my config go" is answerable.
+        LOGGER.info("Blockpal config file: {}", ModConfig.configPath());
         if (!ModConfig.get().hasApiToken()) {
             LOGGER.warn("No AI API token set yet. Set one in-game from /ai menu (AI tab), "
                     + "or via the BLOCKPAL_API_TOKEN environment variable.");
