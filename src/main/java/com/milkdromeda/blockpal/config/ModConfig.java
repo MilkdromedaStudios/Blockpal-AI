@@ -26,7 +26,7 @@ public class ModConfig {
      * default instead of silently inheriting Java's zero/false. A file with no
      * version at all reads back as {@code 0} and is migrated from there.
      */
-    public static final int CURRENT_CONFIG_VERSION = 6;
+    public static final int CURRENT_CONFIG_VERSION = 7;
 
     // Settings (including the API key) live in their own folder under the game's
     // config directory. That directory is untouched when you replace the mod jar,
@@ -102,6 +102,13 @@ public class ModConfig {
     // by the language model for family-friendly safety before it's applied. Ops can
     // turn this off to restrict players to the built-in personalities only.
     public boolean allowCustomPersonality = true;
+
+    // When true, a player may hand control of their OWN character to their nearby
+    // companion ("possession mode", /ai possess): the AI then drives their movement
+    // and actions from typed instructions. Fully server-authoritative, so it works on
+    // any server running Blockpal and in singleplayer, with no client mod required to
+    // be controlled. Admins can turn it off (/ai admin possession off).
+    public boolean allowPossession = true;
 
     // Safety cap: automatically stop a running task after this many seconds, so a
     // task stuck in an endless loop can't keep running (and lagging) forever.
@@ -269,6 +276,11 @@ public class ModConfig {
             // file deserializes the new boolean to false, which would silently
             // disable a feature we mean to ship on).
             allowCustomPersonality = true;
+        }
+        if (configVersion < 7) {
+            // Possession mode was added in v7; ship it on by default (an old file
+            // deserializes the new boolean to false, which would silently disable it).
+            allowPossession = true;
         }
         configVersion = CURRENT_CONFIG_VERSION;
     }

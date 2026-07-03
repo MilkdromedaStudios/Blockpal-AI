@@ -164,6 +164,36 @@ can do and how it evolved.
   bot self-directs, picks its own tasks, and narrates its decisions every ~30 s.
   Cancelled by "stop", "follow me", or "stay".
 
+### Possession mode (3.16.0+)
+- **Hand your character to the bot.** `/ai possess` lets a player give control of
+  **their own** character to their nearby owned companion; the AI then drives the
+  *player's body* (move, mine, place, use, fight, collect, run commands, chat) from
+  typed instructions. Only ever self-possession with a bot you own — no cross-player
+  control, so there's nothing to grief.
+- **Fully server-authoritative → no client mod needed to be controlled.** All planning
+  and driving runs on the server, so it works on **any server with Blockpal** and in
+  **singleplayer**. Locomotion pushes the player with server-side velocity + teleport
+  catch-up (the same technique `MinigameManager` uses on players), so it needs no
+  client-side movement mod; the trade-off is feel (a "tug", documented as such).
+- **The console (the "little textbox").** On a Java client `/ai possess` opens
+  `client/gui/PossessionConsoleScreen` — a text box with a live status log. Typing an
+  instruction sends `PossessionInputPayload` (`instruction`); the server streams status
+  back via `PossessionSyncPayload`, appended in place so typing isn't interrupted.
+  Bedrock/vanilla clients (no GUI) steer it entirely by text: `/ai possess <instruction>`
+  and `/ai possess stop`, with status delivered as chat (`AiNetworking.sendPossession`
+  falls back to a system message when the client can't receive the packet).
+- **Code.** `possession/PossessionManager.java` (server-tick driving loop keyed by
+  player UUID; start/stop/queue; disconnect cleanup — wired in `AiAssistantMod`) and
+  `possession/PossessionSession.java` (per-session planning via `HuggingFaceClient` with
+  a player-centric context + the owner's key/model, and the per-tick action executor
+  against the `ServerPlayer`). The possessing bot's own AI stands down while
+  `AiAssistantEntity.isPossessing()` (its `possessing` UUID field is transient — never
+  saved to NBT). Reuses the same [action vocabulary](#ai--llm-planning) and command
+  denylist as the bot.
+- **Ops gate.** `allowPossession` (config, default true) gates the whole feature;
+  toggle it on the Settings → **Behavior** tab or with `/ai admin possession on|off`.
+  Config schema → v7 (upgrading installs default it true).
+
 ### Commands (`/ai …`)
 | Command | Effect |
 |---------|--------|
@@ -177,6 +207,8 @@ can do and how it evolved.
 | `/ai follow` | Follow player |
 | `/ai stay` | Guard position |
 | `/ai stop` | Cancel current task |
+| `/ai possess` | Hand your character to your companion (opens the console) |
+| `/ai possess <instruction>` / `/ai possess stop` | Steer possession by text / end it |
 | `/ai resume` / `/ai enable` | Re-enable after the FPS kill switch tripped |
 | `/ai locate` / `/ai where` | Find assistant |
 | `/ai name <name>` | Rename |
@@ -230,6 +262,8 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   their own API key; `/ai admin keylist add|remove|list <player>` manages the
   exemption whitelist; `/ai admin models add|remove|list <id>` curates the model
   list players may pick from. (See *Per-player API keys & selectable models*.)
+- **Possession** — `/ai admin possession on|off` toggles `allowPossession` (the ops
+  gate for possession mode). (See *Possession mode*.)
 - Who counts as admin is `adminPermissionLevel` (vanilla tiers 0/2/4), changed with
   the Admin panel's admin-level control. Data flows over `AdminSyncPayload` (S→C) and
   `AdminActionPayload` (C→S), re-checked server-side in `AiNetworking`.
@@ -294,8 +328,8 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   `requireOwnApiKey`, `ownKeyWhitelist`, `playerApiKeysObf`, `allowPlayerModelChoice`,
   `allowedModels`, `playerModels`,
   `chatListening`, `activeMode`, `defaultName`,
-  `defaultSkin`, `defaultPersonality`, `allowCustomPersonality`, `maxTaskSeconds`,
-  `performancePreset`, `sneakToOpenMenu`, `configVersion`.
+  `defaultSkin`, `defaultPersonality`, `allowCustomPersonality`, `allowPossession`,
+  `maxTaskSeconds`, `performancePreset`, `sneakToOpenMenu`, `configVersion`.
 - **Settings are configured in the panel, not via commands (3.4.0).** The old
   `/ai settings <key> <value>` generic setter (and `/ai token|listen|active|commands`)
   were removed as too confusing. The **Settings** panel (`/ai menu`) covers the
@@ -457,6 +491,31 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 ---
 
 ## Changelog
+
+### 3.16.0
+- **Possession mode.** New `/ai possess` lets a player hand control of their **own**
+  character to their nearby owned companion, which then drives the player's body (move,
+  mine, place, use, fight, collect, run commands, chat) from typed instructions. On a
+  Java client it opens a **Possession Console** (`client/gui/PossessionConsoleScreen`) —
+  a text box with a live status log; on Bedrock/vanilla it's fully text-driven
+  (`/ai possess <instruction>` / `/ai possess stop`). You can only ever possess
+  *yourself* with a bot you *own*, so there's no cross-player control.
+- **Server-authoritative, no client mod required to be controlled.** All planning and
+  driving is server-side, so it works on any server running Blockpal and in singleplayer.
+  Locomotion pushes the player with server-side velocity + teleport catch-up (the same
+  technique `MinigameManager` uses on players); the honest trade-off is feel — it can
+  read as a "tug" and wants in-world tuning.
+- **Code:** new `possession/PossessionManager.java` (server-tick driving loop, start/
+  stop/queue, disconnect cleanup) and `possession/PossessionSession.java` (per-session
+  planning + a per-tick action executor against the `ServerPlayer`); new
+  `PossessionInputPayload` (C→S) and `PossessionSyncPayload` (S→C) with a
+  `AiNetworking.sendPossession` chat fallback; a transient `possessing` flag on
+  `AiAssistantEntity` that pauses the bot's own AI while it possesses. New
+  `allowPossession` config (ops gate — Behavior tab + `/ai admin possession on|off`);
+  config schema → v7. Wiki: new `Possession-Mode.md` (+ sidebar/Home/Commands/Settings).
+- *(Compiles against MC 26.2 / Fabric; the toolchain + 26.2 dependencies can't be
+  fetched in this environment, so no jar was built — the live driving loop wants
+  real-machine play-testing, like the mini-games.)*
 
 ### 3.15.0
 - **Host your actual world.** "Host with Blockpal" can now host the singleplayer world

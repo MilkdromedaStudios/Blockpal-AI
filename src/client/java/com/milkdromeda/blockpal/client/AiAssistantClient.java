@@ -6,6 +6,7 @@ import com.milkdromeda.blockpal.client.gui.AiConfigScreen;
 import com.milkdromeda.blockpal.client.gui.BotManagerScreen;
 import com.milkdromeda.blockpal.client.gui.HostScreen;
 import com.milkdromeda.blockpal.client.gui.PlayerSettingsScreen;
+import com.milkdromeda.blockpal.client.gui.PossessionConsoleScreen;
 import com.milkdromeda.blockpal.client.gui.TutorialScreen;
 import com.milkdromeda.blockpal.client.host.HostManager;
 import com.milkdromeda.blockpal.client.render.AiAssistantEntityModel;
@@ -16,6 +17,7 @@ import com.milkdromeda.blockpal.network.BotListSyncPayload;
 import com.milkdromeda.blockpal.network.ConfigSyncPayload;
 import com.milkdromeda.blockpal.network.OpenTutorialPayload;
 import com.milkdromeda.blockpal.network.PlayerPrefsSyncPayload;
+import com.milkdromeda.blockpal.network.PossessionSyncPayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
@@ -76,6 +78,13 @@ public class AiAssistantClient implements ClientModInitializer {
                 context.client().execute(() ->
                         context.client().setScreenAndShow(
                                 new BotManagerScreen(payload.data(), BotManagerScreen.lastSelected()))));
+
+        // Possession-mode update: open the console (open=true) or append a live status
+        // line to an already-open console. Handled in place so typing isn't interrupted.
+        ClientPlayNetworking.registerGlobalReceiver(PossessionSyncPayload.TYPE, (payload, context) ->
+                context.client().execute(() ->
+                        PossessionConsoleScreen.handleSync(context.client(),
+                                payload.open(), payload.active(), payload.line())));
 
         // Extreme frame-rate watchdog: auto-disable the mod if FPS collapses.
         FpsGuardian.register();
