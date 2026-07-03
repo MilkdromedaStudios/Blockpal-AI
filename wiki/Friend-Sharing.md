@@ -16,18 +16,30 @@ and Java friends joining**.
 A Java player can stand up a Bedrock-ready server from inside the game — no manual setup.
 
 - Open the **pause menu** (Esc) in a singleplayer world and click **"Host with
-  Blockpal"**, or run **`/aihost`**.
+  Blockpal"** (bottom-left corner as of 3.16.1, so it never covers the vanilla
+  buttons), or run **`/aihost`**.
 - Accept the Minecraft EULA, then **Start hosting**. Blockpal downloads the Minecraft
   server, Fabric, and the **latest Geyser + Floodgate** from their official sites,
-  configures everything, and launches a real server.
+  configures everything, and launches a real server. **Downloads are cached
+  (3.16.1):** only the first host pays the full download — after that the Minecraft
+  jar is reused as long as its checksum matches and the "latest" components are
+  re-checked at most once a day, so starting a host is much faster.
 - **It hosts your current world (3.15.0):** the world you were playing is saved, copied
   into the server, and hosted — you rejoin via Direct Connect → `localhost:25565`. When
   you stop, the changes are **saved back to your singleplayer world** (with a timestamped
   backup) and the server's copy is deleted. Toggle it off to host a fresh world instead.
+  As of 3.16.1 the world is copied **before** any downloading, so it's captured moments
+  after the save closes.
 - When it's running it shows the **Java** (`ip:25565`) and **Bedrock** (`ip:19132`)
   connect addresses, for both your local network and the internet, with copy buttons.
 
 Full walkthrough and caveats: **[Bedrock (Geyser)](Geyser-Bedrock)**.
+
+> **On Lunar Client?** Blockpal detects Lunar (3.16.1) and the Host screen will point
+> out Lunar's own built-in world hosting — that's the easiest path for **Java-only**
+> friends. Lunar has no API a mod can call, so Blockpal can't start it for you; use
+> **Host with Blockpal** when you want **Bedrock** friends (phone/console/iPad) to
+> join too.
 
 > ⚠ **Share addresses carefully.** The internet address shown is your own computer's
 > public IP — give it only to people you trust. And showing it doesn't make you

@@ -38,6 +38,13 @@ public final class HostManager {
     public static final int DEFAULT_JAVA_PORT = 25565;
     public static final int DEFAULT_BEDROCK_PORT = 19132;
 
+    /**
+     * How long an un-checksummed "latest" component (Fabric / Geyser / Floodgate)
+     * is reused before being re-fetched. A day keeps "always the latest" honest
+     * without re-downloading everything on every single Start click.
+     */
+    private static final java.time.Duration COMPONENT_MAX_AGE = java.time.Duration.ofHours(24);
+
     private static final HostManager INSTANCE = new HostManager();
     public static HostManager get() { return INSTANCE; }
     private HostManager() {}
@@ -176,36 +183,56 @@ public final class HostManager {
             Path serverDir = HostPaths.serverDir();
             Files.createDirectories(HostPaths.modsDir());
 
-            set(Phase.DOWNLOADING, "Resolving the latest components…");
-            ComponentResolver.Artifact mcServer = ComponentResolver.mojangServer();
-            String launcherUrl = ComponentResolver.fabricServerLauncherUrl();
-            String fabricApiUrl = ComponentResolver.fabricApiUrl();
-
-            set(Phase.DOWNLOADING, "Downloading Minecraft server " + ComponentResolver.MC_VERSION + "…");
-            Http.download(mcServer.url(), HostPaths.serverJar(), mcServer.sha1());
-
-            set(Phase.DOWNLOADING, "Downloading Fabric server…");
-            Http.download(launcherUrl, HostPaths.fabricLauncher(), null);
-
-            set(Phase.DOWNLOADING, "Downloading Fabric API…");
-            Http.download(fabricApiUrl, HostPaths.modsDir().resolve("fabric-api.jar"), null);
-
-            set(Phase.DOWNLOADING, "Downloading the latest Geyser…");
-            Http.download(ComponentResolver.geyserFabricUrl(), HostPaths.modsDir().resolve("Geyser-Fabric.jar"), null);
-
-            set(Phase.DOWNLOADING, "Downloading the latest Floodgate…");
-            Http.download(ComponentResolver.floodgateFabricUrl(), HostPaths.modsDir().resolve("floodgate-fabric.jar"), null);
-
-            set(Phase.CONFIGURING, "Writing configuration…");
-            HostConfig.writeEula(serverDir, true);
             if (copyMode) {
                 // The Start click saved + left the world; wait for the integrated
                 // server to fully close so every region file is flushed and unlocked.
+                // This runs FIRST — before any downloads — so the world is captured
+                // moments after it closes instead of after minutes of downloading.
                 set(Phase.CONFIGURING, "Waiting for the world to finish saving…");
                 waitForWorldClosed();
                 set(Phase.CONFIGURING, "Copying \"" + sourceWorldName + "\" into the server…");
                 WorldSync.copyWorld(source, HostPaths.hostedCopyDir());
                 WorldSync.writeMarker(source);
+            }
+
+            set(Phase.DOWNLOADING, "Resolving the latest components…");
+            ComponentResolver.Artifact mcServer = ComponentResolver.mojangServer();
+            String launcherUrl = ComponentResolver.fabricServerLauncherUrl();
+            String fabricApiUrl = ComponentResolver.fabricApiUrl();
+
+            // Components from a previous run are reused — the Minecraft jar whenever
+            // its checksum still matches, the "latest" components for a day — so only
+            // the FIRST host pays the full ~60 MB download.
+            set(Phase.DOWNLOADING, "Downloading Minecraft server " + ComponentResolver.MC_VERSION + "…");
+            if (Http.downloadCached(mcServer.url(), HostPaths.serverJar(), mcServer.sha1(), null)) {
+                log("Minecraft server already downloaded ✓");
+            }
+
+            set(Phase.DOWNLOADING, "Downloading Fabric server…");
+            if (Http.downloadCached(launcherUrl, HostPaths.fabricLauncher(), null, COMPONENT_MAX_AGE)) {
+                log("Fabric server already downloaded ✓");
+            }
+
+            set(Phase.DOWNLOADING, "Downloading Fabric API…");
+            if (Http.downloadCached(fabricApiUrl, HostPaths.modsDir().resolve("fabric-api.jar"), null, COMPONENT_MAX_AGE)) {
+                log("Fabric API already downloaded ✓");
+            }
+
+            set(Phase.DOWNLOADING, "Downloading the latest Geyser…");
+            if (Http.downloadCached(ComponentResolver.geyserFabricUrl(),
+                    HostPaths.modsDir().resolve("Geyser-Fabric.jar"), null, COMPONENT_MAX_AGE)) {
+                log("Geyser already downloaded ✓ (re-checked daily)");
+            }
+
+            set(Phase.DOWNLOADING, "Downloading the latest Floodgate…");
+            if (Http.downloadCached(ComponentResolver.floodgateFabricUrl(),
+                    HostPaths.modsDir().resolve("floodgate-fabric.jar"), null, COMPONENT_MAX_AGE)) {
+                log("Floodgate already downloaded ✓ (re-checked daily)");
+            }
+
+            set(Phase.CONFIGURING, "Writing configuration…");
+            HostConfig.writeEula(serverDir, true);
+            if (copyMode) {
                 HostConfig.writeServerProperties(serverDir, javaPort,
                         sourceWorldName + " — hosted with Blockpal", HostPaths.HOSTED_COPY_NAME);
             } else {
@@ -244,12 +271,12 @@ public final class HostManager {
 
     /** Blocks until the client's integrated server is gone (save flushed, lock released). */
     private static void waitForWorldClosed() throws InterruptedException {
-        for (int i = 0; i < 120; i++) {   // up to ~60 s — saving big worlds takes a moment
+        for (int i = 0; i < 240; i++) {   // up to ~60 s — saving big worlds takes a moment
             if (!net.minecraft.client.Minecraft.getInstance().hasSingleplayerServer()) {
                 Thread.sleep(1000);        // grace tick for file handles to release
                 return;
             }
-            Thread.sleep(500);
+            Thread.sleep(250);
         }
         throw new IllegalStateException("The singleplayer world didn't close — leave it, then try again");
     }

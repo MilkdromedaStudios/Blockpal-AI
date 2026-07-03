@@ -4,6 +4,32 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.16.1
+- **Fixed: settings (and your API key) not saving in singleplayer.** The owner of a
+  singleplayer or LAN world now always counts as a Blockpal admin — even with cheats
+  off. Before, the server could silently refuse the settings you saved from the menu
+  and re-sync the old values, which wiped the API key you'd just typed and meant
+  `config/blockpal/` was never written.
+- **You can now SEE that the key saved.** The AI & API tab shows an
+  **"✔ API key saved"** line once a key is stored — the key box still empties after
+  Apply, but that's privacy (your key is never sent back to the menu), not the key
+  being lost. Leaving the box blank keeps the saved key. The "Settings saved ✓" chat
+  message now also shows exactly **where** the config file was written (helpful on
+  launchers like Lunar that don't use the vanilla `.minecraft` folder), and a failed
+  write shows a red error instead of failing silently.
+- **Hosting starts much faster after the first run.** "Host with Blockpal" now reuses
+  previously downloaded components (the Minecraft server jar by checksum; Fabric,
+  Geyser and Floodgate re-checked at most once a day) instead of re-downloading
+  ~60 MB on every Start — and when hosting your current world, the world is copied
+  **first**, before any downloading, so it's captured moments after the save closes.
+- **Pause-menu button moved.** "Host with Blockpal" now sits in the bottom-left
+  corner of the pause menu, where it can no longer overlap "Save and Quit to Title"
+  at larger GUI scales.
+- **Lunar Client awareness.** When Blockpal detects Lunar Client, the Host screen
+  points out Lunar's own built-in world hosting for Java-only friends (Lunar has no
+  API a mod could call to start it automatically) — Blockpal hosting remains the way
+  to add Bedrock cross-play.
+
 ## 3.8.0
 - **Play with Ethan from Bedrock (iPad, console, phone).** Blockpal now works for
   **Minecraft Bedrock Edition** players who join through a [Geyser](https://geysermc.org)

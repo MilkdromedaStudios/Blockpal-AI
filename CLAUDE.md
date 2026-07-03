@@ -274,6 +274,17 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   `AdminAccess`, so a modified client can't rewrite the token / API URL / command
   tier or run admin actions even by forging a packet or hiding the UI. This closed a
   real privilege-escalation hole where any client could overwrite global config.
+  `ConfigRequestPayload` is gated too (3.16.1) — non-admins asking for the Settings
+  panel are routed to My Settings instead of a screen whose saves would be refused.
+- **Singleplayer owner is always admin (3.16.1)** — `AdminAccess` short-circuits for
+  the integrated-server host (`MinecraftServer.isSingleplayerOwner`), so the owner of
+  a singleplayer/LAN world can always configure it, cheats on or off. (Before this,
+  a cheats-off world owner's settings saves — including the API key — were silently
+  rejected and the menu re-synced, wiping what they'd typed.)
+- **Saves are never silent (3.16.1)** — `ModConfig.save()` reports success; the
+  "Settings saved ✓" message shows the config file's absolute path (third-party
+  launchers may not use vanilla's `.minecraft`), failures show a red chat error, and
+  the path is logged at mod init (`ModConfig.configPath()`).
 - **Token never leaves the server** — config sync to clients already omits the token
   (`ConfigData` sends only `tokenSet`); it's never logged.
 - **Token at rest** — stored **obfuscated** in `config.json` (`hfTokenObf`, reversible
@@ -411,7 +422,8 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 ### One-click self-hosting — "Host with Blockpal" (3.10.0+)
 - A **Java-client-only** flow that stands up a Bedrock-capable dedicated server so friends
   (Java **and** Bedrock) can join, without hand-installing anything. Opened from the
-  **pause menu** ("Host with Blockpal" button, singleplayer only) or **`/aihost`** (client
+  **pause menu** ("Host with Blockpal" button, singleplayer only, bottom-left corner as of
+  3.16.1 so it can't overlap the centered vanilla button stack) or **`/aihost`** (client
   command); Bedrock players have no mod, so they can only *join*, never host — matching the
   Bedrock→Java-only cross-play direction.
 - **Auto-downloads the latest components from their official sources** (so "latest Geyser"
@@ -419,6 +431,14 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   the Fabric server launcher (FabricMC meta), Fabric API (Modrinth), and the latest
   **Geyser-Fabric + Floodgate-Fabric** builds (GeyserMC download API). It also copies the
   running Blockpal jar into the server so the hosted world has the companion too.
+  **Downloads are cached (3.16.1)** — `Http.downloadCached` reuses a file whose SHA-1
+  still matches outright, and un-checksummed "latest" components for 24 h, so only the
+  first host pays the full download.
+- **Lunar Client awareness (3.16.1)** — `client/host/LunarDetect.java` heuristically
+  detects Lunar (mod ids / bootstrap classes / launch paths, failing safe to false); the
+  Host screen then notes that Lunar's own built-in world hosting is simplest for
+  Java-only friends. Lunar has **no API** a mod can call to trigger it, so Blockpal can
+  only signpost it; Blockpal hosting stays the Bedrock cross-play path.
 - **Launches a real dedicated server** as a child process (reusing the game's own JVM via
   `java.home`), captures its console, detects the "Done" ready line, and stops it cleanly
   (`stop` on stdin, force-kill fallback). Everything lives under `<gamedir>/blockpal-host/`.
@@ -430,7 +450,9 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 - **Host your CURRENT world (3.15.0)** — the Host screen offers a **"Host current world"**
   toggle (default ON when opened from a singleplayer world): Start saves + leaves the world
   (`disconnectWithSavingScreen`), waits for the integrated server to close, **copies the
-  save** into the server (`server/hosted-copy`, `level-name=hosted-copy`), and hosts it —
+  save** into the server (`server/hosted-copy`, `level-name=hosted-copy`) — as of 3.16.1
+  this copy happens **before** the component downloads, so the world is captured moments
+  after the save closes — and hosts it —
   the host rejoins via Direct Connect → `localhost:25565`. When the server stops, the played
   world is **synced back over the singleplayer save** (the pre-host original is kept in
   `blockpal-host/backups/<world>-<timestamp>`) and the server's copy is **deleted**, so
@@ -491,6 +513,41 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 ---
 
 ## Changelog
+
+### 3.16.1
+- **Fixed the singleplayer settings/API-key save bug.** `AdminAccess.isAdmin` now
+  always passes for the **integrated-server host** (`MinecraftServer.
+  isSingleplayerOwner`), so the owner of a singleplayer/LAN world is a Blockpal admin
+  even with cheats off. Previously the owner's `ConfigUpdatePayload` was rejected,
+  the reject-path re-sync reopened the settings screen, and everything typed
+  (including the API key) was wiped — reading as "nothing saves / no config folder".
+  `ConfigRequestPayload` (the PanelNav → Settings switch) is now admin-gated too, so
+  a non-admin can never land in a Settings screen whose Apply would be refused
+  (they're routed to My Settings instead).
+- **Save feedback is never silent.** `ModConfig.save()` returns success and logs the
+  absolute path on failure; new `ModConfig.configPath()`; the "Settings saved ✓"
+  message includes the config file's real path (launchers like Lunar may not use
+  vanilla's `.minecraft`) and write failures show a red chat error. The config path
+  is also logged at mod init. The AI & API tab shows a "✔ API key saved — hidden
+  here for privacy" status line under the (intentionally emptied) token box.
+- **Hosting: cached downloads + world copied first.** New `Http.downloadCached`
+  (SHA-1 match reused outright; un-checksummed "latest" components reused for 24 h),
+  so only the first host pays the ~60 MB download. In copy mode `HostManager.run()`
+  now waits for the world to close and copies it **before** the downloads, and the
+  world-close poll is 4×/s. The status log notes reused components.
+- **Pause-menu "Host with Blockpal" moved to the bottom-left corner** (was centered
+  at `scaledHeight - 52`, which overlapped "Save and Quit to Title" at larger GUI
+  scales, since the vanilla pause stack is vertically centered).
+- **Lunar Client detection.** New `client/host/LunarDetect.java` (mod ids, bootstrap
+  classes, launch-path heuristics; fails safe to false). When detected, the Host
+  screen shows an aqua note pointing at Lunar's built-in world hosting for Java-only
+  friends — Lunar exposes no API to trigger it programmatically, so Blockpal can
+  only signpost it; Blockpal hosting remains the Bedrock cross-play path.
+- Wiki: Troubleshooting (key-won't-save + where's-my-config entries), Settings
+  (singleplayer owner is always admin), Friend-Sharing (button position, download
+  cache, Lunar note). Root `CHANGELOG.md` gained a player-facing 3.16.1 section.
+  *(Same toolchain caveat as 3.16.0: 26.2 dependencies can't be fetched in this
+  environment, so no jar was built.)*
 
 ### 3.16.0
 - **Possession mode.** New `/ai possess` lets a player hand control of their **own**
