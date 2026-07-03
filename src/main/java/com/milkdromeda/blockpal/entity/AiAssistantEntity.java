@@ -62,6 +62,11 @@ public class AiAssistantEntity extends PathfinderMob {
             SynchedEntityData.defineId(AiAssistantEntity.class, EntityDataSerializers.STRING);
 
     private Mode mode = Mode.IDLE;
+    // Non-null while this bot is possessing a player (driving that player's body via
+    // PossessionManager). Transient/session-only — not saved to NBT, so a reload
+    // always comes back un-possessing. While set, the bot's own AI stands down (see
+    // tick()), because the player, not the bot, is the thing being driven.
+    private UUID possessing;
     private String assistantName = DEFAULT_NAME;
     // How this bot talks and the tone of its AI plans. Defaults to the server-wide
     // default at spawn; each bot remembers its own (NBT) so they can differ.
@@ -183,6 +188,19 @@ public class AiAssistantEntity extends PathfinderMob {
         // Emergency kill switch: the entity stays in the world but does nothing —
         // no planning, no task execution, no gear management, no chat analysis.
         if (com.milkdromeda.blockpal.EmergencyState.isDisabled()) {
+            if (mode == Mode.EXECUTING) {
+                taskManager.clearPlan();
+                pendingTask = null;
+                mode = Mode.IDLE;
+            }
+            return;
+        }
+
+        // While possessing a player, the bot stands down: no autonomous planning, gear
+        // management or chat analysis — PossessionManager drives the player instead. It
+        // still trails its owner via its follow goal (mode IDLE keeps ExecuteTaskGoal
+        // off), so the "emptied" companion tags along until possession ends.
+        if (possessing != null) {
             if (mode == Mode.EXECUTING) {
                 taskManager.clearPlan();
                 pendingTask = null;
@@ -698,6 +716,19 @@ public class AiAssistantEntity extends PathfinderMob {
 
     public Mode getMode() { return mode; }
     public void setMode(Mode mode) { this.mode = mode; }
+
+    /** True while this bot is possessing a player (its own AI is paused). */
+    public boolean isPossessing() { return possessing != null; }
+
+    /** The UUID of the player this bot is possessing, or null. */
+    public UUID getPossessing() { return possessing; }
+
+    /** Marks this bot as possessing {@code playerId} (its AI stands down). */
+    public void setPossessing(UUID playerId) { this.possessing = playerId; }
+
+    /** Ends possession — the bot's own AI resumes on the next tick. */
+    public void clearPossession() { this.possessing = null; }
+
     public String getAssistantName() { return assistantName; }
 
     /** This bot's built-in personality — supplies the quick no-API reply pools. */

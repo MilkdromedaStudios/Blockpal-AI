@@ -14,6 +14,9 @@ All commands are under `/ai`. Type `/ai help` in-game for the live list.
 | `/ai follow` | Have it follow you |
 | `/ai stay` | Hold position and keep watch |
 | `/ai stop` | Cancel the current task |
+| `/ai possess` | Let your companion drive **your** character — opens a console to type instructions — see [Possession Mode](Possession-Mode) |
+| `/ai possess <instruction>` | Steer possession by text (also works on Bedrock/vanilla) |
+| `/ai possess stop` | End possession, hand control back |
 | `/ai resume` · `/ai enable` | Re-enable after the FPS kill-switch tripped |
 | `/ai locate` · `/ai where` | Distance, direction and coords |
 | `/ai name <name>` | Rename it |
@@ -63,6 +66,7 @@ permission level. See **[Admin Menu](Admin-Menu)** for the full guide.
 | `/ai admin disable` · `/ai admin enable` | Turn all bots off / on for everyone |
 | `/ai admin reload` | Reload `config.json` from disk |
 | `/ai admin requirekey on\|off` | Make players use their own API key — see [Per-Player Keys & Models](Per-Player-Keys-and-Models) |
+| `/ai admin possession on\|off` | Allow / deny possession mode (`/ai possess`) — see [Possession Mode](Possession-Mode) |
 | `/ai admin keylist add\|remove\|list <player>` | Who may use the shared key when BYOK is on |
 | `/ai admin models add\|remove\|list <id>` | Curate the models players may pick |
 
