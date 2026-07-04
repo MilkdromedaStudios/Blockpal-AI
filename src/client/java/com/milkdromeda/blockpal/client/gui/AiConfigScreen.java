@@ -5,7 +5,7 @@ import com.milkdromeda.blockpal.client.render.RuntimeSkins;
 import com.milkdromeda.blockpal.network.ConfigData;
 import com.milkdromeda.blockpal.network.ConfigUpdatePayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
@@ -67,12 +67,13 @@ public class AiConfigScreen extends Screen {
     private String pDefaultPersonality;
     private boolean pAllowCustom;
     private boolean pAllowPossession;
+    private boolean pFreeFallback;
     private boolean tokenSet;
 
     // ── widgets for the current tab (null when not on that tab) ──
     private EditBox nameBox, skinBox, modelBox, apiUrlBox, tokenBox;
     private StringWidget tokenStatus;
-    private CycleButton<Boolean> listenButton, activeButton, commandsButton, debugButton, sneakButton, allowCustomButton, allowPossessionButton;
+    private CycleButton<Boolean> listenButton, activeButton, commandsButton, debugButton, sneakButton, allowCustomButton, allowPossessionButton, freeFallbackButton;
     private CycleButton<String> presetButton, defaultPersonalityButton;
     private OptionSlider tempSlider, maxTokensSlider, followSlider, guardSlider, cmdLevelSlider;
     private OptionSlider actionDelaySlider, maxTaskSlider, fleeSlider;
@@ -109,6 +110,7 @@ public class AiConfigScreen extends Screen {
                 ? d.defaultPersonality() : Personality.DEFAULT.id();
         pAllowCustom = d.allowCustomPersonality();
         pAllowPossession = d.allowPossession();
+        pFreeFallback = d.freeAiFallback();
         // Capture the as-loaded state once so dirty-tracking survives tab switches
         // (init() runs on every tab change, so we must NOT recompute it there).
         baseline = buildData();
@@ -120,7 +122,7 @@ public class AiConfigScreen extends Screen {
         clearWidgetRefs();
 
         // -- pinned title --
-        addRenderableWidget(new StringWidget(0, 6, this.width, 12, this.title, this.font));
+        addRenderableWidget(TechTheme.centered(this.font, this.width, 6, 12, TechTheme.title("Settings")));
 
         // -- shared cross-panel tab bar (this screen is the admin "Settings" panel) --
         PanelNav.build(this.width, W + 12, NAV_Y, NAV_H, PanelNav.Tab.SETTINGS, true, this::addRenderableWidget);
@@ -165,7 +167,7 @@ public class AiConfigScreen extends Screen {
     private void clearWidgetRefs() {
         nameBox = skinBox = modelBox = apiUrlBox = tokenBox = null;
         tokenStatus = null;
-        listenButton = activeButton = commandsButton = debugButton = sneakButton = allowCustomButton = allowPossessionButton = null;
+        listenButton = activeButton = commandsButton = debugButton = sneakButton = allowCustomButton = allowPossessionButton = freeFallbackButton = null;
         presetButton = defaultPersonalityButton = null;
         tempSlider = maxTokensSlider = followSlider = guardSlider = cmdLevelSlider = null;
         actionDelaySlider = maxTaskSlider = fleeSlider = null;
@@ -183,7 +185,7 @@ public class AiConfigScreen extends Screen {
             Tab t = tabs[i];
             boolean current = (t == tab);
             Component label = current
-                    ? Component.literal(t.label).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)
+                    ? Component.literal(t.label).withStyle(TechTheme::accent)
                     : Component.literal(t.label);
             Button b = Button.builder(label, btn -> { if (tab != t) { capture(); tab = t; rebuildWidgets(); } })
                     .bounds(x0 + i * (bw + gap), TAB_Y, bw, TAB_H).build();
@@ -195,7 +197,7 @@ public class AiConfigScreen extends Screen {
     // ── tab bodies ────────────────────────────────────────────────────────────────
 
     private void buildIdentityTab(LinearLayout body) {
-        header(body, "§eWho your assistant is");
+        header(body, "Who your assistant is");
         nameBox = bodyBox(body, "Assistant name", pName, 32, "The name shown above the assistant and used when it speaks.");
         skinBox = bodyBox(body, "Default skin", pSkin, 64, "Skin for newly summoned assistants: a built-in, a namespace:path, or a PNG in the skins folder.");
         Button open = Button.builder(Component.literal("📁 Open skins folder"), b -> openSkinsFolder())
@@ -213,7 +215,7 @@ public class AiConfigScreen extends Screen {
                 "Personality of newly summoned bots. Players change their own with /ai personality.")));
 
         body.addChild(new StringWidget(W, LABEL_H + 4, Component.literal(""), this.font));
-        Button wikiBtn = Button.builder(Component.literal("§6📖 Open In-Game Wiki"),
+        Button wikiBtn = Button.builder(Component.literal("§b📖 Open In-Game Wiki"),
                         b -> this.minecraft.setScreenAndShow(new AiManualScreen(this)))
                 .bounds(0, 0, W, FIELD_H).build();
         wikiBtn.setTooltip(Tooltip.create(Component.literal(
@@ -233,7 +235,7 @@ public class AiConfigScreen extends Screen {
     }
 
     private void buildBehaviorTab(LinearLayout body) {
-        header(body, "§eHow it behaves");
+        header(body, "How it behaves");
         presetButton = body.addChild(CycleButton.<String>builder(s -> Component.literal(presetLabel(s)), pPreset)
                 .withValues("normal", "opus", "potato")
                 .create(0, 0, W, FIELD_H, Component.literal("Preset"), (btn, val) -> applyPreset(val)));
@@ -249,7 +251,7 @@ public class AiConfigScreen extends Screen {
     }
 
     private void buildAiTab(LinearLayout body) {
-        header(body, "§eLanguage model & API");
+        header(body, "Language model & API");
         modelBox = bodyBox(body, "Model", pModel, 128, "Model id sent to the API (e.g. mistralai/Mistral-7B-Instruct-v0.2).");
         apiUrlBox = bodyBox(body, "API URL", pApiUrl, 256, "Any OpenAI-compatible chat-completions endpoint (HuggingFace, OpenAI, Ollama, LM Studio…).");
         tokenBox = bodyBox(body, "API token", "", 256, "Your API key. Never shown back for privacy — leave blank to keep the current one.");
@@ -257,18 +259,22 @@ public class AiConfigScreen extends Screen {
         // The key is never echoed back, so the emptying box needs an explicit "it IS
         // saved" signal or players think Apply lost it.
         tokenStatus = body.addChild(new StringWidget(W, LABEL_H, tokenStatusText(), this.font));
+        freeFallbackButton = bodyToggle(body, "Free AI fallback (no key)", pFreeFallback,
+                "With no API key set anywhere, bots use a free built-in AI service so they work out of the box. "
+                        + "A HuggingFace (or other) key always takes over the moment it's set. "
+                        + "Turn off to strictly require a key.");
         tempSlider = bodySlider(body, "Temperature", 0.0, 2.0, pTemp, false, "Creativity of the model — lower is more focused, higher is more varied.");
         maxTokensSlider = bodySlider(body, "Max tokens", 32, 2048, pMaxTokens, true, "Upper bound on the length of each plan the model returns.");
     }
 
     private void buildCombatTab(LinearLayout body) {
-        header(body, "§eCombat & movement");
+        header(body, "Combat & movement");
         followSlider = bodySlider(body, "Follow distance", 1, 32, pFollow, false, "How close the assistant stays when following you.");
         guardSlider = bodySlider(body, "Guard radius", 4, 64, pGuard, false, "How far it ranges from its post while guarding.");
     }
 
     private void buildDeveloperTab(LinearLayout body) {
-        header(body, "§eAdvanced — handle with care");
+        header(body, "Advanced — handle with care");
         body.addChild(new StringWidget(W, LABEL_H,
                 Component.literal("⚠  These can cause lag or crash the game. See developer.md.")
                         .withStyle(s -> s.withColor(0xFF5555)), this.font));
@@ -322,7 +328,7 @@ public class AiConfigScreen extends Screen {
     // ── body widget factories ───────────────────────────────────────────────────
 
     private void header(LinearLayout body, String text) {
-        body.addChild(new StringWidget(W, LABEL_H + 3, Component.literal(text), this.font));
+        body.addChild(new StringWidget(W, LABEL_H + 3, TechTheme.header(text), this.font));
     }
 
     private EditBox bodyBox(LinearLayout body, String label, String value, int maxLen, String tooltip) {
@@ -365,6 +371,7 @@ public class AiConfigScreen extends Screen {
         if (sneakButton != null) pSneakMenu = sneakButton.getValue();
         if (allowCustomButton != null) pAllowCustom = allowCustomButton.getValue();
         if (allowPossessionButton != null) pAllowPossession = allowPossessionButton.getValue();
+        if (freeFallbackButton != null) pFreeFallback = freeFallbackButton.getValue();
         if (presetButton != null) pPreset = presetButton.getValue();
         if (defaultPersonalityButton != null) pDefaultPersonality = defaultPersonalityButton.getValue();
         if (tempSlider != null) pTemp = tempSlider.current();
@@ -383,13 +390,16 @@ public class AiConfigScreen extends Screen {
                 pListen, pActive, pDebug, pName, pToken, tokenSet, pModel, pApiUrl,
                 pTemp, pMaxTokens, pFollow, pGuard, pCommands, pCmdLevel, pSkin,
                 pActionDelay, pMaxTask, pFlee, pPreset, pSneakMenu,
-                pDefaultPersonality, pAllowCustom, pAllowPossession);
+                pDefaultPersonality, pAllowCustom, pAllowPossession, pFreeFallback);
     }
 
     private Component tokenStatusText() {
-        return Component.literal(tokenSet
-                ? "§a✔ API key saved — hidden here for privacy; blank keeps it"
-                : "§7No API key saved yet — paste one above, then Apply");
+        if (tokenSet) {
+            return Component.literal("§a✔ API key saved — hidden here for privacy; blank keeps it");
+        }
+        return Component.literal(pFreeFallback
+                ? "§b⚡ No key set — bots run on the free built-in AI; add a key for better quality"
+                : "§cNo key set and the free fallback is OFF — the AI can't run");
     }
 
     private void sendCurrent() {
@@ -442,6 +452,15 @@ public class AiConfigScreen extends Screen {
             appliedFeedbackUntil = 0;
             appliedLabel.setMessage(Component.empty());
         }
+    }
+
+    @Override
+    public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+        super.extractBackground(g, mouseX, mouseY, partialTick);
+        TechTheme.backdrop(g, this.width, this.height);
+        // Wide enough for both the settings column and the 3-button action bar.
+        TechTheme.panel(g, this.width / 2 - 172, 2, this.width / 2 + 172, this.height - 2);
+        TechTheme.rule(g, this.width / 2 - 130, this.width / 2 + 130, 17);
     }
 
     @Override

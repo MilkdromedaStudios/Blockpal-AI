@@ -3,6 +3,7 @@ package com.milkdromeda.blockpal.client.gui;
 import com.milkdromeda.blockpal.network.AdminActionPayload;
 import com.milkdromeda.blockpal.network.AdminStatsData;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.ScrollableLayout;
@@ -48,7 +49,7 @@ public class AdminScreen extends Screen {
 
     @Override
     protected void init() {
-        addRenderableWidget(new StringWidget(0, 6, this.width, 12, this.title, this.font));
+        addRenderableWidget(TechTheme.centered(this.font, this.width, 6, 12, TechTheme.title("Admin")));
 
         // -- shared cross-panel tab bar --
         PanelNav.build(this.width, W + 12, NAV_Y, NAV_H, PanelNav.Tab.ADMIN, true, this::addRenderableWidget);
@@ -56,13 +57,13 @@ public class AdminScreen extends Screen {
         // -- scrollable body --
         LinearLayout body = LinearLayout.vertical().spacing(SPACING);
 
-        line(body, "§6Server status");
-        line(body, "§eBots: §f" + d.totalBots() + " §7/ " + (d.maxBots() == 0 ? "∞" : d.maxBots()));
-        line(body, "§eMod: " + (d.modDisabled() ? "§cDISABLED" : "§aactive")
-                + "  §eToken: §f" + (d.tokenSet() ? ("set ✓" + (d.tokenFromEnv() ? " (env)" : "")) : "§cnot set"));
+        body.addChild(new StringWidget(W, LABEL_H, TechTheme.header("Server status"), this.font));
+        line(body, "§bBots: §f" + d.totalBots() + " §7/ " + (d.maxBots() == 0 ? "∞" : d.maxBots()));
+        line(body, "§bMod: " + (d.modDisabled() ? "§cDISABLED" : "§aactive")
+                + "  §bToken: §f" + (d.tokenSet() ? ("set ✓" + (d.tokenFromEnv() ? " (env)" : "")) : "§cnot set"));
 
         line(body, " ");
-        line(body, "§6Settings §7(click to change)");
+        body.addChild(new StringWidget(W, LABEL_H, TechTheme.header("Settings").copy().append(TechTheme.dim("  (click to change)")), this.font));
         // Booleans
         addToggle(body, "Allow commands", d.allowCommands(), "allowcommands",
                 "Let bots run /setblock, /fill, /give, etc. as part of a plan.");
@@ -83,7 +84,7 @@ public class AdminScreen extends Screen {
         line(body, "§7Manage those lists with §f/ai admin models§7 and §f/ai admin keylist§7.");
 
         line(body, " ");
-        line(body, "§6Players online (" + d.players().size() + ")");
+        body.addChild(new StringWidget(W, LABEL_H, TechTheme.header("Players online (" + d.players().size() + ")"), this.font));
         if (d.players().isEmpty()) line(body, "§7  none");
         for (AdminStatsData.PlayerRow p : d.players()) {
             line(body, "§f  " + p.name() + " §7— bots: §f" + p.bots()
@@ -91,7 +92,7 @@ public class AdminScreen extends Screen {
         }
 
         line(body, " ");
-        line(body, "§6Bots (" + d.bots().size() + ")");
+        body.addChild(new StringWidget(W, LABEL_H, TechTheme.header("Bots (" + d.bots().size() + ")"), this.font));
         if (d.bots().isEmpty()) line(body, "§7  none");
         for (AdminStatsData.BotRow b : d.bots()) {
             line(body, "§f  " + b.name() + " §7(" + b.owner() + ") — "
@@ -171,6 +172,15 @@ public class AdminScreen extends Screen {
         }
         // One-shot actions trigger a server re-sync that reopens this screen;
         // setting toggles update their own widget in place.
+    }
+
+    @Override
+    public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+        super.extractBackground(g, mouseX, mouseY, partialTick);
+        TechTheme.backdrop(g, this.width, this.height);
+        TechTheme.panel(g, this.width / 2 - (W + 12) / 2 - 10, 2,
+                this.width / 2 + (W + 12) / 2 + 10, this.height - 2);
+        TechTheme.rule(g, this.width / 2 - 130, this.width / 2 + 130, 17);
     }
 
     @Override

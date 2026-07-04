@@ -111,7 +111,7 @@ public final class ChatListener {
         if (!ai.hasUsableApiKey()) {
             String how = ModConfig.get().requireOwnApiKey
                     ? "you'll need your own API key — set it with /ai mykey <token>"
-                    : "I need an API token first — an admin can set it with /ai token <token>";
+                    : "I need an API key first — an admin can set one with /ai admin token <token>";
             sender.sendSystemMessage(Component.literal(
                     ai.getAssistantName() + ": \"I'd love to help, but " + how + ".\""));
             return;

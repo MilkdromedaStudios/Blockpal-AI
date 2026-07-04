@@ -6,6 +6,7 @@ import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -26,7 +27,7 @@ public class ModConfig {
      * default instead of silently inheriting Java's zero/false. A file with no
      * version at all reads back as {@code 0} and is migrated from there.
      */
-    public static final int CURRENT_CONFIG_VERSION = 7;
+    public static final int CURRENT_CONFIG_VERSION = 8;
 
     // Settings (including the API key) live in their own folder under the game's
     // config directory. That directory is untouched when you replace the mod jar,
@@ -168,6 +169,22 @@ public class ModConfig {
     // when unset, disallowed, or player choice is turned off.
     public Map<String, String> playerModels = new HashMap<>();
 
+    // ---- Free built-in AI (works with no key at all) ----
+
+    // When no API key resolves for a request (no shared server key, no personal
+    // key), fall back to this free, keyless OpenAI-compatible service so the
+    // companion works straight out of the box. HuggingFace (apiUrl + a token)
+    // stays the configured default and always wins the moment a token is set —
+    // the free service is only ever the no-key fallback. Ops can turn it off to
+    // make a real key strictly required again.
+    public boolean freeAiFallback = true;
+
+    // The free fallback endpoint + model. Pollinations is an open, keyless
+    // OpenAI-compatible chat-completions service; any other keyless endpoint
+    // (e.g. a local Ollama) can be pointed at here instead.
+    public String freeApiUrl = "https://text.pollinations.ai/openai";
+    public String freeModel = "openai";
+
     // Whether the first-run tutorial has already been shown. Fresh installs start
     // false (so the tutorial auto-opens once); upgrading installs are set true by
     // migrate() so existing servers aren't nagged.
@@ -215,25 +232,67 @@ public class ModConfig {
         save();
     }
 
-    /** @return true when the file was written; false is also logged so it's never silent. */
-    public static boolean save() {
+    /**
+     * Writes the config safely: the JSON is fully serialized in memory first, then
+     * written to a temp file in the same folder and atomically moved over
+     * {@code config.json} — so a crash, full disk, or antivirus interruption can
+     * never leave a half-written (corrupt) settings file behind. The previous good
+     * file is kept as {@code config.json.prev}, and a transient failure (e.g. a
+     * virus scanner briefly locking the file on Windows) is retried once.
+     *
+     * @return true when the file was written; false is also logged so it's never silent.
+     */
+    public static synchronized boolean save() {
+        // Persist the token only in obfuscated form, and never an env-provided
+        // one. Swap the live plaintext out for serialization, then restore it.
+        String plain = instance.hfToken == null ? "" : instance.hfToken;
+        instance.hfTokenObf = obfuscate(instance.tokenFromEnv ? "" : plain);
+        instance.hfToken = "";
+        String json;
         try {
-            Files.createDirectories(CONFIG_DIR);
-            // Persist the token only in obfuscated form, and never an env-provided
-            // one. Swap the live plaintext out for the write, then restore it.
-            String plain = instance.hfToken == null ? "" : instance.hfToken;
-            instance.hfTokenObf = obfuscate(instance.tokenFromEnv ? "" : plain);
-            instance.hfToken = "";
-            try (Writer w = Files.newBufferedWriter(CONFIG_PATH)) {
-                GSON.toJson(instance, w);
-            } finally {
-                instance.hfToken = plain;
+            json = GSON.toJson(instance);
+        } finally {
+            instance.hfToken = plain;
+        }
+
+        IOException last = null;
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try {
+                writeAtomically(json);
+                return true;
+            } catch (IOException e) {
+                last = e;
+                // Give a transient lock (antivirus / sync tool) a moment, then retry.
+                try { Thread.sleep(150); } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
             }
-            return true;
-        } catch (IOException e) {
-            System.err.println("[Blockpal] Failed to save config to "
-                    + CONFIG_PATH.toAbsolutePath() + ": " + e.getMessage());
-            return false;
+        }
+        System.err.println("[Blockpal] Failed to save config to "
+                + CONFIG_PATH.toAbsolutePath() + ": " + (last == null ? "interrupted" : last.getMessage()));
+        return false;
+    }
+
+    /** Temp-file-then-move write so config.json is always either the old or the new file. */
+    private static void writeAtomically(String json) throws IOException {
+        Files.createDirectories(CONFIG_DIR);
+        // Keep the last good file around for hand recovery (.bak is used for corrupt files).
+        if (Files.exists(CONFIG_PATH)) {
+            try {
+                Files.copy(CONFIG_PATH, CONFIG_DIR.resolve("config.json.prev"),
+                        StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException ignored) {
+                // Best-effort backup; never blocks the real save.
+            }
+        }
+        Path tmp = CONFIG_DIR.resolve("config.json.tmp");
+        Files.writeString(tmp, json, StandardCharsets.UTF_8);
+        try {
+            Files.move(tmp, CONFIG_PATH, StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(tmp, CONFIG_PATH, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 
@@ -296,6 +355,12 @@ public class ModConfig {
             // deserializes the new boolean to false, which would silently disable it).
             allowPossession = true;
         }
+        if (configVersion < 8) {
+            // The free keyless AI fallback was added in v8; ship it on by default so
+            // servers without a key get a working companion (an old file deserializes
+            // the new boolean to false, which would silently disable it).
+            freeAiFallback = true;
+        }
         configVersion = CURRENT_CONFIG_VERSION;
     }
 
@@ -305,6 +370,8 @@ public class ModConfig {
         if (hfTokenObf == null) hfTokenObf = "";
         if (hfModel == null || hfModel.isBlank()) hfModel = "mistralai/Mistral-7B-Instruct-v0.2";
         if (apiUrl == null || apiUrl.isBlank()) apiUrl = "https://router.huggingface.co/v1/chat/completions";
+        if (freeApiUrl == null || freeApiUrl.isBlank()) freeApiUrl = "https://text.pollinations.ai/openai";
+        if (freeModel == null || freeModel.isBlank()) freeModel = "openai";
         if (defaultName == null || defaultName.isBlank()) defaultName = "Ethan";
         if (defaultSkin == null || defaultSkin.isBlank()) defaultSkin = "default";
         if (com.milkdromeda.blockpal.ai.Personality.byId(defaultPersonality) == null) {
@@ -359,6 +426,23 @@ public class ModConfig {
 
     public boolean hasApiToken() {
         return hfToken != null && !hfToken.isBlank();
+    }
+
+    /**
+     * True when SOME language model is reachable server-wide: a shared key is set,
+     * or the free keyless fallback is enabled. Gates the "can the AI run at all"
+     * checks — {@link #hasApiToken()} stays strictly "is a key set" for display.
+     */
+    public boolean aiAvailable() {
+        return hasApiToken() || freeAiFallback;
+    }
+
+    /**
+     * True when a bot owned by {@code owner} can use SOME language model: a
+     * personal/shared key resolves for them, or the free fallback is enabled.
+     */
+    public boolean aiAvailableFor(UUID owner, String ownerName) {
+        return !resolveTokenFor(owner, ownerName).isBlank() || freeAiFallback;
     }
 
     /** True when the active token came from the environment (never persisted). */

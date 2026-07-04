@@ -20,15 +20,18 @@ In-game, run:
 A companion named **Ethan** spawns next to you with a nametag. Rename it any time
 with `/ai name <name>`.
 
-## 2. Add an AI token (one-time)
+## 2. (Optional) Add an AI token
 
-Quick commands (come, follow, stay…) work out of the box, but **AI-planned tasks need
-an API token.** Blockpal uses HuggingFace's router (OpenAI-compatible) by default.
+Quick commands (come, follow, stay…) work out of the box — and so do AI-planned
+tasks: **with no token set, Blockpal uses a free built-in AI service** so your
+companion can think from the first minute. Adding a token switches it to a
+faster, higher-quality model; Blockpal uses HuggingFace's router
+(OpenAI-compatible) by default.
 
 1. Create a free token at <https://huggingface.co/settings/tokens>.
-2. Open the panel with **`/ai menu`** → **AI** tab → paste it into the **API token**
-   field → **Save**. (Server owners can instead set the `BLOCKPAL_API_TOKEN`
-   environment variable so it never touches disk.)
+2. Open the panel with **`/ai menu`** → **AI & API** tab → paste it into the
+   **API token** field → **Save**. (Server owners can instead set the
+   `BLOCKPAL_API_TOKEN` environment variable so it never touches disk.)
 
 Prefer everyone to use their own key? Each player can set theirs in **`/ai mymenu`**
 (or `/ai mykey <token>`) — see [Per-Player Keys & Models](Per-Player-Keys-and-Models).
