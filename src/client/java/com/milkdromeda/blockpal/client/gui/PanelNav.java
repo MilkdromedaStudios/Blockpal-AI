@@ -31,6 +31,18 @@ public final class PanelNav {
     /** Adds the cross-panel tab buttons via {@code sink} (usually {@code this::addRenderableWidget}). */
     public static void build(int screenWidth, int width, int y, int h,
                              Tab active, boolean admin, Consumer<AbstractWidget> sink) {
+        build(screenWidth, width, y, h, active, admin, sink, null);
+    }
+
+    /**
+     * Same, plus a {@code beforeSwitch} hook run just before leaving for another
+     * panel. Switching replaces the whole screen with the next sync packet, so a
+     * screen with unsaved edits uses this to apply them first (the Settings panel
+     * would otherwise silently drop a typed-but-unsaved API key).
+     */
+    public static void build(int screenWidth, int width, int y, int h,
+                             Tab active, boolean admin, Consumer<AbstractWidget> sink,
+                             Runnable beforeSwitch) {
         List<Tab> tabs = new ArrayList<>();
         if (admin) {
             tabs.add(Tab.SETTINGS);
@@ -49,7 +61,12 @@ public final class PanelNav {
             Component label = current
                     ? Component.literal(labelOf(t)).withStyle(TechTheme::accent)
                     : Component.literal(labelOf(t));
-            Button b = Button.builder(label, btn -> { if (!current) switchTo(t); })
+            Button b = Button.builder(label, btn -> {
+                        if (!current) {
+                            if (beforeSwitch != null) beforeSwitch.run();
+                            switchTo(t);
+                        }
+                    })
                     .bounds(x0 + i * (bw + gap), y, bw, h).build();
             b.active = !current;   // the current tab reads as "pressed"
             sink.accept(b);
