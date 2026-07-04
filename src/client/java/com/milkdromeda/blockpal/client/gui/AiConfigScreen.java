@@ -118,14 +118,22 @@ public class AiConfigScreen extends Screen {
 
     @Override
     protected void init() {
+        // init() reruns on EVERY widget rebuild — sub-tab clicks, window resize,
+        // fullscreen toggle, GUI-scale change — so first fold anything typed since
+        // the last capture into the draft, or the rebuild silently discards it
+        // (most painfully a just-pasted API key). First open is a no-op (no widgets).
+        capture();
         // Drop references from the previous tab so capture() never reads stale widgets.
         clearWidgetRefs();
 
         // -- pinned title --
         addRenderableWidget(TechTheme.centered(this.font, this.width, 6, 12, TechTheme.title("Settings")));
 
-        // -- shared cross-panel tab bar (this screen is the admin "Settings" panel) --
-        PanelNav.build(this.width, W + 12, NAV_Y, NAV_H, PanelNav.Tab.SETTINGS, true, this::addRenderableWidget);
+        // -- shared cross-panel tab bar (this screen is the admin "Settings" panel).
+        // Switching panels replaces this screen with the next sync packet, so apply
+        // pending edits first — otherwise a typed-but-unsaved API key would be lost.
+        PanelNav.build(this.width, W + 12, NAV_Y, NAV_H, PanelNav.Tab.SETTINGS, true, this::addRenderableWidget,
+                () -> { if (isDirty()) sendCurrent(); });
 
         // -- pinned settings sub-tab bar --
         buildTabBar();
@@ -254,7 +262,12 @@ public class AiConfigScreen extends Screen {
         header(body, "Language model & API");
         modelBox = bodyBox(body, "Model", pModel, 128, "Model id sent to the API (e.g. mistralai/Mistral-7B-Instruct-v0.2).");
         apiUrlBox = bodyBox(body, "API URL", pApiUrl, 256, "Any OpenAI-compatible chat-completions endpoint (HuggingFace, OpenAI, Ollama, LM Studio…).");
-        tokenBox = bodyBox(body, "API token", "", 256, "Your API key. Never shown back for privacy — leave blank to keep the current one.");
+        // Seeded from the DRAFT (pToken), not the saved key: pToken only ever holds
+        // text typed-but-not-yet-sent, so a key you pasted survives switching to
+        // another tab and back instead of silently vanishing before Save. A key
+        // that's already saved is never echoed back here (privacy) — the box then
+        // starts empty and blank means "keep it".
+        tokenBox = bodyBox(body, "API token", pToken, 256, "Your API key. Never shown back for privacy — leave blank to keep the current one.");
         tokenBox.setHint(Component.literal(tokenSet ? "set - blank keeps it" : "not set"));
         // The key is never echoed back, so the emptying box needs an explicit "it IS
         // saved" signal or players think Apply lost it.
@@ -394,6 +407,9 @@ public class AiConfigScreen extends Screen {
     }
 
     private Component tokenStatusText() {
+        if (!pToken.isBlank()) {
+            return Component.literal("§e➤ Key typed but not saved yet — press Apply or Save");
+        }
         if (tokenSet) {
             return Component.literal("§a✔ API key saved — hidden here for privacy; blank keeps it");
         }
