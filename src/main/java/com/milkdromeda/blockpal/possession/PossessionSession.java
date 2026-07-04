@@ -142,11 +142,9 @@ public class PossessionSession {
     }
 
     private void requestPlan(ServerPlayer player, AiAssistantEntity bot, String instruction) {
-        ModConfig cfg = ModConfig.get();
-        HuggingFaceClient.ApiAuth auth = new HuggingFaceClient.ApiAuth(
-                cfg.resolveTokenFor(player.getUUID(), player.getName().getString()),
-                cfg.resolveModelFor(player.getUUID()));
-        if (!auth.hasToken()) {
+        HuggingFaceClient.ApiAuth auth = HuggingFaceClient.ApiAuth.resolveFor(
+                player.getUUID(), player.getName().getString());
+        if (!auth.usable()) {
             status.add("§cNo API key available — set one with §f/ai mykey <token>§c.");
             return;
         }

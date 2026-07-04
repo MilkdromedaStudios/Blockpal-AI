@@ -4,6 +4,28 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.17.0
+- **The AI now works with no API key at all.** With no key set anywhere, Blockpal
+  automatically falls back to a **free built-in AI service** (Pollinations, keyless
+  and OpenAI-compatible), so your companion can plan, build, mine and chat from the
+  moment it spawns — zero setup. HuggingFace stays the configured default: the
+  moment you add a key (shared or personal) it takes over, and removing it brings
+  the free fallback back. Ops can turn the fallback off ("Free AI fallback" toggle
+  on the AI & API tab) to strictly require a key. The startup log, tutorial, in-game
+  wiki and the AI & API tab's status line all now tell you which mode you're in.
+- **Settings saves are crash-safe.** The config file is now written atomically
+  (fully serialized in memory, written to a temp file, then swapped into place), so
+  a crash, full disk or antivirus interruption can never leave a half-written
+  `config.json` behind. The previous good file is kept as `config.json.prev`, and a
+  transient write failure (e.g. a virus scanner briefly locking the file) is
+  retried automatically. This fixes the "settings sometimes don't save" reports.
+- **A new look: dark, futuristic, blue.** Every Blockpal screen — Settings, Admin,
+  Bots, My Settings, the Possession console, the Tutorial, the in-game Wiki and the
+  Host screen — now draws a shared "holo-terminal" theme: a deep space-navy backdrop
+  with a faint hologram grid, console plates with cyan edge lights and bracketed
+  corners, and neon-cyan headings (the old yellow/gold accents are gone). Same
+  layout and widgets, so everything is where it was — it just looks like the future.
+
 ## 3.16.1
 - **Fixed: settings (and your API key) not saving in singleplayer.** The owner of a
   singleplayer or LAN world now always counts as a Blockpal admin — even with cheats

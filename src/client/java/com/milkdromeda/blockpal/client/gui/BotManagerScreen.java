@@ -7,6 +7,7 @@ import com.milkdromeda.blockpal.network.BotListData.BotInfo;
 import com.milkdromeda.blockpal.network.BotListRequestPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
@@ -73,7 +74,7 @@ public class BotManagerScreen extends Screen {
         renameBox = skinBox = null;
         personalityCycle = null;
 
-        addRenderableWidget(new StringWidget(0, 6, this.width, 12, this.title, this.font));
+        addRenderableWidget(TechTheme.centered(this.font, this.width, 6, 12, TechTheme.title("Bots")));
         PanelNav.build(this.width, CONTENT_W, NAV_Y, NAV_H, PanelNav.Tab.BOTS, isAdminClient(), this::addRenderableWidget);
 
         int leftX = this.width / 2 - CONTENT_W / 2;
@@ -89,8 +90,10 @@ public class BotManagerScreen extends Screen {
             LinearLayout list = LinearLayout.vertical().spacing(2);
             for (BotInfo b : data.bots()) {
                 boolean current = b.entityId() == selectedId;
-                Component label = Component.literal(trim(b.name(), 16) + " §7(" + trim(b.owner(), 10) + ")")
-                        .withStyle(current ? ChatFormatting.YELLOW : ChatFormatting.WHITE);
+                String entryText = trim(b.name(), 16) + " §7(" + trim(b.owner(), 10) + ")";
+                Component label = current
+                        ? Component.literal(entryText).withStyle(TechTheme::accent)
+                        : Component.literal(entryText);
                 Button entry = Button.builder(label, btn -> { selectedId = b.entityId(); lastSelected = selectedId; rebuildWidgets(); })
                         .bounds(0, 0, LIST_W, 18).build();
                 entry.setTooltip(Tooltip.create(Component.literal(
@@ -129,7 +132,7 @@ public class BotManagerScreen extends Screen {
     private void buildDetails(BotInfo sel, int x, int w) {
         int y = BODY_TOP;
         addRenderableWidget(new StringWidget(x, y, w, 12,
-                Component.literal(sel.name()).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), this.font)); y += 13;
+                TechTheme.header(sel.name()), this.font)); y += 13;
         addRenderableWidget(line(x, y, w, "Owner: " + sel.owner() + (sel.ownedByViewer() ? " (you)" : ""))); y += 11;
         addRenderableWidget(line(x, y, w, sel.mode().toLowerCase() + " · " + sel.dim())); y += 11;
         addRenderableWidget(line(x, y, w, "@ " + sel.x() + ", " + sel.y() + ", " + sel.z())); y += 11;
@@ -236,6 +239,19 @@ public class BotManagerScreen extends Screen {
             if (p.display().equalsIgnoreCase(label) || p.id().equalsIgnoreCase(label)) return p.id();
         }
         return Personality.DEFAULT.id();
+    }
+
+    @Override
+    public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+        super.extractBackground(g, mouseX, mouseY, partialTick);
+        TechTheme.backdrop(g, this.width, this.height);
+        int x0 = this.width / 2 - CONTENT_W / 2 - 10;
+        int x1 = this.width / 2 + CONTENT_W / 2 + 10;
+        TechTheme.panel(g, x0, 2, x1, this.height - 2);
+        TechTheme.rule(g, this.width / 2 - 130, this.width / 2 + 130, 17);
+        // divider between the picker list and the detail pane
+        int dx = this.width / 2 - CONTENT_W / 2 + LIST_W + GAP / 2;
+        g.fill(dx, BODY_TOP, dx + 1, this.height - FOOTER, TechTheme.ACCENT_DIM);
     }
 
     @Override

@@ -4,6 +4,7 @@ import com.milkdromeda.blockpal.ai.Personality;
 import com.milkdromeda.blockpal.network.PlayerPrefsPayload;
 import com.milkdromeda.blockpal.network.PlayerPrefsSyncPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
@@ -40,6 +41,7 @@ public class PlayerSettingsScreen extends Screen {
     private String chosenModel;
 
     private CycleButton<String> personalityButton;
+    private int panelBottom;   // set in init(), read by extractBackground()
     private EditBox customBox;
     private String chosenPersonality;
     // The personality state as the screen opened, so we only send a change (and so a
@@ -64,13 +66,13 @@ public class PlayerSettingsScreen extends Screen {
         int x = this.width / 2 - W / 2;
         int y = 44;
 
-        addRenderableWidget(new StringWidget(0, 6, this.width, 12, this.title, this.font));
+        addRenderableWidget(TechTheme.centered(this.font, this.width, 6, 12, TechTheme.title("My Settings")));
 
         // -- shared cross-panel tab bar (admins also see Settings & Admin) --
         PanelNav.build(this.width, W, 22, 16, PanelNav.Tab.ME, data.isAdmin(), this::addRenderableWidget);
 
         // -- model picker --
-        addRenderableWidget(new StringWidget(x, y, W, 10, Component.literal("§eBot model"), this.font));
+        addRenderableWidget(new StringWidget(x, y, W, 10, TechTheme.header("Bot model"), this.font));
         y += 12;
         if (data.canChooseModel() && !data.allowedModels().isEmpty()) {
             String init = data.allowedModels().contains(chosenModel)
@@ -89,7 +91,7 @@ public class PlayerSettingsScreen extends Screen {
         y += FIELD_H + 6;
 
         // -- personality picker (applies to your nearby bot) --
-        addRenderableWidget(new StringWidget(x, y, W, 10, Component.literal("§ePersonality"), this.font));
+        addRenderableWidget(new StringWidget(x, y, W, 10, TechTheme.header("Personality"), this.font));
         y += 12;
         List<String> values = new ArrayList<>();
         for (Personality p : Personality.values()) values.add(p.id());
@@ -115,7 +117,7 @@ public class PlayerSettingsScreen extends Screen {
         y += FIELD_H + 8;
 
         // -- personal API key --
-        addRenderableWidget(new StringWidget(x, y, W, 10, Component.literal("§ePersonal API key"), this.font));
+        addRenderableWidget(new StringWidget(x, y, W, 10, TechTheme.header("Personal API key"), this.font));
         y += 12;
         keyBox = new EditBox(this.font, x, y, W, FIELD_H, Component.literal("API key"));
         keyBox.setMaxLength(256);
@@ -146,6 +148,7 @@ public class PlayerSettingsScreen extends Screen {
                 .bounds(x, y, bw, FIELD_H).build());
         addRenderableWidget(Button.builder(Component.literal("Close"), b -> onClose())
                 .bounds(x + bw + 8, y, bw, FIELD_H).build());
+        panelBottom = y + FIELD_H + 10;
     }
 
     private void save() {
@@ -185,6 +188,15 @@ public class PlayerSettingsScreen extends Screen {
         if (model == null || model.isBlank()) return "(default)";
         int slash = model.indexOf('/');
         return (slash > 0 && model.length() > 28) ? model.substring(slash + 1) : model;
+    }
+
+    @Override
+    public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+        super.extractBackground(g, mouseX, mouseY, partialTick);
+        TechTheme.backdrop(g, this.width, this.height);
+        int bottom = panelBottom > 0 ? panelBottom : this.height - 2;
+        TechTheme.panel(g, this.width / 2 - W / 2 - 12, 2, this.width / 2 + W / 2 + 12, bottom);
+        TechTheme.rule(g, this.width / 2 - 130, this.width / 2 + 130, 17);
     }
 
     @Override

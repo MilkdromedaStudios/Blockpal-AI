@@ -36,10 +36,15 @@ Or use `/ai <task>` for a direct command without addressing it by name.
 
 ---
 
-## Step 3 — Add an API key (for AI-planned tasks)
+## Step 3 — (Optional) Add an API key for better AI
 
-Simple chat commands (`follow`, `come`, `stop`, etc.) work instantly with no key.
-For the AI planner (building, mining, complex tasks) you need an API key.
+Simple chat commands (`follow`, `come`, `stop`, etc.) work instantly with no key —
+and as of 3.17.0 the AI planner works **out of the box too**: with no key set,
+Blockpal automatically uses a **free built-in AI service**, so your companion can
+build and mine from the moment it spawns.
+
+Adding your own key gets you faster, higher-quality models (HuggingFace is the
+configured default):
 
 **Fastest way (your own key):**
 
@@ -48,8 +53,10 @@ For the AI planner (building, mining, complex tasks) you need an API key.
 
 **Server owners — shared key:**
 
-Run `/ai menu` → **AI** tab → paste the token → **Save**.  
+Run `/ai menu` → **AI & API** tab → paste the token → **Save**.  
 Or set `BLOCKPAL_API_TOKEN` as an environment variable (never written to disk).
+The moment a key is set it takes over from the free service; remove it and the
+free fallback quietly steps back in.
 
 ---
 

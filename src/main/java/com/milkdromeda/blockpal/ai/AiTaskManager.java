@@ -38,10 +38,10 @@ public class AiTaskManager {
         int now = (int)(entity.level().getGameTime() & Integer.MAX_VALUE);
         if (now - lastRequestTick < 100) return; // 100 ticks = 5 s
         lastRequestTick = now;
-        // Resolve the owner's key/model. No key (e.g. bring-your-own-key is on and
-        // they haven't set one) → say so instead of firing a doomed request.
+        // Resolve the owner's key/model/endpoint. Unusable (no key anywhere and the
+        // free fallback is off) → say so instead of firing a doomed request.
         HuggingFaceClient.ApiAuth auth = authForOwner();
-        if (!auth.hasToken()) {
+        if (!auth.usable()) {
             entity.broadcastMessage(needKeyMessage());
             return;
         }
@@ -50,21 +50,19 @@ public class AiTaskManager {
         pendingFuture = CLIENT.requestPlan(task, buildContext(), auth, entity.getPlanStyle());
     }
 
-    /** The token + model a request from this bot should use, based on its owner. */
+    /** The token + model + endpoint a request from this bot should use, based on its owner. */
     private HuggingFaceClient.ApiAuth authForOwner() {
-        ModConfig cfg = ModConfig.get();
-        java.util.UUID owner = entity.getOwnerUuid();
-        return new HuggingFaceClient.ApiAuth(
-                cfg.resolveTokenFor(owner, entity.getOwnerName()),
-                cfg.resolveModelFor(owner));
+        return HuggingFaceClient.ApiAuth.resolveFor(entity.getOwnerUuid(), entity.getOwnerName());
     }
 
+    /** Only ever shown when the free fallback is disabled too — there's truly no AI. */
     private String needKeyMessage() {
         if (ModConfig.get().requireOwnApiKey) {
             return "I need your own API key for that — set it with /ai mykey <token> "
                     + "(ask an admin if you think you should be exempt).";
         }
-        return "I don't have an API key to use — an admin can set one with /ai token <token>.";
+        return "I don't have an API key to use — an admin can set one with /ai admin token <token> "
+                + "or in /ai menu.";
     }
 
     /** Whether the current/last activity asked to keep going after its steps run out. */
@@ -78,7 +76,7 @@ public class AiTaskManager {
         if (loopCooldown > 0) { loopCooldown--; return; }
         loopCooldown = 10 * 20; // 10 s minimum between loop iterations
         HuggingFaceClient.ApiAuth auth = authForOwner();
-        if (!auth.hasToken()) return;   // no key → quietly stop looping
+        if (!auth.usable()) return;   // no AI at all → quietly stop looping
         String task = lastTask;
         currentPlan = null;
         waitingForApi = true;
@@ -95,9 +93,9 @@ public class AiTaskManager {
         return CLIENT.moderatePersonality(text, authForOwner());
     }
 
-    /** Whether this bot's owner has a usable API key (needed to moderate custom text). */
+    /** Whether this bot's owner can reach SOME language model (key or free fallback). */
     public boolean hasApiKey() {
-        return authForOwner().hasToken();
+        return authForOwner().usable();
     }
 
     public void tick() {

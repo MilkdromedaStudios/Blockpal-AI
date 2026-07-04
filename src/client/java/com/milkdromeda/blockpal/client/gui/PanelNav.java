@@ -5,7 +5,6 @@ import com.milkdromeda.blockpal.network.BotListRequestPayload;
 import com.milkdromeda.blockpal.network.ConfigRequestPayload;
 import com.milkdromeda.blockpal.network.PlayerPrefsPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
@@ -48,7 +47,7 @@ public final class PanelNav {
             Tab t = tabs.get(i);
             boolean current = (t == active);
             Component label = current
-                    ? Component.literal(labelOf(t)).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)
+                    ? Component.literal(labelOf(t)).withStyle(TechTheme::accent)
                     : Component.literal(labelOf(t));
             Button b = Button.builder(label, btn -> { if (!current) switchTo(t); })
                     .bounds(x0 + i * (bw + gap), y, bw, h).build();

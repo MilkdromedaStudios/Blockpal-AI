@@ -28,7 +28,7 @@ Every Blockpal screen has a shared **tab bar** at the top to move between the pa
 |-----|-------------|
 | **Identity** | Name, skin, **Open skins folder** button, **Default personality** |
 | **Behavior** | Chat listening, active analysis, sneak-to-open-menu, **allow custom personalities**, **allow possession mode**, follow distance, guard radius, [performance preset](Performance-Presets) |
-| **AI** | API URL, model, token, temperature, max tokens |
+| **AI & API** | API URL, model, token, **free AI fallback** toggle, temperature, max tokens |
 | **Combat** | Allow commands, permission level, flee health |
 | **Developer** | Action tick delay, task watchdog timeout, flee health *(high-risk — see [Developer Menu](Developer-Menu))* |
 
@@ -44,6 +44,24 @@ Every Blockpal screen has a shared **tab bar** at the top to move between the pa
 - **Save / Apply / Cancel** bar is pinned at the bottom; **Esc** auto-saves.
 - The token field stays blank when one is set — leave it blank to keep the current
   token, or type a new one to replace it.
+
+## The free AI fallback (3.17.0)
+
+Blockpal works **with no API key at all**: when no key resolves for a request (no
+shared server key, no personal key), it automatically falls back to a **free,
+keyless OpenAI-compatible service** ([Pollinations](https://pollinations.ai)) so
+the companion can plan and act out of the box. HuggingFace stays the configured
+default — the moment a token is set it always wins, and the free service is only
+ever the no-key fallback.
+
+- **Free AI fallback** toggle (AI & API tab, default **on**): turn it off to make a
+  real key strictly required again — with it off and no key, the AI can't run.
+- `freeApiUrl` / `freeModel` in `config.json` point the fallback anywhere else
+  (e.g. a local keyless Ollama) — there are deliberately no GUI fields for these.
+- The free service is a shared public endpoint: expect it to be slower and lower
+  quality than a keyed model, and don't send anything sensitive through it.
+- The AI & API tab's status line tells you which mode you're in ("bots run on the
+  free built-in AI" vs "API key saved").
 
 ## Admin options (in the Admin panel)
 
@@ -85,3 +103,11 @@ stamp:
 
 So your API key carries across mod updates, and a deleted file just comes back as
 defaults.
+
+**Saves are crash-safe (3.17.0).** The config is serialized fully in memory, written
+to a temp file, and atomically moved over `config.json`, so a crash, full disk or
+antivirus interruption can never leave a half-written settings file. The previous
+good file is kept alongside as `config.json.prev` for hand recovery, and a
+transient write failure (e.g. a virus scanner briefly locking the file) is retried
+automatically. Failures are never silent — the in-game save message shows the real
+config path and turns red if the write failed.
