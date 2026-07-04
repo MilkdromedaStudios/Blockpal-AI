@@ -567,7 +567,11 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   `AiManualScreen` and `HostScreen`; `PanelNav`/tab bars and section headers
   switched from yellow/gold to the cyan accent.
 - Verified with a real `runClient` on MC 26.2 in a headless (Xvfb/llvmpipe)
-  environment; the free endpoint answered live requests during testing.
+  environment: theme rendering, v8 config migration + atomic save (with
+  `config.json.prev`), and the free-AI request path all exercised in-game. A
+  direct request to the free endpoint returned a valid completion; during the
+  in-game session it was having a transient outage (HTTP 500 "ENOSPC" / 429),
+  which is what motivated the 5xx retry and error-truncation polish above.
 
 ### 3.16.1
 - **Fixed the singleplayer settings/API-key save bug.** `AdminAccess.isAdmin` now
