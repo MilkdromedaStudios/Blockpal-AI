@@ -395,8 +395,13 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   **AI & API**, **Combat** and **Developer** sub-tabs, shown one at a time. The
   current tab reads as "pressed" in the pinned tab bar. Each setting has a hover
   **tooltip** explaining it.
-- Values are held in a pending draft and `capture()`d on every tab switch, so
-  edits survive moving between tabs; nothing is lost until you Cancel.
+- Values are held in a pending draft and `capture()`d at the top of `init()`
+  (3.17.1), so edits survive **every** widget rebuild — sub-tab switches, window
+  resizes, fullscreen/GUI-scale changes; nothing is lost until you Cancel. A
+  typed-but-unsaved API key stays visible in its box (with a "➤ Key typed but
+  not saved yet" status line) until Apply/Save sends it — only a *saved* key is
+  never echoed back. Switching panels in the top `PanelNav` bar auto-applies
+  dirty edits first (a `beforeSwitch` hook, used only by the Settings screen).
 - **Save / Apply / Cancel** action bar pinned at the bottom; ESC auto-saves.
 - **Scrollable body** — each tab lives in a `ScrollableLayout` (mouse wheel +
   scrollbar) so it fits on any screen size; title, tab bar and action bar stay pinned.
@@ -535,6 +540,44 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 ---
 
 ## Changelog
+
+### 3.17.1
+- **Fixed the "API key won't save" bug for real.** Root cause found in
+  `AiConfigScreen`: the token `EditBox` was the only field rebuilt **empty** on
+  every widget rebuild (the saved key is deliberately never echoed back), and
+  `capture()` then overwrote the pending draft `pToken` with that empty box —
+  so pasting a key and then (a) switching sub-tabs and back, (b) resizing the
+  window / toggling fullscreen (`Screen.resize` rebuilds widgets with no
+  capture), or (c) clicking a top `PanelNav` tab (screen replaced by the next
+  sync, drafts discarded) silently dropped the key before it was ever sent —
+  while Save still reported "Settings saved ✓" (blank token = "keep existing",
+  and there was nothing to keep). Fixes: `init()` now starts with `capture()`
+  (covers every rebuild path incl. resize), the token box is **seeded from the
+  draft `pToken`** (only ever typed-but-unsent text, so privacy is unchanged),
+  a "**➤ Key typed but not saved yet — press Apply or Save**" status line shows
+  while a draft is pending, and `PanelNav.build` gained a `beforeSwitch`
+  overload the Settings screen uses to **apply dirty edits before switching
+  panels** (other screens unchanged via the old signature).
+- **Disk layer verified innocent:** the real `ModConfig` was compiled standalone
+  (stubbed `FabricLoader`) and round-trip tested — set → save → restart → load
+  keeps the token (obfuscated in `hfTokenObf`; `hfToken` always empty on disk by
+  design), token-less saves keep it, corrupt files regenerate with `.bak`. All
+  pass; the loss was purely client-side draft handling.
+- **Free-AI outage investigated (no code change):** the Pollinations endpoint
+  answered planner-style requests correctly from this session (HTTP 200, valid
+  JSON, also with the Java `HttpClient` user-agent), so "free AI not working"
+  matches the transient 500/429 outage documented during 3.17.0 testing plus
+  anonymous-tier rate limits; failed *analysis* calls are silent by design
+  (`ChatIntent.none()`), which reads as "Ethan ignores chat" during an outage
+  even though named/keyword commands still work with no API at all.
+- Wiki: Troubleshooting's key-won't-save entry documents the draft-loss cause,
+  the `hfTokenObf`-vs-`hfToken` confusion and the server-vs-client config path;
+  "It doesn't react to chat" now separates the no-API quick paths from the
+  API-dependent active analysis and its silent-failure behavior.
+- *(Toolchain caveat: Gradle distributions and the 26.2 deps are unreachable
+  under this environment's network policy, so no jar was built — `build.yml`
+  compile-checks the branch push; copy the jar into `builds/` when a networked
+  machine builds it.)*
 
 ### 3.17.0
 - **Free keyless AI fallback.** With no API key resolvable (no shared key, no
