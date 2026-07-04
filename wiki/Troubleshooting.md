@@ -18,18 +18,33 @@ own key in `/ai mymenu`.
 
 ### My API key won't save / the token box goes empty
 
-Two different things can look like "the key didn't save":
+A few different things can look like "the key didn't save":
 
 - **The box emptying after Save/Apply is normal.** For privacy the server never
   sends your key back to the menu, so the box is always blank when the screen
   (re)opens. Look for the **"✔ API key saved"** line under the box (3.16.1) and the
   green **"Settings saved ✓"** chat message — leaving the box blank later *keeps*
   the saved key.
+- **In the file, the key is in `hfTokenObf`, not `hfToken`.** If you open
+  `config.json` to check, the `"hfToken"` line is *always* empty on disk by
+  design; a saved key is stored obfuscated in `"hfTokenObf"`. An empty
+  `hfTokenObf` means no key is saved; a long garbled value means it is.
+- **Before 3.17.1, moving around the menu could silently drop a typed key.**
+  Pasting the key and then switching to another tab and back, resizing the
+  window, or clicking a top-bar panel (Admin / Bots / My Settings) rebuilt the
+  key box empty and discarded what you'd typed — Save then saved everything
+  *except* the key while still reporting "Settings saved ✓". Fixed: a
+  typed-but-unsaved key now stays in the box across tab switches and resizes, a
+  **"➤ Key typed but not saved yet"** status line shows while it's pending, and
+  panel switches apply pending edits first.
 - **Before 3.16.1, singleplayer saves could be silently refused.** The owner of a
   singleplayer world without cheats didn't count as an "admin", so the server
   rejected the save and reset the menu — wiping what you'd typed. Fixed: the world
   owner is now always an admin of their own world, and if a save ever fails you get
   a red chat message with the reason instead of silence.
+- **On a multiplayer server, the key is saved on the SERVER.** The "Settings
+  saved ✓" message shows the server-side path — your own `.minecraft/config/`
+  folder won't (and shouldn't) contain the server's key.
 
 ### I can't find `config/blockpal/` in `.minecraft`
 
@@ -47,9 +62,19 @@ choose from the allowed list in `/ai mymenu` or with `/ai model <id>`.
 ### It doesn't react to chat
 
 - Open `/ai menu` → **Behavior** tab and make sure **Chat listening** is on.
-- Free-form messages (not starting with a name/keyword) also need **Active analysis**
-  on (Behavior tab) and a working API key.
-- Remember **owner-only obedience** — only the player who summoned it is obeyed.
+- Messages that start with its name (`Ethan, come`) or a command word (`come`,
+  `follow`, `build …`, `mine …`) work with **no API at all** — if even those are
+  ignored, check: is the bot within ~128 blocks and in the same dimension? Did
+  the [FPS kill-switch](Performance-Presets) trip (`/ai resume`)?
+- **Free-form** messages (not starting with a name/keyword) go through **Active
+  analysis** (Behavior tab) and need a *working* AI: a saved key, or the free
+  built-in AI (3.17.0). If the analysis call fails — the free service having an
+  outage or rate-limiting, a bad key — the bot stays **silent** by design (it
+  can't tell a failed check from "not talking to me"). Named/keyword commands
+  still work during an outage, and failed *tasks* do get a spoken error.
+- Remember **owner-only obedience** — only the player who summoned it (plus
+  players it [trusts](Trust-and-Per-Bot) and admins) is obeyed; others get a
+  polite refusal only when they address it by name.
 
 ### Using Ollama / LM Studio / another local model
 

@@ -4,6 +4,28 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.17.1
+- **Fixed: a typed API key could silently vanish before it was ever saved.** The
+  settings menu holds your edits in a draft while you move around it, but the API
+  key box was rebuilt **empty** every time its tab re-appeared — so if you pasted
+  your key and then clicked another tab and came back (say, to check *Chat
+  listening* while setting up the AI), resized the window, or toggled fullscreen,
+  the key was quietly dropped and **Save saved everything except the key**, while
+  still reporting "Settings saved ✓". The config file then showed no token, which
+  looked exactly like "the key won't save". Now:
+  - a key you've typed **stays in the box** when you switch tabs and come back,
+    and survives window resizes — until you Apply/Save it (a key that's already
+    saved is still never shown back; that's privacy, not loss);
+  - a new **"➤ Key typed but not saved yet — press Apply or Save"** status line
+    shows under the box whenever a key is pending, so saved vs. not-saved is
+    always visible;
+  - switching to another panel in the top bar (Admin / Bots / My Settings) now
+    **applies pending edits first** instead of discarding them with the screen.
+- Reminder while checking the file: a saved key lives in `config.json` as
+  `hfTokenObf` (obfuscated at rest) — the `hfToken` field is *always* empty on
+  disk by design, so don't judge by that line. The AI & API tab's
+  "✔ API key saved" status is the source of truth.
+
 ## 3.17.0
 - **The AI now works with no API key at all.** With no key set anywhere, Blockpal
   automatically falls back to a **free built-in AI service** (Pollinations, keyless
