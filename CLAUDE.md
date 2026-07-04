@@ -81,6 +81,17 @@ can do and how it evolved.
 ### AI / LLM planning
 - Connects to any **OpenAI-compatible** API (HuggingFace, Ollama, OpenAI,
   LM Studio, etc.) via `apiUrl` + `hfToken`.
+- **Free keyless fallback (3.17.0)** — when *no* key resolves for a request (no
+  shared key, no personal key), the bot automatically uses a **free keyless
+  OpenAI-compatible service** (`freeApiUrl`, default Pollinations
+  `https://text.pollinations.ai/openai`, model `freeModel` default `openai`), so
+  the AI works out of the box. HuggingFace stays the shown/configured default and
+  **always wins the moment a token is set**. Resolution lives in
+  `HuggingFaceClient.ApiAuth.resolveFor(owner, name)` (token+model+url+free flag);
+  requests go to `auth.url()`. Gate checks use `ModConfig.aiAvailable()` /
+  `aiAvailableFor(owner, name)` (`hasApiToken()` stays strictly "key set" for
+  display). Ops toggle: `freeAiFallback` (AI & API tab, default true; off = a real
+  key is strictly required). Config schema → v8.
 - Natural-language tasks (`/ai build a 5×5 floor`) are converted to a
   structured JSON action plan (5–15 steps) on a background thread.
 - 16 available actions: `MOVE_TO`, `PLACE_BLOCK`, `BREAK_BLOCK`, `MINE_AREA`,
@@ -332,7 +343,12 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   false/0) via a `migrate()` step, while existing values like `hfToken` are
   preserved. So your API key carries across mod updates, and a deleted file just
   comes back as defaults.
-- Full list of settings: `hfToken`/`hfTokenObf`, `hfModel`, `apiUrl`, `maxNewTokens`,
+- **Crash-safe saves (3.17.0)** — `ModConfig.save()` serializes fully in memory,
+  writes a temp file and atomically moves it over `config.json` (never a
+  half-written file), keeps the previous good file as `config.json.prev`, retries
+  once on a transient IO failure, and is `synchronized`.
+- Full list of settings: `hfToken`/`hfTokenObf`, `hfModel`, `apiUrl`,
+  `freeAiFallback`, `freeApiUrl`, `freeModel`, `maxNewTokens`,
   `temperature`, `debugLogging`, `actionTickDelay`, `followDistance`,
   `guardRadius`, `fleeHealthPercent`, `allowCommands`,
   `commandPermissionLevel`, `adminPermissionLevel`, `maxBotsPerServer`,
@@ -361,6 +377,12 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   Settings & API key, and Custom Skins.
 
 ### In-game settings GUI
+- **"Holo-terminal" theme (3.17.0)** — every Blockpal screen shares a dark,
+  futuristic look drawn by `client/gui/TechTheme.java` from each screen's
+  `extractBackground(...)` (the 26.x render-state pass below all widgets): deep
+  space-navy gradient + faint hologram grid backdrop, console plates with a cyan
+  edge light and bracketed corners, and neon-cyan (`TechTheme.title/header/accent`)
+  headings replacing the old yellow/gold. Layout and vanilla widgets unchanged.
 - Opened via `/ai menu` (or `/ai panel`) or — unless disabled — sneak-right-click on
   the assistant. The sneak shortcut can trip accidentally, so it's toggleable
   (`sneakToOpenMenu`, on the Behavior tab); `/ai menu` always works regardless.
@@ -513,6 +535,43 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 ---
 
 ## Changelog
+
+### 3.17.0
+- **Free keyless AI fallback.** With no API key resolvable (no shared key, no
+  personal key), requests now fall back to a free keyless OpenAI-compatible
+  service (default **Pollinations**, `https://text.pollinations.ai/openai`, model
+  `openai`) so the companion works out of the box. HuggingFace remains the
+  configured default and always takes over the moment a token is set. New config:
+  `freeAiFallback` (default true, new "Free AI fallback" toggle on the AI & API
+  tab, rides `ConfigData`), `freeApiUrl`, `freeModel`; config schema → v8.
+  `ApiAuth` grew `url` + `free` and a central `ApiAuth.resolveFor(owner, name)`;
+  gates moved from `hasApiToken()`/`hasToken()` to `ModConfig.aiAvailable()` /
+  `aiAvailableFor()` / `ApiAuth.usable()` across the entity, task manager, chat
+  listener and possession. Custom-personality moderation also runs over the free
+  endpoint. Startup log, tutorial, in-game wiki, Quick-Start/Getting-Started/
+  Settings wiki pages updated; stale `/ai settings`/`/ai token` references in
+  error messages fixed to the current commands.
+- **Crash-safe config saves.** `ModConfig.save()` now serializes the JSON in
+  memory, writes a temp file and atomically moves it over `config.json`
+  (`ATOMIC_MOVE` with graceful fallback), keeps the previous good file as
+  `config.json.prev`, retries once after 150 ms on IO failure (antivirus locks),
+  and is `synchronized`. Addresses the "settings sometimes don't save" reports on
+  top of 3.16.1's admin-gate fix.
+- **Futuristic dark-blue UI theme.** New `client/gui/TechTheme.java` draws a
+  shared "holo-terminal" chrome from every screen's `extractBackground(...)`:
+  navy gradient + faint grid backdrop, dark console plates with cyan edge light
+  and bracketed corners, a bright center rule, and neon-cyan titles/headers
+  (`TechTheme.title/header/accent/dim`). Applied to `AiConfigScreen`,
+  `AdminScreen`, `PlayerSettingsScreen`, `BotManagerScreen`,
+  `PossessionConsoleScreen` (plus a darker console log well), `TutorialScreen`,
+  `AiManualScreen` and `HostScreen`; `PanelNav`/tab bars and section headers
+  switched from yellow/gold to the cyan accent.
+- Verified with a real `runClient` on MC 26.2 in a headless (Xvfb/llvmpipe)
+  environment: theme rendering, v8 config migration + atomic save (with
+  `config.json.prev`), and the free-AI request path all exercised in-game. A
+  direct request to the free endpoint returned a valid completion; during the
+  in-game session it was having a transient outage (HTTP 500 "ENOSPC" / 429),
+  which is what motivated the 5xx retry and error-truncation polish above.
 
 ### 3.16.1
 - **Fixed the singleplayer settings/API-key save bug.** `AdminAccess.isAdmin` now

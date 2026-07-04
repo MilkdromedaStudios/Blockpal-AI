@@ -1,5 +1,6 @@
 package com.milkdromeda.blockpal.client.gui;
 
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ScrollableLayout;
 import net.minecraft.client.gui.components.StringWidget;
@@ -20,29 +21,30 @@ public class TutorialScreen extends Screen {
     // Each page is a list of lines (first line is the heading).
     private static final String[][] PAGES = {
             {
-                    "§l§6Welcome to Blockpal!", "",
+                    "§l§bWelcome to Blockpal!", "",
                     "§fBlockpal adds a friendly AI companion",
                     "§f(default name §aEthan§f) to your world.",
                     "§fIt can build, mine, fight, run commands,",
                     "§fand react to what you say in chat.", "",
                     "§7Spawn one with §a/ai summon§7.", "",
                     "§eThis tutorial walks you through the basics.",
-                    "§eFor the full wiki, click §6Open Wiki§e below",
+                    "§eFor the full wiki, click §bOpen Wiki§e below",
                     "§eor any time from the settings panel."
             },
             {
-                    "§l§6Quick Start", "",
+                    "§l§bQuick Start", "",
                     "§e1. §a/ai summon §f— spawn your companion", "",
                     "§e2. §fTalk in chat (no slash needed):",
                     "§7   \"follow me\"   \"come\"   \"stay\"   \"stop\"",
                     "§7   \"Ethan, build a 5x5 floor\"", "",
-                    "§e3. §fFor AI tasks, add an API key:",
-                    "§7   §a/ai mymenu §7→ paste token → Save",
+                    "§e3. §fAI tasks work out of the box on a",
+                    "§f   free built-in AI. For better quality:",
+                    "§7   §a/ai mymenu §7→ paste an API key → Save",
                     "§7   (free tokens at hf.co/settings/tokens)", "",
                     "§e4. §fTry: §a/ai mine 10 iron ore"
             },
             {
-                    "§l§6Talking to it", "",
+                    "§l§bTalking to it", "",
                     "§fJust type in chat — no slash needed:",
                     "§7  \"follow me\"   \"come\"   \"stay\"   \"stop\"",
                     "§7  \"clear these trees\"   \"build a door\"", "",
@@ -50,7 +52,7 @@ public class TutorialScreen extends Screen {
                     "§a  /ai <task>  §7(e.g. /ai build a 5x5 floor)"
             },
             {
-                    "§l§6One panel for everything", "",
+                    "§l§bOne panel for everything", "",
                     "§fAll settings live in one place:",
                     "§a  /ai panel", "",
                     "§fTabs across the top switch panels:",
@@ -59,14 +61,16 @@ public class TutorialScreen extends Screen {
                     "§7  • My Settings §8(everyone) — your model & key"
             },
             {
-                    "§l§6The AI key", "",
-                    "§fBlockpal needs an AI service key to think.",
-                    "§fAn admin can set a shared key in the panel,",
+                    "§l§bThe AI key", "",
+                    "§fWith no key, Blockpal thinks on a free",
+                    "§fbuilt-in AI — it just works. For faster,",
+                    "§fsmarter models add a key (e.g. HuggingFace):",
+                    "§fan admin sets a shared one in the panel,",
                     "§for each player can bring their own:",
                     "§a  /ai mykey <token>  §7or in §a/ai mymenu", "",
                     "§fThat's it — have fun!", "",
                     "§eFor commands, personalities, skins and more,",
-                    "§eclick §6Open Wiki §ebelow — or find it any time",
+                    "§eclick §bOpen Wiki §ebelow — or find it any time",
                     "§ein §a/ai panel §e→ Settings."
             },
     };
@@ -79,7 +83,7 @@ public class TutorialScreen extends Screen {
 
     @Override
     protected void init() {
-        addRenderableWidget(new StringWidget(0, 8, this.width, 12, this.title, this.font));
+        addRenderableWidget(TechTheme.centered(this.font, this.width, 8, 12, TechTheme.title("Tutorial")));
 
         LinearLayout body = LinearLayout.vertical().spacing(2);
         for (String linext : PAGES[page]) {
@@ -104,7 +108,7 @@ public class TutorialScreen extends Screen {
         back.active = page > 0;
         addRenderableWidget(back);
 
-        addRenderableWidget(Button.builder(Component.literal("§6Open Wiki"),
+        addRenderableWidget(Button.builder(Component.literal("§bOpen Wiki"),
                         b -> this.minecraft.setScreenAndShow(new AiManualScreen(this)))
                 .bounds(bx + bw + gap, by, bw, FIELD_H).build());
 
@@ -114,8 +118,17 @@ public class TutorialScreen extends Screen {
                 .bounds(bx + (bw + gap) * 2, by, bw, FIELD_H).build());
 
         // page indicator
-        addRenderableWidget(new StringWidget(0, by - 14, this.width, 10,
-                Component.literal("§7page " + (page + 1) + " / " + PAGES.length), this.font));
+        addRenderableWidget(TechTheme.centered(this.font, this.width, by - 14, 10,
+                TechTheme.dim("page " + (page + 1) + " / " + PAGES.length)));
+    }
+
+    @Override
+    public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+        super.extractBackground(g, mouseX, mouseY, partialTick);
+        TechTheme.backdrop(g, this.width, this.height);
+        TechTheme.panel(g, this.width / 2 - (W + 12) / 2 - 10, 2,
+                this.width / 2 + (W + 12) / 2 + 10, this.height - 2);
+        TechTheme.rule(g, this.width / 2 - 130, this.width / 2 + 130, 21);
     }
 
     @Override

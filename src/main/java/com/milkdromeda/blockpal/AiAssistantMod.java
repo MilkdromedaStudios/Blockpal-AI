@@ -48,8 +48,15 @@ public class AiAssistantMod implements ModInitializer {
         // .minecraft — log the real location so "where did my config go" is answerable.
         LOGGER.info("Blockpal config file: {}", ModConfig.configPath());
         if (!ModConfig.get().hasApiToken()) {
-            LOGGER.warn("No AI API token set yet. Set one in-game from /ai menu (AI tab), "
-                    + "or via the BLOCKPAL_API_TOKEN environment variable.");
+            if (ModConfig.get().freeAiFallback) {
+                LOGGER.info("No AI API key set — using the free built-in AI ({}). Add a HuggingFace "
+                        + "key in /ai menu (AI & API tab) or via BLOCKPAL_API_TOKEN for better quality.",
+                        ModConfig.get().freeApiUrl);
+            } else {
+                LOGGER.warn("No AI API token set and the free AI fallback is disabled. Set a key "
+                        + "in-game from /ai menu (AI & API tab), or via the BLOCKPAL_API_TOKEN "
+                        + "environment variable.");
+            }
         }
     }
 

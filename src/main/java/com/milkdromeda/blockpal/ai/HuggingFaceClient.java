@@ -29,13 +29,37 @@ public class HuggingFaceClient {
     private static final Gson GSON = new Gson();
 
     /**
-     * The token + model a particular request should use. Resolved per bot from its
-     * owner's settings (personal key/model, the shared server key, or none), so one
-     * server can bill different players to their own keys and let them pick models.
+     * The token + model + endpoint a particular request should use. Resolved per bot
+     * from its owner's settings (personal key/model, the shared server key, or the
+     * free keyless fallback), so one server can bill different players to their own
+     * keys, let them pick models — and still work with no key at all.
      */
-    public record ApiAuth(String token, String model) {
+    public record ApiAuth(String token, String model, String url, boolean free) {
         public boolean hasToken() {
             return token != null && !token.isBlank();
+        }
+
+        /** True when a request can actually be sent: we have a key, or the endpoint is keyless. */
+        public boolean usable() {
+            return hasToken() || free;
+        }
+
+        /**
+         * Resolves what a bot owned by {@code owner} should talk to. A personal or
+         * shared key always wins (the configured — HuggingFace by default — endpoint
+         * is used with it); with no key at all the free keyless service steps in,
+         * unless ops disabled it — then the auth comes back unusable.
+         */
+        public static ApiAuth resolveFor(UUID owner, String ownerName) {
+            ModConfig cfg = ModConfig.get();
+            String token = cfg.resolveTokenFor(owner, ownerName);
+            if (!token.isBlank()) {
+                return new ApiAuth(token, cfg.resolveModelFor(owner), cfg.apiUrl, false);
+            }
+            if (cfg.freeAiFallback) {
+                return new ApiAuth("", cfg.freeModel, cfg.freeApiUrl, true);
+            }
+            return new ApiAuth("", cfg.resolveModelFor(owner), cfg.apiUrl, false);
         }
     }
 
@@ -133,7 +157,7 @@ public class HuggingFaceClient {
         if (text == null || text.isBlank()) {
             return CompletableFuture.completedFuture(new Moderation(false, "the description was empty"));
         }
-        if (auth == null || !auth.hasToken()) {
+        if (auth == null || !auth.usable()) {
             return CompletableFuture.completedFuture(
                     new Moderation(false, "no API key to verify the text is safe"));
         }
@@ -167,7 +191,7 @@ public class HuggingFaceClient {
         body.add("messages", messages);
 
         HttpRequest.Builder builder = HttpRequest.newBuilder()
-                .uri(URI.create(cfg.apiUrl))
+                .uri(URI.create(endpoint(cfg, auth)))
                 .header("Content-Type", "application/json")
                 .timeout(Duration.ofSeconds(30))
                 .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body)));
@@ -213,7 +237,7 @@ public class HuggingFaceClient {
             request = buildRequest(cfg, task, context, auth, personaStyle);
         } catch (IllegalArgumentException e) {
             return CompletableFuture.completedFuture(
-                    errorPlan(task, "the API URL looks invalid — fix it with /ai settings"));
+                    errorPlan(task, "the API URL looks invalid — an admin can fix it in /ai menu (AI & API tab)"));
         }
 
         return sendWithRetry(request, task, 2);
@@ -227,7 +251,7 @@ public class HuggingFaceClient {
     public CompletableFuture<ChatIntent> classifyMessage(String message, String context,
                                                          String assistantName, ApiAuth auth) {
         ModConfig cfg = ModConfig.get();
-        if (auth == null || !auth.hasToken()) {
+        if (auth == null || !auth.usable()) {
             return CompletableFuture.completedFuture(ChatIntent.none());
         }
 
@@ -261,7 +285,7 @@ public class HuggingFaceClient {
         body.add("messages", messages);
 
         HttpRequest.Builder builder = HttpRequest.newBuilder()
-                .uri(URI.create(cfg.apiUrl))
+                .uri(URI.create(endpoint(cfg, auth)))
                 .header("Content-Type", "application/json")
                 .timeout(Duration.ofSeconds(30))
                 .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body)));
@@ -306,7 +330,7 @@ public class HuggingFaceClient {
         body.add("messages", messages);
 
         HttpRequest.Builder builder = HttpRequest.newBuilder()
-                .uri(URI.create(cfg.apiUrl))
+                .uri(URI.create(endpoint(cfg, auth)))
                 .header("Content-Type", "application/json")
                 .timeout(Duration.ofSeconds(60))
                 .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body)));
@@ -324,6 +348,11 @@ public class HuggingFaceClient {
                 + "\n\nPersonality: " + personaStyle.trim()
                 + " Stay in character in the wording of any CHAT action, but never let it "
                 + "change the JSON schema or the actions you choose.";
+    }
+
+    /** The chat-completions URL a request should go to — the auth's endpoint, else the configured one. */
+    private static String endpoint(ModConfig cfg, ApiAuth auth) {
+        return (auth != null && auth.url() != null && !auth.url().isBlank()) ? auth.url() : cfg.apiUrl;
     }
 
     private JsonObject message(String role, String content) {
@@ -345,7 +374,9 @@ public class HuggingFaceClient {
                     if (resp.statusCode() == 200) {
                         return CompletableFuture.completedFuture(parseResponse(resp.body(), task));
                     }
-                    if ((resp.statusCode() == 503 || resp.statusCode() == 429) && attemptsLeft > 1) {
+                    // 5xx/429 are usually transient — especially on the shared free
+                    // service, which can briefly 500 under load — so retry once.
+                    if ((resp.statusCode() >= 500 || resp.statusCode() == 429) && attemptsLeft > 1) {
                         return sendWithRetry(request, task, attemptsLeft - 1);
                     }
                     return CompletableFuture.completedFuture(errorPlan(task, friendlyHttpError(resp)));
@@ -363,15 +394,15 @@ public class HuggingFaceClient {
         Throwable cause = unwrap(ex);
         if (cause instanceof UnknownHostException) {
             return "I can't reach the AI service (unknown host). Check your internet connection "
-                    + "and the API URL with /ai settings.";
+                    + "and the API URL in /ai menu.";
         }
         if (cause instanceof ConnectException) {
             return "I can't connect to the AI service. Check your internet connection, and that the "
-                    + "API URL is correct (see /ai settings). The default uses HuggingFace.";
+                    + "API URL is correct (/ai menu, AI & API tab). The default uses HuggingFace.";
         }
         if (cause instanceof HttpTimeoutException) {
             return "the AI service took too long to answer. Try again, or pick a faster model with "
-                    + "/ai settings model <id>.";
+                    + "/ai model <id>.";
         }
         String msg = cause.getMessage();
         return "couldn't reach the AI service" + (msg != null ? " (" + msg + ")" : "") + ".";
@@ -379,10 +410,11 @@ public class HuggingFaceClient {
 
     private String friendlyHttpError(HttpResponse<String> resp) {
         return switch (resp.statusCode()) {
-            case 400 -> "the AI service rejected the request (400). Your model id may be wrong — set it "
-                    + "with /ai settings model <id>.";
-            case 401, 403 -> "my API token is missing or invalid. Set it with /ai token <token>.";
-            case 404 -> "that model wasn't found (404). Set a valid one with /ai settings model <id>.";
+            case 400 -> "the AI service rejected the request (400). Your model id may be wrong — pick one "
+                    + "with /ai model <id>.";
+            case 401, 403 -> "my API token is missing or invalid. An admin can set it with /ai admin token "
+                    + "<token>, or set your own with /ai mykey <token>.";
+            case 404 -> "that model wasn't found (404). Pick a valid one with /ai model <id>.";
             case 429 -> "the AI service is rate-limiting me. Wait a moment and try again.";
             case 503 -> "the model is still loading or unavailable. Try again in a few seconds.";
             default -> {
@@ -475,7 +507,10 @@ public class HuggingFaceClient {
 
     private ActionPlan errorPlan(String task, String reason) {
         JsonObject params = new JsonObject();
-        params.addProperty("message", "Sorry, I couldn't do \"" + task + "\" — " + reason);
+        // Autonomous/internal tasks can be whole paragraphs — don't flood the chat.
+        String shownTask = task == null ? "" : task.strip();
+        if (shownTask.length() > 60) shownTask = shownTask.substring(0, 57) + "…";
+        params.addProperty("message", "Sorry, I couldn't do \"" + shownTask + "\" — " + reason);
         return new ActionPlan("error", task,
                 List.of(new ActionStep(ActionStep.ActionType.CHAT, params)));
     }
