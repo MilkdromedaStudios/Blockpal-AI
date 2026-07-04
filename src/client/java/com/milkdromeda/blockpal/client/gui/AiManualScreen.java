@@ -1,5 +1,6 @@
 package com.milkdromeda.blockpal.client.gui;
 
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ScrollableLayout;
 import net.minecraft.client.gui.components.StringWidget;
@@ -26,13 +27,15 @@ public class AiManualScreen extends Screen {
     private static final String[][] PAGES = {
             // ── Page 1: Quick Start ────────────────────────────────────────────────
             {
-                    "§l§6AI Manual  —  Quick Start", "",
+                    "§l§bAI Manual  —  Quick Start", "",
                     "§e1. §fSpawn your companion:",
                     "§a   /ai summon",
                     "§e2. §fTalk to it in chat (no slash needed):",
                     "§7   \"follow me\"  \"come\"  \"stay\"  \"stop\"",
                     "§7   \"Ethan, build a 5×5 floor\"", "",
-                    "§e3. §fFor AI tasks, add an API key:",
+                    "§e3. §fAI tasks run on a free built-in AI",
+                    "§f   out of the box. For better quality,",
+                    "§f   add an API key:",
                     "§7   Run §a/ai mymenu §7→ paste your token → Save.",
                     "§7   Free tokens at hf.co/settings/tokens", "",
                     "§e4. §fTry it:",
@@ -43,7 +46,7 @@ public class AiManualScreen extends Screen {
 
             // ── Page 2: Commands ───────────────────────────────────────────────────
             {
-                    "§l§6Commands  —  /ai ...", "",
+                    "§l§bCommands  —  /ai ...", "",
                     "§eSummon / dismiss",
                     "§a  /ai summon [name]   §7spawn companion",
                     "§a  /ai dismiss         §7remove companion", "",
@@ -67,7 +70,7 @@ public class AiManualScreen extends Screen {
 
             // ── Page 3: Personalities ──────────────────────────────────────────────
             {
-                    "§l§6Personalities", "",
+                    "§l§bPersonalities", "",
                     "§fGive your companion a character. Built-ins:",
                     "§a  friendly  §7— warm, helpful (default)",
                     "§a  cheerful  §7— upbeat and enthusiastic",
@@ -87,7 +90,7 @@ public class AiManualScreen extends Screen {
 
             // ── Page 4: Settings & API key ─────────────────────────────────────────
             {
-                    "§l§6Settings & the API Key", "",
+                    "§l§bSettings & the API Key", "",
                     "§eAll settings live in one panel:",
                     "§a  /ai panel", "",
                     "§fPanel tabs:",
@@ -108,7 +111,7 @@ public class AiManualScreen extends Screen {
 
             // ── Page 5: Skins & more ───────────────────────────────────────────────
             {
-                    "§l§6Custom Skins & More", "",
+                    "§l§bCustom Skins & More", "",
                     "§eBuilt-in skins:",
                     "§7  default  steve  robot  void",
                     "§7  slate  ember  forest  amethyst", "",
@@ -141,7 +144,7 @@ public class AiManualScreen extends Screen {
 
     @Override
     protected void init() {
-        addRenderableWidget(new StringWidget(0, 8, this.width, 12, this.title, this.font));
+        addRenderableWidget(TechTheme.centered(this.font, this.width, 8, 12, TechTheme.title("Wiki")));
 
         LinearLayout body = LinearLayout.vertical().spacing(2);
         for (String line : PAGES[page]) {
@@ -179,8 +182,17 @@ public class AiManualScreen extends Screen {
                 .bounds(bx + (bw + gap) * 2, by, bw, FIELD_H).build());
 
         // page indicator
-        addRenderableWidget(new StringWidget(0, by - 14, this.width, 10,
-                Component.literal("§7page " + (page + 1) + " / " + PAGES.length), this.font));
+        addRenderableWidget(TechTheme.centered(this.font, this.width, by - 14, 10,
+                TechTheme.dim("page " + (page + 1) + " / " + PAGES.length)));
+    }
+
+    @Override
+    public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+        super.extractBackground(g, mouseX, mouseY, partialTick);
+        TechTheme.backdrop(g, this.width, this.height);
+        TechTheme.panel(g, this.width / 2 - (W + 12) / 2 - 10, 2,
+                this.width / 2 + (W + 12) / 2 + 10, this.height - 2);
+        TechTheme.rule(g, this.width / 2 - 130, this.width / 2 + 130, 21);
     }
 
     @Override

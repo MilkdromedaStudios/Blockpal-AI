@@ -3,6 +3,7 @@ package com.milkdromeda.blockpal.client.gui;
 import com.milkdromeda.blockpal.network.PossessionInputPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.StringWidget;
@@ -79,10 +80,10 @@ public class PossessionConsoleScreen extends Screen {
         int x = this.width / 2 - W / 2;
 
         // -- title + status line --
-        addRenderableWidget(new StringWidget(0, 8, this.width, 12, this.title, this.font));
-        addRenderableWidget(new StringWidget(0, 22, this.width, 10, Component.literal(active
-                ? "§dPossessing — your companion has your controls"
-                : "§7Possession inactive"), this.font));
+        addRenderableWidget(TechTheme.centered(this.font, this.width, 8, 12, TechTheme.title("Possession")));
+        addRenderableWidget(TechTheme.centered(this.font, this.width, 22, 10, Component.literal(active
+                ? "§b⚡ POSSESSING — your companion has your controls"
+                : "§7Possession inactive")));
 
         // -- log tail (newest lines that fit, oldest scroll off the top) --
         int top = 40;
@@ -140,6 +141,19 @@ public class PossessionConsoleScreen extends Screen {
     public void removed() {
         if (instance == this) instance = null;
         super.removed();
+    }
+
+    @Override
+    public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+        super.extractBackground(g, mouseX, mouseY, partialTick);
+        TechTheme.backdrop(g, this.width, this.height);
+        int x0 = this.width / 2 - W / 2 - 12;
+        int x1 = this.width / 2 + W / 2 + 12;
+        TechTheme.panel(g, x0, 2, x1, this.height - 2);
+        TechTheme.rule(g, this.width / 2 - 130, this.width / 2 + 130, 19);
+        // console log well, slightly darker than the plate
+        g.fill(x0 + 8, 38, x1 - 8, this.height - 62, 0x66020609);
+        g.outline(x0 + 8, 38, x1 - x0 - 16, this.height - 62 - 38, TechTheme.ACCENT_DIM);
     }
 
     @Override

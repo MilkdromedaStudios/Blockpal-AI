@@ -218,7 +218,7 @@ public class AiAssistantEntity extends PathfinderMob {
         idleMessageTimer++;
 
         // Autonomous self-direction: always running — immediately re-plan when idle.
-        if (autonomousMode && mode != Mode.EXECUTING && ModConfig.get().hasApiToken()) {
+        if (autonomousMode && mode != Mode.EXECUTING && ModConfig.get().aiAvailable()) {
             if (--autoThinkTimer <= 0) {
                 autoThinkTimer = 60; // safety gap in case the API is slow; resets properly below
                 startSurvivalLoop();
@@ -234,7 +234,7 @@ public class AiAssistantEntity extends PathfinderMob {
             if (limitTicks > 0 && tickCount - taskStartTick > limitTicks) {
                 taskManager.clearPlan();
                 pendingTask = null;
-                if (autonomousMode && ModConfig.get().hasApiToken()) {
+                if (autonomousMode && ModConfig.get().aiAvailable()) {
                     startSurvivalLoop();
                 } else {
                     mode = Mode.FOLLOWING;
@@ -253,9 +253,10 @@ public class AiAssistantEntity extends PathfinderMob {
     }
 
     public void giveTask(String task, ServerPlayer issuer) {
-        if (!ModConfig.get().hasApiToken()) {
+        if (!ModConfig.get().aiAvailableFor(ownerUuid, getOwnerName())) {
             issuer.sendSystemMessage(Component.literal(
-                    assistantName + ": \"I can't do that without an API token. Could you set one with /ai token <token>?\""));
+                    assistantName + ": \"I can't do that without an API key. An admin can set one with "
+                            + "/ai admin token <token>, or you can use your own with /ai mykey <token>.\""));
             return;
         }
         pendingTask = task;
@@ -267,7 +268,7 @@ public class AiAssistantEntity extends PathfinderMob {
 
     public void finishTask() {
         pendingTask = null;
-        if (autonomousMode && ModConfig.get().hasApiToken()) {
+        if (autonomousMode && ModConfig.get().aiAvailable()) {
             // Jump straight into the next survival task with no gap.
             startSurvivalLoop();
         } else {
@@ -283,7 +284,7 @@ public class AiAssistantEntity extends PathfinderMob {
      */
     public void analyzeChat(ServerPlayer sender, String message) {
         if (analyzing || level().isClientSide()) return;
-        if (!ModConfig.get().hasApiToken()) return;
+        if (!ModConfig.get().aiAvailable()) return;
         if (tickCount < nextAnalyzeTick) return;   // rate-limit: don't analyze every message
         nextAnalyzeTick = tickCount + 60;          // at most ~once every 3 seconds
         analyzing = true;
@@ -896,9 +897,9 @@ public class AiAssistantEntity extends PathfinderMob {
         return trusted.size();
     }
 
-    /** Whether this bot's owner currently has a usable API key (personal or shared). */
+    /** Whether this bot's owner can currently reach SOME AI (a key, or the free fallback). */
     public boolean hasUsableApiKey() {
-        return !ModConfig.get().resolveTokenFor(ownerUuid, getOwnerName()).isBlank();
+        return ModConfig.get().aiAvailableFor(ownerUuid, getOwnerName());
     }
 
     public AiTaskManager getTaskManager() { return taskManager; }

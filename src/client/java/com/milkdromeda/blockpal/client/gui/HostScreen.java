@@ -4,6 +4,7 @@ import com.milkdromeda.blockpal.client.host.HostManager;
 import com.milkdromeda.blockpal.client.host.LunarDetect;
 import com.milkdromeda.blockpal.client.host.TunnelManager;
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.StringWidget;
@@ -45,7 +46,7 @@ public class HostScreen extends Screen {
         int left = cx - w / 2;
         int y = 32;
 
-        addRenderableWidget(new StringWidget(0, 8, this.width, 12, this.title, this.font));
+        addRenderableWidget(TechTheme.centered(this.font, this.width, 8, 12, TechTheme.title("Host")));
 
         // Status + addresses (refreshed in tick()).
         statusLabel = addRenderableWidget(new StringWidget(left, y, w, 12, Component.empty(), this.font));
@@ -248,6 +249,14 @@ public class HostScreen extends Screen {
     @Override
     public void onClose() {
         if (this.minecraft != null) this.minecraft.setScreenAndShow(parent);
+    }
+
+    @Override
+    public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+        super.extractBackground(g, mouseX, mouseY, partialTick);
+        TechTheme.backdrop(g, this.width, this.height);
+        TechTheme.panel(g, this.width / 2 - 180, 2, this.width / 2 + 180, this.height - 2);
+        TechTheme.rule(g, this.width / 2 - 130, this.width / 2 + 130, 21);
     }
 
     @Override
