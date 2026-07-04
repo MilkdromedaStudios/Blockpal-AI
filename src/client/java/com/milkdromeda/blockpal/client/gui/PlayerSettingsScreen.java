@@ -176,11 +176,11 @@ public class PlayerSettingsScreen extends Screen {
         // The server applies it and re-syncs, which reopens this screen refreshed.
     }
 
-    /** A friendly label for the personality cycler: "Personality: Friendly" / "…: Custom". */
+    /** The personality cycler's value label (the widget itself prefixes "Personality: "). */
     private static String personalityLabel(String id) {
-        if (CUSTOM.equals(id)) return "Personality: Custom";
+        if (CUSTOM.equals(id)) return "Custom";
         Personality p = Personality.byId(id);
-        return "Personality: " + (p != null ? p.display() : id);
+        return p != null ? p.display() : id;
     }
 
     /** Shortens a long "org/Model-Name" id to just the model name for the button label. */

@@ -374,7 +374,9 @@ public class HuggingFaceClient {
                     if (resp.statusCode() == 200) {
                         return CompletableFuture.completedFuture(parseResponse(resp.body(), task));
                     }
-                    if ((resp.statusCode() == 503 || resp.statusCode() == 429) && attemptsLeft > 1) {
+                    // 5xx/429 are usually transient — especially on the shared free
+                    // service, which can briefly 500 under load — so retry once.
+                    if ((resp.statusCode() >= 500 || resp.statusCode() == 429) && attemptsLeft > 1) {
                         return sendWithRetry(request, task, attemptsLeft - 1);
                     }
                     return CompletableFuture.completedFuture(errorPlan(task, friendlyHttpError(resp)));
@@ -505,7 +507,10 @@ public class HuggingFaceClient {
 
     private ActionPlan errorPlan(String task, String reason) {
         JsonObject params = new JsonObject();
-        params.addProperty("message", "Sorry, I couldn't do \"" + task + "\" — " + reason);
+        // Autonomous/internal tasks can be whole paragraphs — don't flood the chat.
+        String shownTask = task == null ? "" : task.strip();
+        if (shownTask.length() > 60) shownTask = shownTask.substring(0, 57) + "…";
+        params.addProperty("message", "Sorry, I couldn't do \"" + shownTask + "\" — " + reason);
         return new ActionPlan("error", task,
                 List.of(new ActionStep(ActionStep.ActionType.CHAT, params)));
     }
