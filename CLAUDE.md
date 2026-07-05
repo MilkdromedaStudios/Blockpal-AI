@@ -402,6 +402,13 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   not saved yet" status line) until Apply/Save sends it — only a *saved* key is
   never echoed back. Switching panels in the top `PanelNav` bar auto-applies
   dirty edits first (a `beforeSwitch` hook, used only by the Settings screen).
+- **API key fields are password-masked (3.17.2)** — the token box (here and on
+  the personal key field in **My Settings**) renders typed/pasted characters as
+  dots via `EditBox#setFormatter`, purely a display layer (`getValue()` still
+  returns the real text, so capture/save is unaffected). A **Show key** toggle
+  flips the formatter to reveal what's currently typed. This only ever un-masks
+  in-progress text — an already-saved key is still never sent back to a client,
+  so the "token never leaves the server" guarantee is unchanged.
 - **Save / Apply / Cancel** action bar pinned at the bottom; ESC auto-saves.
 - **Scrollable body** — each tab lives in a `ScrollableLayout` (mouse wheel +
   scrollbar) so it fits on any screen size; title, tab bar and action bar stay pinned.
@@ -540,6 +547,31 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 ---
 
 ## Changelog
+
+### 3.17.2
+- **API key fields mask like a password box.** Requested after 3.17.1: the token
+  field (Settings → AI & API) and the personal key field (My Settings /
+  `/ai mymenu`) now render typed/pasted characters as dots (•) instead of
+  plaintext. Implemented as a pure display layer via `EditBox#setFormatter`
+  (`AiConfigScreen.MASK_FORMATTER` / `PLAIN_FORMATTER`, duplicated identically in
+  `PlayerSettingsScreen` since the two screens share no common base beyond
+  `Screen`) — `getValue()` is unaffected, so `capture()`/`buildData()`/`save()`
+  keep working on the real string underneath the dots. A new **Show key** toggle
+  (`CycleButton<Boolean>`, default off) flips the formatter between mask and
+  plaintext for whatever's currently in the box.
+- **Deliberately scoped to typed text, not the saved key.** The user's ask ("load
+  the key next time... with a show button") could be read as "let me reveal my
+  already-saved key," which would require the server to send the real secret to
+  the client on request — a genuine loosening of the "token never leaves the
+  server" guarantee from the Security section above. Asked the user via
+  `AskUserQuestion` before implementing; they chose the typed-text-only scope, so
+  a saved key still shows blank (with the existing "✔ API key saved" status line)
+  when the menu reopens, same as 3.17.1 — only what you actively type gets the
+  mask/reveal treatment.
+- *(Toolchain caveat unchanged: this environment can't reach the Gradle/MC 26.2
+  toolchain, so the two edited files were only javac syntax-checked against a
+  stub classpath, not compiled against real Minecraft classes; `build.yml`
+  compile-checks the branch push.)*
 
 ### 3.17.1
 - **Fixed the "API key won't save" bug for real.** Root cause found in
