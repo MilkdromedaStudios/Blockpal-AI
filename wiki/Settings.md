@@ -44,14 +44,14 @@ Every Blockpal screen has a shared **tab bar** at the top to move between the pa
 - **Save / Apply / Cancel** bar is pinned at the bottom; **Esc** auto-saves.
 - The token field stays blank when one is set — leave it blank to keep the current
   token, or type a new one to replace it.
-- **Password-style masking (3.17.2)** — the token box shows dots (•••) instead of
-  plaintext while you type, like a normal password field, so it can't be read over
-  your shoulder or caught in a screenshot. A **Show key** toggle beneath the box
-  reveals what you've currently typed if you want to double-check it before saving.
-  This only ever affects text you're actively typing — an already-saved key is
-  still never sent back to the menu at all (see *API token security* below). The
-  same masking + Show key toggle is on the personal key box in **My Settings**
-  (`/ai mymenu`).
+- **Password-style masking (3.17.2)** — the token box shows dots (•••) by default
+  and is read-only until you press the **Show key** toggle beneath it, which
+  switches it to an editable plaintext box for typing/pasting your key; toggle
+  it off again to re-mask (what you typed is kept, just hidden — no need to
+  retype it). This only ever affects text you're actively entering — an
+  already-saved key is still never sent back to the menu at all (see *API token
+  security* below). The same masking + Show key toggle is on the personal key
+  box in **My Settings** (`/ai mymenu`).
 
 ## The free AI fallback (3.17.0)
 
