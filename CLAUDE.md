@@ -402,6 +402,17 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   not saved yet" status line) until Apply/Save sends it — only a *saved* key is
   never echoed back. Switching panels in the top `PanelNav` bar auto-applies
   dirty edits first (a `beforeSwitch` hook, used only by the Settings screen).
+- **API key fields are password-masked (3.17.2)** — the token box (here and on
+  the personal key field in **My Settings**) shows dots by default and is
+  **read-only** until you press **Show key**, which switches it to editable
+  plaintext for typing/pasting; toggling Show key off re-masks it (capturing
+  what you typed into a plain string field first — `pToken` here, `typedKey` in
+  `PlayerSettingsScreen`). This is a mask-then-reveal-to-edit design rather than
+  live per-keystroke masking, since this MC version's `EditBox` has no formatter
+  hook to substitute display characters without altering the stored value. This
+  only ever un-masks in-progress text — an already-saved key is still never
+  sent back to a client, so the "token never leaves the server" guarantee is
+  unchanged.
 - **Save / Apply / Cancel** action bar pinned at the bottom; ESC auto-saves.
 - **Scrollable body** — each tab lives in a `ScrollableLayout` (mouse wheel +
   scrollbar) so it fits on any screen size; title, tab bar and action bar stay pinned.
@@ -540,6 +551,39 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 ---
 
 ## Changelog
+
+### 3.17.2
+- **API key fields mask like a password box.** Requested after 3.17.1: the token
+  field (Settings → AI & API) and the personal key field (My Settings /
+  `/ai mymenu`) now show dots (•) instead of plaintext by default, and are
+  **read-only** until you press the new **Show key** toggle, which switches the
+  box to editable plaintext for typing/pasting. Toggling Show key back off first
+  captures what you typed (into `pToken` in `AiConfigScreen`, `typedKey` in
+  `PlayerSettingsScreen`) then re-masks the box. `capture()`/`buildData()`/`save()`
+  read that captured string, not the box's displayed dots, so nothing about
+  what's actually sent to the server changed.
+- **First attempt used `EditBox#setFormatter` and failed CI.** The original
+  implementation tried a live per-keystroke formatter
+  (`BiFunction<String,Integer,FormattedCharSequence>`) so the box could stay
+  directly editable while showing dots — a real vanilla Minecraft API in many
+  versions, but `./gradlew build` on the pushed branch came back with
+  `cannot find symbol: method setFormatter` for this project's MC 26.2 `EditBox`
+  (confirmed via the CI logs, not guessed) — this environment has no network
+  access to compile against the real classes locally, so the wrong-API guess
+  wasn't caught until the actual GitHub Actions run. Replaced with the
+  read-only-until-Show design above, built entirely from `EditBox` methods
+  already used and proven to compile elsewhere in this same codebase
+  (`setValue`, `getValue`, `setEditable`, `setHint`, `setTooltip`), for a fix
+  with no unverified API surface.
+- **Deliberately scoped to typed text, not the saved key.** The user's ask ("load
+  the key next time... with a show button") could be read as "let me reveal my
+  already-saved key," which would require the server to send the real secret to
+  the client on request — a genuine loosening of the "token never leaves the
+  server" guarantee from the Security section above. Asked the user via
+  `AskUserQuestion` before implementing; they chose the typed-text-only scope, so
+  a saved key still shows blank (with the existing "✔ API key saved" status line)
+  when the menu reopens, same as 3.17.1 — only what you actively type gets the
+  mask/reveal treatment.
 
 ### 3.17.1
 - **Fixed the "API key won't save" bug for real.** Root cause found in
