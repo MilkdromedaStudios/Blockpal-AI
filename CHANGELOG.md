@@ -4,6 +4,16 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.17.2
+- **API key fields now mask like a password box.** Typing or pasting a key into
+  the **API token** field (Settings → AI & API tab) or the personal key field
+  (**My Settings** / `/ai mymenu`) now shows dots (••••••) instead of plaintext,
+  so it can't be read over your shoulder or caught in a screenshot. A new **Show
+  key** toggle beneath each box reveals the characters you've typed, if you want
+  to double-check them before saving. This only ever un-masks text you're
+  currently typing — an already-saved key is still never sent back to the menu
+  at all, so the security model from 3.16.1/3.17.1 is unchanged.
+
 ## 3.17.1
 - **Fixed: a typed API key could silently vanish before it was ever saved.** The
   settings menu holds your edits in a draft while you move around it, but the API

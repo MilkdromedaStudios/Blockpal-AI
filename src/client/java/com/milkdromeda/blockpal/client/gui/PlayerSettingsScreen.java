@@ -12,9 +12,12 @@ import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.util.FormattedCharSequence;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiFunction;
 
 /**
  * The per-player "{@code /ai mymenu}" screen — open to everyone (unlike the admin
@@ -34,10 +37,19 @@ public class PlayerSettingsScreen extends Screen {
     private static final int W = 260;
     private static final int FIELD_H = 20;
 
+    // Renders whatever's typed as bullet dots, like a normal password field. Purely a
+    // display formatter — EditBox#getValue() still returns the real text underneath.
+    private static final BiFunction<String, Integer, FormattedCharSequence> MASK_FORMATTER =
+            (text, firstChar) -> FormattedCharSequence.forward("•".repeat(text.length()), Style.EMPTY);
+    private static final BiFunction<String, Integer, FormattedCharSequence> PLAIN_FORMATTER =
+            (text, firstChar) -> FormattedCharSequence.forward(text, Style.EMPTY);
+
     private final PlayerPrefsSyncPayload data;
     private CycleButton<String> modelButton;
     private EditBox keyBox;
     private CycleButton<Boolean> clearKeyButton;
+    private CycleButton<Boolean> keyShowButton;
+    private boolean keyVisible;
     private String chosenModel;
 
     private CycleButton<String> personalityButton;
@@ -123,8 +135,21 @@ public class PlayerSettingsScreen extends Screen {
         keyBox.setMaxLength(256);
         keyBox.setHint(Component.literal(data.hasPersonalKey() ? "set — blank keeps it" : "paste your token"));
         keyBox.setTooltip(Tooltip.create(Component.literal(
-                "Your own API key (kept private & obfuscated). Leave blank to keep the current one.")));
+                "Your own API key. Masked like a password field while you type — use \"Show key\" below to "
+                        + "check it. Kept private & obfuscated; leave blank to keep the current one.")));
+        keyBox.setFormatter(keyVisible ? PLAIN_FORMATTER : MASK_FORMATTER);
         addRenderableWidget(keyBox);
+        y += FIELD_H + 4;
+
+        keyShowButton = CycleButton.onOffBuilder(keyVisible)
+                .create(x, y, W, FIELD_H, Component.literal("Show key"), (btn, val) -> {
+                    keyVisible = val;
+                    keyBox.setFormatter(keyVisible ? PLAIN_FORMATTER : MASK_FORMATTER);
+                });
+        keyShowButton.setTooltip(Tooltip.create(Component.literal(
+                "Reveal the characters you've typed above (masked by default). Only shows what's currently "
+                        + "typed here — an already-saved key is never sent to this menu.")));
+        addRenderableWidget(keyShowButton);
         y += FIELD_H + 4;
 
         clearKeyButton = CycleButton.onOffBuilder(false)
