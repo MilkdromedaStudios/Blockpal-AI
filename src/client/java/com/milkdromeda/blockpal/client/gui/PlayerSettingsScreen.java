@@ -34,10 +34,22 @@ public class PlayerSettingsScreen extends Screen {
     private static final int W = 260;
     private static final int FIELD_H = 20;
 
+    /** Bullet-dot stand-in for a masked string, like a password field. */
+    private static String maskOf(String s) {
+        return "•".repeat(s == null ? 0 : s.length());
+    }
+
     private final PlayerPrefsSyncPayload data;
     private CycleButton<String> modelButton;
     private EditBox keyBox;
     private CycleButton<Boolean> clearKeyButton;
+    private CycleButton<Boolean> keyShowButton;
+    // Masked by default (dots, read-only) like a password field; there's no vanilla
+    // EditBox hook to substitute masking characters while still typing normally, so
+    // "Show key" switches the box to editable plaintext (that's when you actually
+    // type/paste) and this field holds the real value while the box shows dots.
+    private boolean keyVisible;
+    private String typedKey = "";
     private String chosenModel;
 
     private CycleButton<String> personalityButton;
@@ -123,8 +135,25 @@ public class PlayerSettingsScreen extends Screen {
         keyBox.setMaxLength(256);
         keyBox.setHint(Component.literal(data.hasPersonalKey() ? "set — blank keeps it" : "paste your token"));
         keyBox.setTooltip(Tooltip.create(Component.literal(
-                "Your own API key (kept private & obfuscated). Leave blank to keep the current one.")));
+                "Your own API key. Shown masked as dots by default — press \"Show key\" below to reveal and "
+                        + "type/paste it. Kept private & obfuscated; leave blank to keep the current one.")));
+        keyBox.setValue(keyVisible ? typedKey : maskOf(typedKey));
+        keyBox.setEditable(keyVisible);
         addRenderableWidget(keyBox);
+        y += FIELD_H + 4;
+
+        keyShowButton = CycleButton.onOffBuilder(keyVisible)
+                .create(x, y, W, FIELD_H, Component.literal("Show key"), (btn, val) -> {
+                    // Leaving plaintext mode: capture whatever's typed before re-masking it.
+                    if (!val) typedKey = keyBox.getValue();
+                    keyVisible = val;
+                    keyBox.setEditable(keyVisible);
+                    keyBox.setValue(keyVisible ? typedKey : maskOf(typedKey));
+                });
+        keyShowButton.setTooltip(Tooltip.create(Component.literal(
+                "Reveal and edit the key above (masked and read-only by default). Only affects what's "
+                        + "currently typed here — an already-saved key is never sent to this menu.")));
+        addRenderableWidget(keyShowButton);
         y += FIELD_H + 4;
 
         clearKeyButton = CycleButton.onOffBuilder(false)
@@ -153,7 +182,10 @@ public class PlayerSettingsScreen extends Screen {
 
     private void save() {
         boolean clear = clearKeyButton != null && clearKeyButton.getValue();
-        String token = keyBox == null ? "" : keyBox.getValue();
+        // While masked, keyBox holds dots — only its plaintext (keyVisible) contents
+        // are the real typed value; otherwise fall back to what was last captured.
+        if (keyVisible && keyBox != null) typedKey = keyBox.getValue();
+        String token = typedKey;
         String model = chosenModel == null ? "" : chosenModel;
 
         // Only send a personality change (so a model-only save doesn't re-moderate the

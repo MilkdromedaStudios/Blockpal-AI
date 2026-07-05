@@ -55,6 +55,11 @@ public class AiConfigScreen extends Screen {
     private static final Component SAVED_MSG =
             Component.literal("Settings applied ✓").withStyle(s -> s.withColor(0x55FF55));
 
+    /** Bullet-dot stand-in for a masked string, like a password field. */
+    private static String maskOf(String s) {
+        return "•".repeat(s == null ? 0 : s.length());
+    }
+
     private final ConfigData initial;
     private Tab tab = Tab.IDENTITY;
 
@@ -69,11 +74,15 @@ public class AiConfigScreen extends Screen {
     private boolean pAllowPossession;
     private boolean pFreeFallback;
     private boolean tokenSet;
+    // Whether the token box currently shows plaintext instead of masking dots. Purely a
+    // display preference (not part of the saved config), so it isn't in ConfigData —
+    // it just persists across tab switches like the other draft fields.
+    private boolean tokenVisible;
 
     // ── widgets for the current tab (null when not on that tab) ──
     private EditBox nameBox, skinBox, modelBox, apiUrlBox, tokenBox;
     private StringWidget tokenStatus;
-    private CycleButton<Boolean> listenButton, activeButton, commandsButton, debugButton, sneakButton, allowCustomButton, allowPossessionButton, freeFallbackButton;
+    private CycleButton<Boolean> listenButton, activeButton, commandsButton, debugButton, sneakButton, allowCustomButton, allowPossessionButton, freeFallbackButton, tokenShowButton;
     private CycleButton<String> presetButton, defaultPersonalityButton;
     private OptionSlider tempSlider, maxTokensSlider, followSlider, guardSlider, cmdLevelSlider;
     private OptionSlider actionDelaySlider, maxTaskSlider, fleeSlider;
@@ -175,7 +184,7 @@ public class AiConfigScreen extends Screen {
     private void clearWidgetRefs() {
         nameBox = skinBox = modelBox = apiUrlBox = tokenBox = null;
         tokenStatus = null;
-        listenButton = activeButton = commandsButton = debugButton = sneakButton = allowCustomButton = allowPossessionButton = freeFallbackButton = null;
+        listenButton = activeButton = commandsButton = debugButton = sneakButton = allowCustomButton = allowPossessionButton = freeFallbackButton = tokenShowButton = null;
         presetButton = defaultPersonalityButton = null;
         tempSlider = maxTokensSlider = followSlider = guardSlider = cmdLevelSlider = null;
         actionDelaySlider = maxTaskSlider = fleeSlider = null;
@@ -267,11 +276,32 @@ public class AiConfigScreen extends Screen {
         // another tab and back instead of silently vanishing before Save. A key
         // that's already saved is never echoed back here (privacy) — the box then
         // starts empty and blank means "keep it".
-        tokenBox = bodyBox(body, "API token", pToken, 256, "Your API key. Never shown back for privacy — leave blank to keep the current one.");
+        //
+        // Masked by default (dots, read-only) like a password field; there's no
+        // vanilla EditBox hook to substitute masking characters while still typing
+        // normally, so "Show key" below switches the box to editable plaintext —
+        // that's when you actually type/paste, then toggle back off to re-mask.
+        tokenBox = bodyBox(body, "API token", tokenVisible ? pToken : maskOf(pToken), 256,
+                "Your API key. Shown masked as dots by default — press \"Show key\" below to reveal and "
+                        + "type/paste it. Never shown back once saved — leave blank to keep the current one.");
         tokenBox.setHint(Component.literal(tokenSet ? "set - blank keeps it" : "not set"));
+        tokenBox.setEditable(tokenVisible);
         // The key is never echoed back, so the emptying box needs an explicit "it IS
         // saved" signal or players think Apply lost it.
         tokenStatus = body.addChild(new StringWidget(W, LABEL_H, tokenStatusText(), this.font));
+        tokenShowButton = body.addChild(CycleButton.onOffBuilder(tokenVisible)
+                .create(0, 0, W, FIELD_H, Component.literal("Show key"), (btn, val) -> {
+                    // Leaving plaintext mode: capture whatever's typed before re-masking it.
+                    if (!val && tokenBox != null) pToken = tokenBox.getValue();
+                    tokenVisible = val;
+                    if (tokenBox != null) {
+                        tokenBox.setEditable(tokenVisible);
+                        tokenBox.setValue(tokenVisible ? pToken : maskOf(pToken));
+                    }
+                }));
+        tokenShowButton.setTooltip(Tooltip.create(Component.literal(
+                "Reveal and edit the key above (masked and read-only by default, like a password field). "
+                        + "Only affects what's currently typed here — an already-saved key is never sent to this menu.")));
         freeFallbackButton = bodyToggle(body, "Free AI fallback (no key)", pFreeFallback,
                 "With no API key set anywhere, bots use a free built-in AI service so they work out of the box. "
                         + "A HuggingFace (or other) key always takes over the moment it's set. "
@@ -376,7 +406,9 @@ public class AiConfigScreen extends Screen {
         if (skinBox != null) pSkin = skinBox.getValue();
         if (modelBox != null) pModel = modelBox.getValue();
         if (apiUrlBox != null) pApiUrl = apiUrlBox.getValue();
-        if (tokenBox != null) pToken = tokenBox.getValue();
+        // Only read the token box while it's showing real plaintext (tokenVisible) —
+        // when masked it holds dots, which must never overwrite the real draft.
+        if (tokenBox != null && tokenVisible) pToken = tokenBox.getValue();
         if (listenButton != null) pListen = listenButton.getValue();
         if (activeButton != null) pActive = activeButton.getValue();
         if (commandsButton != null) pCommands = commandsButton.getValue();
@@ -423,10 +455,13 @@ public class AiConfigScreen extends Screen {
         if (!pToken.isBlank()) {
             tokenSet = true;
             pToken = "";
+            tokenVisible = false;
             if (tokenBox != null) {
                 tokenBox.setValue("");
+                tokenBox.setEditable(false);
                 tokenBox.setHint(Component.literal("set - blank keeps it"));
             }
+            if (tokenShowButton != null) tokenShowButton.setValue(false);
             if (tokenStatus != null) tokenStatus.setMessage(tokenStatusText());
         }
         baseline = buildData();
