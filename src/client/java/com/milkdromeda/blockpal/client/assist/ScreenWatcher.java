@@ -91,10 +91,11 @@ public final class ScreenWatcher {
             String tip = reply.trim();
             Minecraft.getInstance().execute(() -> {
                 ChatMemory.addTip(tip);
-                LocalPlayer p = Minecraft.getInstance().player;
-                if (p != null) {
-                    // Local-only chat line — never sent to the server.
-                    p.displayClientMessage(Component.literal("§b[Blockpal tip] §f" + tip), false);
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.player != null && mc.gui != null) {
+                    // Local-only chat line — added straight to the client's chat HUD,
+                    // never sent to the server.
+                    mc.gui.getChat().addMessage(Component.literal("§b[Blockpal tip] §f" + tip));
                 }
             });
         });
