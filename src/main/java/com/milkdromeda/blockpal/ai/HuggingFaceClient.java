@@ -219,6 +219,81 @@ public class HuggingFaceClient {
         }
     }
 
+    private static final String ASSISTANT_PROMPT = """
+            You are Blockpal's private in-game helper: a friendly, knowledgeable
+            Minecraft companion answering a player through a small chat box on their
+            own screen. Give concise, practical, accurate help — tips, how-tos,
+            recipes, strategy, where to find things, what a block/mob/item does.
+
+            Rules:
+            - Keep replies short (1-4 sentences). Plain text, no markdown headings.
+            - You only ADVISE. You cannot see or touch the world and you never claim to
+              take actions, place blocks, or move the player. If they want you to control
+              their character, tell them to open the drive/possession console.
+            - Never help with cheating that could get them banned (X-ray, kill aura,
+              auto-clickers, dupes, exploits). If asked, gently decline and suggest a
+              legitimate approach instead.
+            - Be encouraging and to the point.
+            """;
+
+    /**
+     * A free-form conversational reply for the client-side assistant chat box. Unlike
+     * {@link #requestPlan} this returns plain prose (not a JSON plan) and never throws —
+     * any failure comes back as a short parenthetical message so the chat box can show
+     * it. {@code history} is prior turns as {@code {role, content}} pairs (role
+     * "user"/"assistant"); {@code auth} resolves the caller's key/model/endpoint.
+     */
+    public CompletableFuture<String> requestChat(List<String[]> history, String userMessage, ApiAuth auth) {
+        if (auth == null || !auth.usable()) {
+            return CompletableFuture.completedFuture(
+                    "(No AI configured — add a key with /ai mykey <token>, or enable the free AI in /ai menu.)");
+        }
+        ModConfig cfg = ModConfig.get();
+        HttpRequest request;
+        try {
+            request = buildChatRequest(cfg, history, userMessage, auth);
+        } catch (IllegalArgumentException e) {
+            return CompletableFuture.completedFuture("(The API URL looks invalid — an admin can fix it in /ai menu.)");
+        }
+        return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                .handle((resp, ex) -> {
+                    if (ex != null) return "(" + friendlyNetworkError(ex) + ")";
+                    if (resp.statusCode() != 200) return "(" + friendlyHttpError(resp) + ")";
+                    String content = extractContent(resp.body());
+                    return content == null || content.isBlank() ? "(No reply — try again.)" : content.trim();
+                });
+    }
+
+    private HttpRequest buildChatRequest(ModConfig cfg, List<String[]> history, String userMessage, ApiAuth auth) {
+        JsonObject body = new JsonObject();
+        body.addProperty("model", auth.model());
+        body.addProperty("temperature", 0.6);
+        body.addProperty("max_tokens", 300);
+        body.addProperty("stream", false);
+
+        JsonArray messages = new JsonArray();
+        messages.add(message("system", ASSISTANT_PROMPT));
+        if (history != null) {
+            for (String[] turn : history) {
+                if (turn == null || turn.length < 2 || turn[1] == null || turn[1].isBlank()) continue;
+                String role = "assistant".equals(turn[0]) ? "assistant" : "user";
+                messages.add(message(role, turn[1]));
+            }
+        }
+        messages.add(message("user", userMessage));
+        body.add("messages", messages);
+
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(endpoint(cfg, auth)))
+                .header("Content-Type", "application/json")
+                .timeout(Duration.ofSeconds(45))
+                .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body)));
+        if (auth.hasToken()) {
+            builder.header("Authorization", "Bearer " + auth.token());
+        }
+        return builder.build();
+    }
+
     public CompletableFuture<ActionPlan> requestPlan(String task, String context, ApiAuth auth) {
         return requestPlan(task, context, auth, null);
     }
