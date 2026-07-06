@@ -30,6 +30,8 @@ public class PossessionDriveScreen extends Screen {
 
     private EditBox input;
     private String draft = "";
+    /** True once navigated away from — guards async status rebuilds. */
+    private boolean dead;
 
     public PossessionDriveScreen() {
         super(Component.literal("Possession Console"));
@@ -91,10 +93,11 @@ public class PossessionDriveScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Close"), b -> onClose())
                 .bounds(x + bw + 8, by, bw, 20).build());
 
-        // Refresh in place whenever the driver posts a status line.
+        // Refresh in place whenever the driver posts a status line. The listener is
+        // cleared in removed(), so it only ever fires while this console is open.
         PossessionLog.setListener(line -> {
             Minecraft mc = this.minecraft;
-            if (mc != null) mc.execute(() -> { if (mc.screen == this) rebuild(); });
+            if (mc != null && !dead) mc.execute(() -> { if (!dead) rebuild(); });
         });
     }
 
@@ -107,15 +110,6 @@ public class PossessionDriveScreen extends Screen {
         draft = "";
         if (input != null) input.setValue("");
         rebuild();
-    }
-
-    @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if ((keyCode == 257 || keyCode == 335) && input != null && input.isFocused()) {
-            send();
-            return true;
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     private void stop() {
@@ -148,6 +142,7 @@ public class PossessionDriveScreen extends Screen {
 
     @Override
     public void removed() {
+        dead = true;
         PossessionLog.setListener(null);
         super.removed();
     }

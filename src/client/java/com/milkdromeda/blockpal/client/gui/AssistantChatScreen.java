@@ -37,6 +37,8 @@ public class AssistantChatScreen extends Screen {
     private EditBox input;
     private String draft = "";
     private boolean waiting;
+    /** True once this screen has been navigated away from (guards async rebuilds). */
+    private boolean dead;
 
     /** Scroll position, in lines from the top; -1 means "stick to the newest". */
     private int scroll = -1;
@@ -138,19 +140,9 @@ public class AssistantChatScreen extends Screen {
                     waiting = false;
                     ChatMemory.addAssistant(ex != null ? "(the AI request failed — try again)" : reply);
                     scroll = -1;
-                    if (this.minecraft != null && this.minecraft.screen == this) rebuild();
+                    if (this.minecraft != null && !dead) rebuild();
                 }));
         rebuild();
-    }
-
-    @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        // Enter / keypad-Enter sends the current line.
-        if ((keyCode == 257 || keyCode == 335) && input != null && input.isFocused()) {
-            send();
-            return true;
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     private void cycleConversation(int dir) {
@@ -242,8 +234,19 @@ public class AssistantChatScreen extends Screen {
     }
 
     @Override
+    public void removed() {
+        dead = true;
+        super.removed();
+    }
+
+    @Override
     public void onClose() {
-        if (this.minecraft != null) this.minecraft.setScreen(returnScreen());
+        Screen ret = returnScreen();
+        if (ret == null || this.minecraft == null) {
+            super.onClose();          // engine closes to the game (no setScreen needed)
+        } else {
+            this.minecraft.setScreenAndShow(ret);
+        }
     }
 
     /** Return to the pause screen we came from, but not to a (now server-closed) container. */
