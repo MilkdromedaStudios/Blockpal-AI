@@ -27,7 +27,7 @@ public class ModConfig {
      * default instead of silently inheriting Java's zero/false. A file with no
      * version at all reads back as {@code 0} and is migrated from there.
      */
-    public static final int CURRENT_CONFIG_VERSION = 8;
+    public static final int CURRENT_CONFIG_VERSION = 9;
 
     // Settings (including the API key) live in their own folder under the game's
     // config directory. That directory is untouched when you replace the mod jar,
@@ -110,6 +110,25 @@ public class ModConfig {
     // any server running Blockpal and in singleplayer, with no client mod required to
     // be controlled. Admins can turn it off (/ai admin possession off).
     public boolean allowPossession = true;
+
+    // ── Client-side assistant (works on ANY server, even without Blockpal) ──────────
+    // These are read on the player's own client. They govern the private in-game AI
+    // chat box and the client-side "drive my character" (possession) fallback used on
+    // servers that don't run Blockpal. They never sync to, or depend on, the server.
+
+    // Client-side possession: let the AI drive YOUR OWN character on a server that
+    // doesn't have Blockpal, by simulating your inputs. Deliberately limited to basic
+    // survival tasks (walk, mine, gather, place, use, sneak/jump) — it will NEVER
+    // attack players or mobs and never types in chat or runs commands, so it can't be
+    // used for a PvP/combat advantage. It is also hard-blocked on servers whose rules
+    // forbid automation (Hypixel and other anti-cheat networks) regardless of this
+    // flag. Off leaves only the always-safe advice chat below.
+    public boolean allowClientPossession = true;
+
+    // The private AI helper watches your on-screen situation and drops the occasional
+    // short survival tip into the assistant chat box (never the server chat). Purely
+    // informational — it never controls you — so it's safe on every server.
+    public boolean assistantTips = true;
 
     // Safety cap: automatically stop a running task after this many seconds, so a
     // task stuck in an endless loop can't keep running (and lagging) forever.
@@ -360,6 +379,13 @@ public class ModConfig {
             // servers without a key get a working companion (an old file deserializes
             // the new boolean to false, which would silently disable it).
             freeAiFallback = true;
+        }
+        if (configVersion < 9) {
+            // The client-side assistant (private chat box + off-server possession) was
+            // added in v9; ship both on by default (an old file deserializes the new
+            // booleans to false, which would silently disable features we mean to ship).
+            allowClientPossession = true;
+            assistantTips = true;
         }
         configVersion = CURRENT_CONFIG_VERSION;
     }
