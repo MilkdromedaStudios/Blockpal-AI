@@ -205,6 +205,51 @@ can do and how it evolved.
   toggle it on the Settings → **Behavior** tab or with `/ai admin possession on|off`.
   Config schema → v7 (upgrading installs default it true).
 
+### Client-side assistant — works on ANY server, even without Blockpal (3.18.0+)
+Everything above needs Blockpal on the **server**. This section is the opposite: a
+**client-only** layer that runs on the player's own machine, so it works on a vanilla
+server, someone else's modded server, or singleplayer. It never depends on the server
+having Blockpal. Code lives under `client/assist/` + two GUI screens.
+
+- **Private AI chat box (mini wiki assistant).** `/aichat` (or a tiny **`✦`** button
+  injected top-right into the pause menu, inventory and any container screen — anywhere
+  the mouse is free) opens `client/gui/AssistantChatScreen`: a small, scrollable,
+  word-wrapped, theme-styled panel to chat with the AI for tips/recipes/strategy. It is
+  **private** — replies render only in this box (never in server chat). History is
+  persisted client-side by `client/assist/ChatMemory` to `config/blockpal/assistant-chats.json`,
+  **capped at 100 messages per conversation and 100 conversations** (oldest roll off);
+  `＋`/`◀`/`▶` switch threads, `▲`/`▼` and the wheel scroll. The chat is **advice only** —
+  it never controls the player and can't type in server chat.
+- **On-screen tips ("mini wiki").** `client/assist/ScreenWatcher` samples your situation
+  (~1×/s, ≥90 s between tips) and, on a notable trigger (low health, starving, on fire,
+  drowning, a new dimension), asks the model for one short survival tip and drops it into
+  your **own** chat HUD (`displayClientMessage`, local-only) + the chat box. Toggle with
+  `/aitips on|off` or the box's Tips button (`assistantTips` config, default on). Purely
+  informational, so it's safe everywhere.
+- **Off-server possession (drive your own character).** On a server **without** Blockpal,
+  `/aidrive` opens `client/gui/PossessionDriveScreen` (the "little textbox"); `/aidrive
+  <instruction>` / `/aidrive stop` steer it by text. `client/assist/ClientPossession`
+  turns instructions into an action plan (via the local key / free AI) and drives the
+  player by **simulating your own inputs** (`Options` key mappings + look) — so the server
+  sees ordinary player packets and no client movement mod is needed. Deliberately limited
+  to **basic survival tasks** (walk, mine, `MINE_AREA`, place, use, collect, jump, sneak);
+  disallowed actions are stripped by `sanitize()`.
+- **Anti-ban design (the important part).** Client-side automation can break some servers'
+  rules even when it isn't a *cheat*, so the mod is conservative:
+  - It **never attacks players or mobs** — the attack key is released the instant the
+    crosshair is on an entity — so it gives **no PvP/combat advantage**; and it **never
+    chats or runs commands** from a plan.
+  - `client/assist/ServerGuard` **hard-blocks** driving on known no-automation networks
+    (Hypixel & co., substring denylist) *regardless of settings*; **your own world**
+    (singleplayer/LAN host) is always allowed; a **Blockpal server** routes you to the
+    server-side `/ai possess` instead; any other third-party server is allowed only with
+    `allowClientPossession` on **and** an up-front "may break this server's rules" warning.
+    It also pauses driving below 30% health. The always-safe chat box + tips work
+    everywhere (they touch nothing in the world).
+- **Config (client-local, schema v9):** `allowClientPossession` (default true — gates the
+  driver; the anti-cheat denylist overrides it) and `assistantTips` (default true). These
+  live in the player's own `config/blockpal/config.json` and never sync to the server.
+
 ### Commands (`/ai …`)
 | Command | Effect |
 |---------|--------|
@@ -230,6 +275,9 @@ can do and how it evolved.
 | `/ai trust <player>` / `/ai untrust <player>` | Let / stop another player command this bot |
 | `/ai trust list` / `/ai trust clear` | Show / clear this bot's trusted players |
 | `/aiskins list\|reload` | (client) list/reload skins in `config/blockpal/skins/` |
+| `/aichat` | **(client)** open the private AI chat box (works on any server) |
+| `/aidrive [<instruction>\|stop]` | **(client)** off-server possession console / steer / end |
+| `/aitips [on\|off]` | **(client)** toggle the private on-screen survival tips |
 | `/ai inventory` / `/ai inv` | Show carried items |
 | `/ai mykey <token>\|clear` | Set/clear **your own** API key (any player) |
 | `/ai model [<id>]` / `/ai models` | Pick your bot's model / list the allowed models |
@@ -551,6 +599,44 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 ---
 
 ## Changelog
+
+### 3.18.0
+- **A client-side assistant that works on ANY server — even ones without Blockpal.**
+  Everything before this needed Blockpal on the *server*; this release adds a
+  **client-only** layer (`client/assist/`) that runs on the player's own machine:
+  - **Private AI chat box.** `/aichat` — or a tiny **`✦`** button injected top-right into
+    the pause menu, inventory and any container screen (anywhere the mouse is free) —
+    opens `AssistantChatScreen`, a small, scrollable, word-wrapped chat panel. Replies are
+    **private** (this box only, never the server chat). History persists to
+    `config/blockpal/assistant-chats.json`, **capped at 100 messages/conversation and 100
+    conversations**; `＋`/`◀`/`▶` switch threads, `▲`/`▼`/wheel scroll. Advice only — it
+    never controls you. New `HuggingFaceClient.requestChat` (plain-prose reply) backs it.
+  - **On-screen tips ("mini wiki").** `ScreenWatcher` notices notable situations (low
+    health, starving, on fire, drowning, a new dimension) and drops one short survival tip
+    into your own local chat HUD + the box (≥90 s apart). `/aitips on|off`, `assistantTips`
+    config (default on). Never controls you.
+  - **Off-server possession.** On a non-Blockpal server, `/aidrive` opens
+    `PossessionDriveScreen` (the "little textbox"); `/aidrive <instruction>` / `stop` steer
+    it by text. `ClientPossession` plans with the local key/free AI and drives you by
+    **simulating your own inputs** (`Options` key mappings + look), so no client movement
+    mod is needed and the server sees ordinary player packets. Limited to **basic survival
+    tasks** (walk/mine/place/use/collect/jump/sneak); other actions are stripped.
+- **Anti-ban design.** Client automation can break some servers' rules even when it isn't a
+  cheat, so: it **never attacks players/mobs** (attack key released the instant the
+  crosshair is on an entity → **no PvP/combat advantage**) and **never chats or runs
+  commands**; `ServerGuard` **hard-blocks** driving on known no-automation networks
+  (Hypixel & co.) *regardless of settings*, always allows your own singleplayer/LAN world,
+  routes Blockpal servers to server-side `/ai possess`, and only drives on other
+  third-party servers with `allowClientPossession` on **and** an explicit warning. Driving
+  also pauses below 30% health. The chat box + tips are safe everywhere.
+- **Config schema → v9.** New client-local `allowClientPossession` + `assistantTips` (both
+  default true; migrated on upgrade). They never sync to the server.
+- *(Toolchain caveat, same as recent releases: Gradle + the 26.2 deps are unreachable in
+  this environment, so no jar was built — `build.yml` compile-checks the branch push. The
+  input-driving loop and the wheel-scroll path especially want real-machine play-testing;
+  copy the jar into `builds/` when a networked machine builds it. The client-driving code
+  leans on stable client APIs — `Options` key mappings, `KeyMapping.setDown`,
+  `Minecraft.hitResult` — but they weren't compiled locally here.)*
 
 ### 3.17.2
 - **API key fields mask like a password box.** Requested after 3.17.1: the token

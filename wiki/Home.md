@@ -58,6 +58,7 @@ and configures itself from a real in-game settings screen.
 | [Commands](Commands) | Every `/ai` command |
 | [Talking to Your Assistant](Talking-to-Your-Assistant) | Chat, quick intents, addressing by name |
 | [Possession Mode](Possession-Mode) | Let your companion drive your own character from a typed console |
+| [Client-Side Assistant](Client-Assistant) | Private chat box, tips & off-server possession — works on **any** server |
 | [Settings](Settings) | The in-game settings panel (no more setting commands) |
 | [Performance Presets](Performance-Presets) | Normal / Opus / Potato |
 | [Custom Skins](Custom-Skins) | Built-in and drop-in skins |

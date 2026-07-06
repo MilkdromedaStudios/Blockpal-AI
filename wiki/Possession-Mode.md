@@ -13,6 +13,11 @@ goes.
 > velocity (the same technique the mini-games use), so it can feel like being *pulled*
 > along rather than walking; expect this to get smoother with tuning.
 
+> **On a server that doesn't have Blockpal?** Use the **client-side** version instead:
+> `/aidrive` drives *your own* character by simulating your inputs, for basic tasks only
+> (mining/gathering — never combat), and is hard-blocked on anti-cheat networks like
+> Hypixel. See [Client-Side Assistant](Client-Assistant).
+
 ## How to use it
 
 1. **Stand near a companion you own** and make sure the AI has a key it can use

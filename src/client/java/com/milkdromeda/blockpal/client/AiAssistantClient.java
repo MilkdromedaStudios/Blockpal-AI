@@ -1,12 +1,16 @@
 package com.milkdromeda.blockpal.client;
 
 import com.milkdromeda.blockpal.ModEntities;
+import com.milkdromeda.blockpal.client.assist.ClientPossession;
+import com.milkdromeda.blockpal.client.assist.ScreenWatcher;
 import com.milkdromeda.blockpal.client.gui.AdminScreen;
 import com.milkdromeda.blockpal.client.gui.AiConfigScreen;
+import com.milkdromeda.blockpal.client.gui.AssistantChatScreen;
 import com.milkdromeda.blockpal.client.gui.BotManagerScreen;
 import com.milkdromeda.blockpal.client.gui.HostScreen;
 import com.milkdromeda.blockpal.client.gui.PlayerSettingsScreen;
 import com.milkdromeda.blockpal.client.gui.PossessionConsoleScreen;
+import com.milkdromeda.blockpal.client.gui.PossessionDriveScreen;
 import com.milkdromeda.blockpal.client.gui.TutorialScreen;
 import com.milkdromeda.blockpal.client.host.HostManager;
 import com.milkdromeda.blockpal.client.render.AiAssistantEntityModel;
@@ -18,18 +22,23 @@ import com.milkdromeda.blockpal.network.ConfigSyncPayload;
 import com.milkdromeda.blockpal.network.OpenTutorialPayload;
 import com.milkdromeda.blockpal.network.PlayerPrefsSyncPayload;
 import com.milkdromeda.blockpal.network.PossessionSyncPayload;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.ModelLayerRegistry;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 
 import java.util.Set;
@@ -86,6 +95,14 @@ public class AiAssistantClient implements ClientModInitializer {
                         PossessionConsoleScreen.handleSync(context.client(),
                                 payload.open(), payload.active(), payload.line())));
 
+        // Client-side assistant loop: drives off-server possession (only where allowed)
+        // and lets the "mini wiki" watcher offer the occasional private survival tip.
+        // Both are client-only, so they work on any server — even without Blockpal.
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            ClientPossession.tick();
+            ScreenWatcher.tick();
+        });
+
         // Extreme frame-rate watchdog: auto-disable the mod if FPS collapses.
         FpsGuardian.register();
 
@@ -103,6 +120,63 @@ public class AiAssistantClient implements ClientModInitializer {
                                     RuntimeSkins.reload();
                                     return listSkins(ctx.getSource());
                                 }))));
+
+        // Client-side assistant commands. These are CLIENT commands so they exist even
+        // on servers that don't run Blockpal (where the server-side /ai tree is absent):
+        //   /aichat            — open the private AI chat box
+        //   /aidrive           — open the off-server possession console
+        //   /aidrive <text>    — start/queue an instruction for it (text-driven)
+        //   /aidrive stop      — hand control back to you
+        //   /aitips on|off     — toggle the private on-screen tips
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
+            dispatcher.register(ClientCommands.literal("aichat")
+                    .executes(ctx -> { openChat(ctx.getSource().getClient(), null); return 1; }));
+
+            dispatcher.register(ClientCommands.literal("aidrive")
+                    .executes(ctx -> {
+                        Minecraft mc = ctx.getSource().getClient();
+                        mc.execute(() -> mc.setScreenAndShow(new PossessionDriveScreen()));
+                        return 1;
+                    })
+                    .then(ClientCommands.literal("stop").executes(ctx -> {
+                        ClientPossession.stop();
+                        ctx.getSource().sendFeedback(Component.literal("§7Driving stopped — you have control again."));
+                        return 1;
+                    }))
+                    .then(ClientCommands.argument("instruction", StringArgumentType.greedyString())
+                            .executes(ctx -> {
+                                String status = ClientPossession.start(StringArgumentType.getString(ctx, "instruction"));
+                                ctx.getSource().sendFeedback(Component.literal(status));
+                                return 1;
+                            })));
+
+            dispatcher.register(ClientCommands.literal("aitips")
+                    .executes(ctx -> {
+                        ctx.getSource().sendFeedback(Component.literal("§bBlockpal tips are "
+                                + (com.milkdromeda.blockpal.config.ModConfig.get().assistantTips ? "§aON" : "§7off")
+                                + " §7— toggle with §f/aitips on|off§7."));
+                        return 1;
+                    })
+                    .then(ClientCommands.literal("on").executes(ctx -> setTips(ctx.getSource(), true)))
+                    .then(ClientCommands.literal("off").executes(ctx -> setTips(ctx.getSource(), false))));
+        });
+
+        // Inject a tiny "✦" button into any screen where the mouse is free (pause menu,
+        // inventory, chests and other containers) so the chat box is one click away
+        // without overlapping the vanilla/other-mod widgets. It sits in the top-right
+        // corner and is deliberately mini (14×14).
+        ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
+            if (screen instanceof PauseScreen
+                    || screen instanceof AbstractContainerScreen<?>) {
+                Button chat = Button.builder(Component.literal("✦"),
+                                b -> openChat(client, screen))
+                        .bounds(scaledWidth - 18, 2, 14, 14)
+                        .build();
+                chat.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                        Component.literal("Blockpal AI chat")));
+                Screens.getWidgets(screen).add(chat);
+            }
+        });
 
         // "Host with Blockpal": open a server (Minecraft + Fabric + latest Geyser +
         // Floodgate) so Bedrock friends can join your Java world. Client-only, so a
@@ -166,6 +240,19 @@ public class AiAssistantClient implements ClientModInitializer {
         } catch (Exception ignored) {
             // No world captured — the screen simply offers fresh-world hosting.
         }
+    }
+
+    /** Opens the private AI chat box, remembering the screen to return to (if any). */
+    private static void openChat(Minecraft client, Screen parent) {
+        client.execute(() -> client.setScreenAndShow(new AssistantChatScreen(parent)));
+    }
+
+    private static int setTips(FabricClientCommandSource src, boolean on) {
+        com.milkdromeda.blockpal.config.ModConfig cfg = com.milkdromeda.blockpal.config.ModConfig.get();
+        cfg.assistantTips = on;
+        cfg.save();
+        src.sendFeedback(Component.literal("§bBlockpal tips: " + (on ? "§aON" : "§7off")));
+        return 1;
     }
 
     private static int openHost(FabricClientCommandSource src) {

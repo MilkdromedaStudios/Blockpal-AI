@@ -9,6 +9,7 @@
 **Using the mod**
 - [Commands](Commands)
 - [Talking to Your Assistant](Talking-to-Your-Assistant)
+- [Client-Side Assistant](Client-Assistant)
 - [Possession Mode](Possession-Mode)
 - [Settings](Settings)
 - [Performance Presets](Performance-Presets)
