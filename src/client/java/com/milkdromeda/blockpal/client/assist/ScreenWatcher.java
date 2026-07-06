@@ -3,7 +3,6 @@ package com.milkdromeda.blockpal.client.assist;
 import com.milkdromeda.blockpal.config.ModConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.network.chat.Component;
 
 import java.util.List;
 
@@ -89,15 +88,11 @@ public final class ScreenWatcher {
             requestInFlight = false;
             if (ex != null || reply == null || reply.isBlank() || reply.startsWith("(")) return;
             String tip = reply.trim();
-            Minecraft.getInstance().execute(() -> {
-                ChatMemory.addTip(tip);
-                Minecraft mc = Minecraft.getInstance();
-                if (mc.player != null && mc.gui != null) {
-                    // Local-only chat line — added straight to the client's chat HUD,
-                    // never sent to the server.
-                    mc.gui.getChat().addMessage(Component.literal("§b[Blockpal tip] §f" + tip));
-                }
-            });
+            // Store the tip in the private assistant chat box (the "✦" chat / /aichat).
+            // It is never sent to the server. We deliberately don't push it to the chat
+            // HUD here: this MC version renamed the client chat-HUD accessor and it can't
+            // be verified without a local compile, so the box is the single safe surface.
+            Minecraft.getInstance().execute(() -> ChatMemory.addTip(tip));
         });
     }
 }
