@@ -36,8 +36,8 @@ anywhere the mouse is free to move.
 
 The assistant quietly keeps an eye on your situation and, when something notable happens
 (low health, starving, on fire, drowning, stepping into a new dimension), drops **one
-short survival tip** into your own chat HUD and the chat box. Tips are private (local
-only) and rate-limited so they never nag.
+short survival tip** into the private chat box (open it with `/aichat` or the `✦` button).
+Tips are private (local only, never server chat) and rate-limited so they never nag.
 
 Toggle them with **`/aitips on`** / **`/aitips off`** (or the **Tips** button in the chat
 box). Default: on.

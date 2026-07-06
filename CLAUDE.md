@@ -223,9 +223,11 @@ having Blockpal. Code lives under `client/assist/` + two GUI screens.
 - **On-screen tips ("mini wiki").** `client/assist/ScreenWatcher` samples your situation
   (~1×/s, ≥90 s between tips) and, on a notable trigger (low health, starving, on fire,
   drowning, a new dimension), asks the model for one short survival tip and drops it into
-  your **own** chat HUD (`displayClientMessage`, local-only) + the chat box. Toggle with
-  `/aitips on|off` or the box's Tips button (`assistantTips` config, default on). Purely
-  informational, so it's safe everywhere.
+  the private assistant chat box (`ChatMemory.addTip`, local-only, never server chat).
+  Toggle with `/aitips on|off` or the box's Tips button (`assistantTips` config, default
+  on). Purely informational, so it's safe everywhere. (A live chat-HUD flash was dropped:
+  this MC version renamed the client chat-HUD accessor and it couldn't be compile-verified
+  in this environment, so the box is the single safe surface.)
 - **Off-server possession (drive your own character).** On a server **without** Blockpal,
   `/aidrive` opens `client/gui/PossessionDriveScreen` (the "little textbox"); `/aidrive
   <instruction>` / `/aidrive stop` steer it by text. `client/assist/ClientPossession`
@@ -613,8 +615,8 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
     never controls you. New `HuggingFaceClient.requestChat` (plain-prose reply) backs it.
   - **On-screen tips ("mini wiki").** `ScreenWatcher` notices notable situations (low
     health, starving, on fire, drowning, a new dimension) and drops one short survival tip
-    into your own local chat HUD + the box (≥90 s apart). `/aitips on|off`, `assistantTips`
-    config (default on). Never controls you.
+    into the private assistant chat box (≥90 s apart, local-only). `/aitips on|off`,
+    `assistantTips` config (default on). Never controls you.
   - **Off-server possession.** On a non-Blockpal server, `/aidrive` opens
     `PossessionDriveScreen` (the "little textbox"); `/aidrive <instruction>` / `stop` steer
     it by text. `ClientPossession` plans with the local key/free AI and drives you by
