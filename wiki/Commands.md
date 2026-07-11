@@ -26,6 +26,10 @@ All commands are under `/ai`. Type `/ai help` in-game for the live list.
 | `/ai bots` | Open the visual **Bots** panel (every bot + owner); text list on Bedrock/vanilla — see [Trust & Per-Bot Management](Trust-and-Per-Bot) |
 | `/ai trust <player>` · `/ai untrust <player>` | Let / stop another player command this bot |
 | `/ai trust list` · `/ai trust clear` | Show / clear this bot's trusted players |
+| `/ai voice` | Voice status — hold **V** to talk to YOUR companion — see [Voice](Voice) |
+| `/ai voice share <player>` · `unshare <player>` | Let / stop another player **hearing** your agent (links your agents' conversations) |
+| `/ai voice list` · `/ai voice clear` | Who hears your agent / make it private again |
+| `/ai voice set <id>` | Give your nearby bot its own TTS voice (`nova`, `onyx`, …) |
 | `/ai inventory` · `/ai inv` | Show carried items |
 | `/ai mykey <token>\|clear` | Set/clear **your own** API key — see [Per-Player Keys & Models](Per-Player-Keys-and-Models) |
 | `/ai model [<id>]` · `/ai models` | Pick your bot's model / list allowed models |
@@ -34,6 +38,7 @@ All commands are under `/ai`. Type `/ai help` in-game for the live list.
 | `/aichat` | *(client)* Open the private AI chat box — works on **any** server — see [Client-Side Assistant](Client-Assistant) |
 | `/aidrive [<instruction>\|stop]` | *(client)* Off-server possession console / steer / end — see [Client-Side Assistant](Client-Assistant) |
 | `/aitips [on\|off]` | *(client)* Toggle the private on-screen survival tips |
+| `/aivoice [on\|off\|stop\|key <code>\|voice <id>\|test <text>]` | *(client)* Your voice settings: hear the agent or not, rebind push-to-talk, default voice — see [Voice](Voice) |
 | `/aihost` · `/aihost status\|stop` | *(client, Java only)* Host a Bedrock-capable server — see [Bedrock (Geyser)](Geyser-Bedrock) |
 | `/ai admin …` | *(ops only)* Admin panel — see below |
 | `/ai <task>` | Give a natural-language task |
@@ -70,6 +75,7 @@ permission level. See **[Admin Menu](Admin-Menu)** for the full guide.
 | `/ai admin reload` | Reload `config.json` from disk |
 | `/ai admin requirekey on\|off` | Make players use their own API key — see [Per-Player Keys & Models](Per-Player-Keys-and-Models) |
 | `/ai admin possession on\|off` | Allow / deny possession mode (`/ai possess`) — see [Possession Mode](Possession-Mode) |
+| `/ai admin voice on\|off` | Allow / deny agent voice (push-to-talk + speech) — see [Voice](Voice) |
 | `/ai admin keylist add\|remove\|list <player>` | Who may use the shared key when BYOK is on |
 | `/ai admin models add\|remove\|list <id>` | Curate the models players may pick |
 

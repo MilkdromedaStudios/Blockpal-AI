@@ -85,10 +85,6 @@ public final class ChatListener {
         String body = text;
         if (addressedByName) {
             body = text.substring(name.length()).replaceFirst("^[,:\\s]+", "").trim();
-            if (body.isEmpty()) {
-                ai.broadcastMessage(ai.getPersonality().ack());
-                return;
-            }
         }
 
         // Not obviously aimed at the assistant by name or a command word?
@@ -105,6 +101,21 @@ public final class ChatListener {
             return;
         }
 
+        handleAddressed(sender, ai, body);
+    }
+
+    /**
+     * Handles a message that is definitely aimed at this assistant — addressed by
+     * name in chat, or spoken over push-to-talk (voice input is always for your
+     * own agent, so it lands here directly). Quick intents are instant and free;
+     * anything else becomes an AI task. The caller has already checked
+     * {@code canCommand}.
+     */
+    public static void handleAddressed(ServerPlayer sender, AiAssistantEntity ai, String body) {
+        if (body == null || body.isBlank()) {
+            ai.broadcastMessage(ai.getPersonality().ack());
+            return;
+        }
         if (handleQuickIntent(sender, ai, body.toLowerCase(Locale.ROOT))) return;
 
         // Anything else is a real task for the AI planner.

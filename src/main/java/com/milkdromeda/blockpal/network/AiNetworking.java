@@ -42,12 +42,14 @@ public final class AiNetworking {
         PayloadTypeRegistry.serverboundPlay().register(BotListRequestPayload.TYPE, BotListRequestPayload.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(BotActionPayload.TYPE, BotActionPayload.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(PossessionInputPayload.TYPE, PossessionInputPayload.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(VoiceInputPayload.TYPE, VoiceInputPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(ConfigSyncPayload.TYPE, ConfigSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(AdminSyncPayload.TYPE, AdminSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(PlayerPrefsSyncPayload.TYPE, PlayerPrefsSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(OpenTutorialPayload.TYPE, OpenTutorialPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(BotListSyncPayload.TYPE, BotListSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(PossessionSyncPayload.TYPE, PossessionSyncPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(VoiceSpeakPayload.TYPE, VoiceSpeakPayload.CODEC);
     }
 
     /** Sends the current config to a player so their client opens the settings menu. */
@@ -281,6 +283,38 @@ public final class AiNetworking {
                     case "instruction" -> com.milkdromeda.blockpal.possession.PossessionManager.queue(player, payload.text());
                     default            -> { /* unknown — ignore */ }
                 }
+            });
+        });
+
+        // Push-to-talk voice input: the client already transcribed the recording, so
+        // this is just text — routed to the sender's OWN companion only (voice is
+        // never public chat). Ownership is enforced here: findOwnedFor only returns
+        // a bot the sender owns, so a forged packet can't order someone else's bot.
+        ServerPlayNetworking.registerGlobalReceiver(VoiceInputPayload.TYPE, (payload, context) -> {
+            ServerPlayer player = context.player();
+            MinecraftServer server = player.level().getServer();
+            if (server == null) return;
+            server.execute(() -> {
+                if (EmergencyState.isDisabled()) return;
+                if (!ModConfig.get().allowVoice) {
+                    player.sendSystemMessage(Component.literal(
+                            "§e[Blockpal] Voice is disabled on this server (an admin can /ai admin voice on)."));
+                    return;
+                }
+                String text = payload.text() == null ? "" : payload.text().trim();
+                if (text.isEmpty()) return;
+                if (text.length() > 256) text = text.substring(0, 256);
+                AiAssistantEntity bot = AiAssistantEntity.findOwnedFor(player, 256);
+                if (bot == null) {
+                    player.sendSystemMessage(Component.literal(
+                            "§e[Blockpal] No companion of yours is nearby to hear you — /ai summon one."));
+                    return;
+                }
+                // Echo what was heard back to the speaker (privately), then treat the
+                // words exactly like a chat message addressed to the bot by name.
+                player.sendSystemMessage(Component.literal(
+                        "§7You → " + bot.getAssistantName() + " 🎤 \"" + text + "\""));
+                com.milkdromeda.blockpal.chat.ChatListener.handleAddressed(player, bot, text);
             });
         });
     }
