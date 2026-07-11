@@ -34,6 +34,9 @@ and configures itself from a real in-game settings screen.
   heroic, shy. See [Personalities](Personalities).
 - **Possession mode** — hand your *own* character to your companion and let the AI
   drive you from a typed console. See [Possession Mode](Possession-Mode).
+- **Voice** — hold **V** and *talk* to your companion (Whisper transcription), and
+  hear it answer out loud — privately, unless you share; linked agents take turns
+  speaking, never interrupting. See [Voice](Voice).
 - **Trust & per-bot management** — own several companions, set each up differently,
   and trust friends to command a specific one. See [Trust & Per-Bot Management](Trust-and-Per-Bot).
 - **Emergency FPS kill-switch** — auto-disables the mod if framerate collapses.
@@ -58,6 +61,7 @@ and configures itself from a real in-game settings screen.
 | [Commands](Commands) | Every `/ai` command |
 | [Talking to Your Assistant](Talking-to-Your-Assistant) | Chat, quick intents, addressing by name |
 | [Possession Mode](Possession-Mode) | Let your companion drive your own character from a typed console |
+| [Voice](Voice) | Hold **V** to talk to your agent; it talks back — private, shareable, linked agents take turns |
 | [Client-Side Assistant](Client-Assistant) | Private chat box, tips & off-server possession — works on **any** server |
 | [Settings](Settings) | The in-game settings panel (no more setting commands) |
 | [Performance Presets](Performance-Presets) | Normal / Opus / Potato |

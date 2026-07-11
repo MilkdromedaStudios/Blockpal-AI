@@ -252,6 +252,41 @@ having Blockpal. Code lives under `client/assist/` + two GUI screens.
   driver; the anti-cheat denylist overrides it) and `assistantTips` (default true). These
   live in the player's own `config/blockpal/config.json` and never sync to the server.
 
+### Voice — talk to your agent, hear it talk back (3.19.0+)
+- **Push-to-talk keybind.** Hold **V** (raw GLFW code `voicePushToTalkKey`, default 86;
+  rebind with `/aivoice key <code>`; read straight from `GLFW.glfwGetKey` — deliberately
+  not a registered KeyMapping so it can't clash — and only while no GUI is open, tracked
+  via Fabric `ScreenEvents` because 26.2 renamed the current-screen accessor) to record
+  the mic (`client/voice/VoiceCapture`, javax.sound.sampled, 16 kHz mono WAV, 30 s cap).
+  Release → transcription (`client/voice/SpeechToText`): **Whisper large-v3-turbo** by
+  default (`sttModel`/`sttApiUrl`, HF serverless raw-audio POST with the player's token);
+  with no token it falls back to the free voice-capable service (`input_audio` chat part
+  on `freeApiUrl`). The **text** rides `VoiceInputPayload` (C→S) — raw audio never
+  touches the game server — and lands in `ChatListener.handleAddressed` on the sender's
+  **own** bot only (`findOwnedFor`, re-checked server-side), so voice commands are always
+  private and can't order anyone else's bot. Quick intents stay no-API.
+- **The agent speaks — privately.** Every `broadcastMessage` line also goes to
+  `voice/VoiceCoordinator.speak`; the server sends `VoiceSpeakPayload` (S→C) only to the
+  owner + players the owner shared with, and the client synthesizes it
+  (`client/voice/TextToSpeech`: OpenAI-style audio-out chat request, `modalities
+  ["text","audio"]`, format **wav** — the JDK plays WAV natively, no MP3 decoder needed —
+  on the free keyless service) and plays it via `client/voice/VoicePlayback`
+  (javax.sound queue, strictly one utterance at a time). Per-bot voice id in NBT
+  (`VoiceId`, `/ai voice set <id>`); client default `ttsVoice` ("alloy",
+  `/aivoice voice <id>`); `/aivoice on|off|stop|test`.
+- **Sharing & linking.** `voice/VoiceLinkManager` (in-memory, like parties): `/ai voice
+  share|unshare|clear|list <player>` controls who hears your agent. A share in either
+  direction links owners into one **conversation group** (connected component).
+- **Advanced talking (no interruptions).** `VoiceCoordinator` queues utterances per link
+  group and plays one at a time (duration estimated from text length, ~15 chars/s,
+  capped), so linked agents take turns and never talk over each other; the client
+  playback queue is the second guarantee.
+- **Server management.** `allowVoice` (config, default true) gates the whole layer —
+  `/ai admin voice on|off` or the Settings → Behavior "Allow agent voice" toggle (rides
+  `ConfigData`); disabled = no speech packets and push-to-talk politely refused. Config
+  schema → v10 (also: client-local `voiceResponses`, `voicePushToTalkKey`, `sttApiUrl`,
+  `sttModel`, `ttsVoice`). Wiki: `wiki/Voice.md`.
+
 ### Commands (`/ai …`)
 | Command | Effect |
 |---------|--------|
@@ -276,10 +311,14 @@ having Blockpal. Code lives under `client/assist/` + two GUI screens.
 | `/ai bots` | List every companion **you** own (mode, place, health, trust count) |
 | `/ai trust <player>` / `/ai untrust <player>` | Let / stop another player command this bot |
 | `/ai trust list` / `/ai trust clear` | Show / clear this bot's trusted players |
+| `/ai voice` | Voice status — hold **V** to talk to YOUR companion |
+| `/ai voice share\|unshare\|clear\|list [<player>]` | Who may **hear** your agent (sharing links agents) |
+| `/ai voice set <id>` | Give your nearby bot its own TTS voice |
 | `/aiskins list\|reload` | (client) list/reload skins in `config/blockpal/skins/` |
 | `/aichat` | **(client)** open the private AI chat box (works on any server) |
 | `/aidrive [<instruction>\|stop]` | **(client)** off-server possession console / steer / end |
 | `/aitips [on\|off]` | **(client)** toggle the private on-screen survival tips |
+| `/aivoice [on\|off\|stop\|key <code>\|voice <id>\|test <text>]` | **(client)** hear-agent toggle, push-to-talk rebind, default voice |
 | `/ai inventory` / `/ai inv` | Show carried items |
 | `/ai mykey <token>\|clear` | Set/clear **your own** API key (any player) |
 | `/ai model [<id>]` / `/ai models` | Pick your bot's model / list the allowed models |
@@ -325,6 +364,8 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   list players may pick from. (See *Per-player API keys & selectable models*.)
 - **Possession** — `/ai admin possession on|off` toggles `allowPossession` (the ops
   gate for possession mode). (See *Possession mode*.)
+- **Voice** — `/ai admin voice on|off` toggles `allowVoice` (the ops gate for the whole
+  agent-voice layer: push-to-talk + spoken replies). (See *Voice*.)
 - Who counts as admin is `adminPermissionLevel` (vanilla tiers 0/2/4), changed with
   the Admin panel's admin-level control. Data flows over `AdminSyncPayload` (S→C) and
   `AdminActionPayload` (C→S), re-checked server-side in `AiNetworking`.
@@ -406,6 +447,8 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   `allowedModels`, `playerModels`,
   `chatListening`, `activeMode`, `defaultName`,
   `defaultSkin`, `defaultPersonality`, `allowCustomPersonality`, `allowPossession`,
+  `allowVoice`, `voiceResponses`, `voicePushToTalkKey`, `sttApiUrl`, `sttModel`,
+  `ttsVoice`, `allowClientPossession`, `assistantTips`,
   `maxTaskSeconds`, `performancePreset`, `sneakToOpenMenu`, `configVersion`.
 - **Settings are configured in the panel, not via commands (3.4.0).** The old
   `/ai settings <key> <value>` generic setter (and `/ai token|listen|active|commands`)
@@ -601,6 +644,61 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 ---
 
 ## Changelog
+
+### 3.19.0
+- **Agent voice.** The companion can now be *talked to* and *talks back out loud*:
+  - **Push-to-talk** — hold **V** (rebindable, `/aivoice key <code>`; raw GLFW polling
+    via `GLFW.glfwGetKey`, deliberately not a registered KeyMapping) to record
+    the mic (`client/voice/VoiceCapture`, javax.sound.sampled, 16 kHz mono WAV, 30 s
+    cap); release to transcribe with **Whisper large-v3-turbo** by default
+    (`client/voice/SpeechToText`: HF serverless raw-audio POST with the player's token;
+    keyless falls back to the free voice-capable service via an `input_audio` chat
+    part). Only the transcribed **text** is sent (`VoiceInputPayload` C→S) and routed to
+    the sender's **own** bot via `ChatListener.handleAddressed` (extracted from the
+    name-addressed chat path; ownership re-checked server-side with `findOwnedFor`).
+    Voice never touches public chat.
+  - **Private spoken replies** — `AiAssistantEntity.broadcastMessage` now also feeds
+    `voice/VoiceCoordinator.speak`; `VoiceSpeakPayload` (S→C) goes only to the owner +
+    players the owner shared with. The client synthesizes WAV via an OpenAI-style
+    audio-out chat request on the free keyless endpoint (`client/voice/TextToSpeech`,
+    WAV because the JDK plays it natively) and plays it on a strict one-at-a-time queue
+    (`client/voice/VoicePlayback`, javax.sound — independent of OpenAL). Per-bot voice
+    id (`VoiceId` NBT, `/ai voice set <id>`); client default `ttsVoice`
+    (`/aivoice voice <id>`); `/aivoice on|off|stop|test`.
+  - **Sharing & linking** — `voice/VoiceLinkManager` (in-memory, parties-style):
+    `/ai voice share|unshare|clear|list`. A share in either direction links owners into
+    one conversation group (connected component over share edges).
+  - **Advanced talking** — `VoiceCoordinator` queues utterances per link group and
+    releases one at a time (duration estimated ~15 chars/s, capped ~13 s), so linked
+    agents take turns and never interrupt each other; the client queue is the second
+    overlap guarantee.
+  - **Server management** — new `allowVoice` gate (default true): `/ai admin voice
+    on|off` text command + "Allow agent voice" toggle on Settings → Behavior (rides
+    `ConfigData`). Push-to-talk is refused with a friendly message while off.
+- **Config schema → v10:** `allowVoice`, `voiceResponses`, `voicePushToTalkKey` (86 = V),
+  `sttApiUrl`, `sttModel` (`openai/whisper-large-v3-turbo`), `ttsVoice` (`alloy`);
+  migrate() defaults them on upgrade.
+- Wiki: new `wiki/Voice.md`; Commands/Settings/Home/_Sidebar updated. Root
+  `CHANGELOG.md` gained a player-facing 3.19.0 section.
+- **First CI run caught three 26.2 mapping renames** (confirmed via the build logs, not
+  guessed): `Minecraft.screen`, `Window.getWindow()` and
+  `LocalPlayer.displayClientMessage(Component, boolean)` don't exist under this
+  version's mappings, and no other file in the codebase uses them to borrow a proven
+  name. Per the 3.17.2 lesson (no unverifiable mapping guesses), the fixes avoid the
+  renamed accessors entirely: "a GUI is open" is now tracked with Fabric
+  `ScreenEvents.AFTER_INIT` + `ScreenEvents.remove` (same stable Fabric class already
+  compiled in `AiAssistantClient`); the key state is read via LWJGL `GLFW.glfwGetKey`
+  with the window handle found by **one-time reflection** over `Window`'s no-arg `long`
+  getters (fails safe: push-to-talk disabled + one log line); the action-bar status uses
+  one-time reflection for the player's distinctive `(Component, boolean)` message method
+  (fails safe: status skipped — the server-side chat echo still confirms every voice
+  command through a proven path).
+- *(Toolchain caveat, same as recent releases: Gradle + the 26.2 deps are unreachable in
+  this environment, so no jar was built — `build.yml` compile-checks the branch push. The
+  live audio path — mic capture, the Whisper/TTS endpoints (the free `openai-audio`
+  voice model especially), playback, the GLFW key polling and the two reflective
+  lookups — wants real-machine verification; javax.sound and the HTTP plumbing are
+  JDK-only and the rest reuses APIs already proven in this codebase.)*
 
 ### 3.18.0
 - **A client-side assistant that works on ANY server — even ones without Blockpal.**

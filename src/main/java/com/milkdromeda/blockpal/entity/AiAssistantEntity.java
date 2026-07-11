@@ -76,6 +76,10 @@ public class AiAssistantEntity extends PathfinderMob {
     // above still supplies the quick no-API reply pools (a neutral base voice).
     // "" = use the built-in. Always moderated before being set (see HuggingFaceClient).
     private String customStyle = "";
+    // This bot's text-to-speech voice id (e.g. "alloy", "nova", "onyx"). Per-bot
+    // (NBT) so linked companions sound like different people in a conversation;
+    // "" = the listening client's own default voice. Set with /ai voice set <id>.
+    private String voiceId = "";
     private UUID ownerUuid;
     // Owner's username, kept so per-player-key whitelist checks work even while the
     // owner is offline (the bot can keep planning autonomously).
@@ -415,6 +419,10 @@ public class AiAssistantEntity extends PathfinderMob {
         if (!level().isClientSide()) {
             level().players().forEach(p ->
                     p.sendSystemMessage(Component.literal(assistantName + ": \"" + msg + "\"")));
+            // Everything the agent says is also spoken out loud — privately, to its
+            // owner and anyone the owner shared its voice with. The coordinator
+            // queues linked agents so they take turns instead of interrupting.
+            com.milkdromeda.blockpal.voice.VoiceCoordinator.speak(this, msg);
         }
     }
 
@@ -679,6 +687,7 @@ public class AiAssistantEntity extends PathfinderMob {
         output.putString("Skin", getSkin());
         output.putString("Personality", personality.id());
         if (customStyle != null && !customStyle.isBlank()) output.putString("CustomPersonality", customStyle);
+        if (voiceId != null && !voiceId.isBlank()) output.putString("VoiceId", voiceId);
         output.putString("Mode", mode.name());
         if (ownerUuid != null) output.store("OwnerUuid", UUIDUtil.STRING_CODEC, ownerUuid);
         if (ownerName != null && !ownerName.isBlank()) output.putString("OwnerName", ownerName);
@@ -696,6 +705,7 @@ public class AiAssistantEntity extends PathfinderMob {
         Personality p = Personality.byId(input.getStringOr("Personality", ""));
         personality = p != null ? p : Personality.fromConfig();
         customStyle = input.getStringOr("CustomPersonality", "");
+        voiceId = input.getStringOr("VoiceId", "");
         String modeStr = input.getStringOr("Mode", "FOLLOWING");
         try { mode = Mode.valueOf(modeStr); } catch (IllegalArgumentException ignored) { mode = Mode.FOLLOWING; }
         input.read("OwnerUuid", UUIDUtil.STRING_CODEC).ifPresent(uuid -> ownerUuid = uuid);
@@ -717,6 +727,14 @@ public class AiAssistantEntity extends PathfinderMob {
 
     public Mode getMode() { return mode; }
     public void setMode(Mode mode) { this.mode = mode; }
+
+    /** This bot's TTS voice id ("" = the listening client's default voice). */
+    public String getVoiceId() { return voiceId == null ? "" : voiceId; }
+
+    /** Sets the TTS voice id (blank resets to the client default). Persisted per-bot. */
+    public void setVoiceId(String id) {
+        this.voiceId = id == null ? "" : id.trim().toLowerCase(java.util.Locale.ROOT);
+    }
 
     /** True while this bot is possessing a player (its own AI is paused). */
     public boolean isPossessing() { return possessing != null; }
