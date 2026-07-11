@@ -254,9 +254,10 @@ having Blockpal. Code lives under `client/assist/` + two GUI screens.
 
 ### Voice — talk to your agent, hear it talk back (3.19.0+)
 - **Push-to-talk keybind.** Hold **V** (raw GLFW code `voicePushToTalkKey`, default 86;
-  rebind with `/aivoice key <code>`; polled with `InputConstants.isKeyDown` only while no
-  GUI is open, deliberately not a registered KeyMapping so it can't clash) to record the
-  mic (`client/voice/VoiceCapture`, javax.sound.sampled, 16 kHz mono WAV, 30 s cap).
+  rebind with `/aivoice key <code>`; read straight from `GLFW.glfwGetKey` — deliberately
+  not a registered KeyMapping so it can't clash — and only while no GUI is open, tracked
+  via Fabric `ScreenEvents` because 26.2 renamed the current-screen accessor) to record
+  the mic (`client/voice/VoiceCapture`, javax.sound.sampled, 16 kHz mono WAV, 30 s cap).
   Release → transcription (`client/voice/SpeechToText`): **Whisper large-v3-turbo** by
   default (`sttModel`/`sttApiUrl`, HF serverless raw-audio POST with the player's token);
   with no token it falls back to the free voice-capable service (`input_audio` chat part
@@ -647,7 +648,7 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 ### 3.19.0
 - **Agent voice.** The companion can now be *talked to* and *talks back out loud*:
   - **Push-to-talk** — hold **V** (rebindable, `/aivoice key <code>`; raw GLFW polling
-    via `InputConstants.isKeyDown`, deliberately not a registered KeyMapping) to record
+    via `GLFW.glfwGetKey`, deliberately not a registered KeyMapping) to record
     the mic (`client/voice/VoiceCapture`, javax.sound.sampled, 16 kHz mono WAV, 30 s
     cap); release to transcribe with **Whisper large-v3-turbo** by default
     (`client/voice/SpeechToText`: HF serverless raw-audio POST with the player's token;
@@ -679,12 +680,25 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   migrate() defaults them on upgrade.
 - Wiki: new `wiki/Voice.md`; Commands/Settings/Home/_Sidebar updated. Root
   `CHANGELOG.md` gained a player-facing 3.19.0 section.
+- **First CI run caught three 26.2 mapping renames** (confirmed via the build logs, not
+  guessed): `Minecraft.screen`, `Window.getWindow()` and
+  `LocalPlayer.displayClientMessage(Component, boolean)` don't exist under this
+  version's mappings, and no other file in the codebase uses them to borrow a proven
+  name. Per the 3.17.2 lesson (no unverifiable mapping guesses), the fixes avoid the
+  renamed accessors entirely: "a GUI is open" is now tracked with Fabric
+  `ScreenEvents.AFTER_INIT` + `ScreenEvents.remove` (same stable Fabric class already
+  compiled in `AiAssistantClient`); the key state is read via LWJGL `GLFW.glfwGetKey`
+  with the window handle found by **one-time reflection** over `Window`'s no-arg `long`
+  getters (fails safe: push-to-talk disabled + one log line); the action-bar status uses
+  one-time reflection for the player's distinctive `(Component, boolean)` message method
+  (fails safe: status skipped — the server-side chat echo still confirms every voice
+  command through a proven path).
 - *(Toolchain caveat, same as recent releases: Gradle + the 26.2 deps are unreachable in
   this environment, so no jar was built — `build.yml` compile-checks the branch push. The
   live audio path — mic capture, the Whisper/TTS endpoints (the free `openai-audio`
-  voice model especially), playback, and the `InputConstants` key polling — wants
-  real-machine verification; javax.sound and the HTTP plumbing are JDK-only and the rest
-  reuses APIs already proven in this codebase.)*
+  voice model especially), playback, the GLFW key polling and the two reflective
+  lookups — wants real-machine verification; javax.sound and the HTTP plumbing are
+  JDK-only and the rest reuses APIs already proven in this codebase.)*
 
 ### 3.18.0
 - **A client-side assistant that works on ANY server — even ones without Blockpal.**

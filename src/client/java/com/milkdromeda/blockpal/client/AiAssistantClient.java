@@ -118,6 +118,15 @@ public class AiAssistantClient implements ClientModInitializer {
             VoiceClient.tick(client);
         });
 
+        // Tell the voice layer whether a GUI screen is open, so the push-to-talk key
+        // is only read while the keyboard belongs to the game world (typing "v" in
+        // chat must never start recording). Tracked via ScreenEvents because this
+        // Minecraft version renamed the current-screen accessor on Minecraft.
+        ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
+            VoiceClient.setScreenOpen(true);
+            ScreenEvents.remove(screen).register(s -> VoiceClient.setScreenOpen(false));
+        });
+
         // Extreme frame-rate watchdog: auto-disable the mod if FPS collapses.
         FpsGuardian.register();
 
