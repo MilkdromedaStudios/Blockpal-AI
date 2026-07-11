@@ -11,6 +11,7 @@
 - [Talking to Your Assistant](Talking-to-Your-Assistant)
 - [Client-Side Assistant](Client-Assistant)
 - [Possession Mode](Possession-Mode)
+- [Voice](Voice)
 - [Settings](Settings)
 - [Performance Presets](Performance-Presets)
 - [Custom Skins](Custom-Skins)

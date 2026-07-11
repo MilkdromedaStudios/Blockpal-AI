@@ -43,7 +43,8 @@ public record ConfigData(
         String defaultPersonality,
         boolean allowCustomPersonality,
         boolean allowPossession,
-        boolean freeAiFallback
+        boolean freeAiFallback,
+        boolean allowVoice
 ) {
     public static final StreamCodec<FriendlyByteBuf, ConfigData> STREAM_CODEC =
             StreamCodec.of(ConfigData::write, ConfigData::read);
@@ -75,7 +76,8 @@ public record ConfigData(
                 c.defaultPersonality,
                 c.allowCustomPersonality,
                 c.allowPossession,
-                c.freeAiFallback);
+                c.freeAiFallback,
+                c.allowVoice);
     }
 
     /** Applies this snapshot onto the live config, clamping and keeping blanks. */
@@ -107,6 +109,7 @@ public record ConfigData(
         c.allowCustomPersonality = allowCustomPersonality;
         c.allowPossession = allowPossession;
         c.freeAiFallback = freeAiFallback;
+        c.allowVoice = allowVoice;
     }
 
     private static boolean notBlank(String s) {
@@ -142,6 +145,7 @@ public record ConfigData(
         buf.writeBoolean(d.allowCustomPersonality);
         buf.writeBoolean(d.allowPossession);
         buf.writeBoolean(d.freeAiFallback);
+        buf.writeBoolean(d.allowVoice);
     }
 
     private static ConfigData read(FriendlyByteBuf buf) {
@@ -167,6 +171,7 @@ public record ConfigData(
                 buf.readUtf(),
                 buf.readBoolean(),
                 buf.readUtf(),
+                buf.readBoolean(),
                 buf.readBoolean(),
                 buf.readBoolean(),
                 buf.readBoolean());

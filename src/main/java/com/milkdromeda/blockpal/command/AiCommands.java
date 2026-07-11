@@ -15,6 +15,7 @@ import com.milkdromeda.blockpal.network.ConfigSyncPayload;
 import com.milkdromeda.blockpal.network.PossessionSyncPayload;
 import com.milkdromeda.blockpal.possession.PossessionManager;
 import com.milkdromeda.blockpal.util.Locator;
+import com.milkdromeda.blockpal.voice.VoiceLinkManager;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
@@ -97,6 +98,26 @@ public class AiCommands {
                                         .suggests(TRUSTED_PLAYERS_SUGGEST)
                                         .executes(ctx -> trustRemove(ctx, StringArgumentType.getString(ctx, "player")))))
 
+                        // ── voice: who hears your agent, and what it sounds like ─────
+                        // By default only YOU hear your companion. Sharing lets a friend
+                        // hear it too — and links your agents into one conversation
+                        // (they take turns instead of talking over each other).
+                        .then(Commands.literal("voice")
+                                .executes(AiCommands::voiceStatus)
+                                .then(Commands.literal("list").executes(AiCommands::voiceList))
+                                .then(Commands.literal("share")
+                                        .then(Commands.argument("player", StringArgumentType.word())
+                                                .suggests(ONLINE_PLAYERS_SUGGEST)
+                                                .executes(ctx -> voiceShare(ctx, StringArgumentType.getString(ctx, "player")))))
+                                .then(Commands.literal("unshare")
+                                        .then(Commands.argument("player", StringArgumentType.word())
+                                                .executes(ctx -> voiceUnshare(ctx, StringArgumentType.getString(ctx, "player")))))
+                                .then(Commands.literal("clear").executes(AiCommands::voiceClear))
+                                .then(Commands.literal("set")
+                                        .then(Commands.argument("voice", StringArgumentType.word())
+                                                .suggests(VOICE_SUGGEST)
+                                                .executes(ctx -> voiceSet(ctx, StringArgumentType.getString(ctx, "voice"))))))
+
                         // Give the nearby bot a personality (how it talks + the tone of its plans).
                         .then(Commands.literal("personality")
                                 .executes(AiCommands::listPersonalities)
@@ -168,6 +189,9 @@ public class AiCommands {
                                 .then(Commands.literal("possession")
                                         .then(Commands.literal("on").executes(ctx -> adminPossession(ctx, true)))
                                         .then(Commands.literal("off").executes(ctx -> adminPossession(ctx, false))))
+                                .then(Commands.literal("voice")
+                                        .then(Commands.literal("on").executes(ctx -> adminVoice(ctx, true)))
+                                        .then(Commands.literal("off").executes(ctx -> adminVoice(ctx, false))))
                                 .then(Commands.literal("keylist")
                                         .executes(AiCommands::adminKeyListShow)
                                         .then(Commands.literal("list").executes(AiCommands::adminKeyListShow))
@@ -224,6 +248,7 @@ public class AiCommands {
                 "§f/ai personality [<id>|custom <text>] §7— change how it talks & acts\n" +
                 "§f/ai bots §7— list every companion you own (manage each separately)\n" +
                 "§f/ai trust <player> §7· §funtrust <player> §7— let friends command this bot\n" +
+                "§f/ai voice §7— hold §fV§7 to TALK to it; share/link voices, pick its voice\n" +
                 "§f/ai <task> §7— tell it what to do (e.g. /ai build a 5x5 floor)\n" +
                 "§f/ai dismiss §7— send it away\n" +
                 "§6\n" +
@@ -622,6 +647,121 @@ public class AiCommands {
         return 1;
     }
 
+    // ── voice: sharing, linking and per-bot voices ──────────────────────────────
+
+    /** Common TTS voice ids for tab-completion of /ai voice set. Any word is accepted. */
+    private static final com.mojang.brigadier.suggestion.SuggestionProvider<CommandSourceStack> VOICE_SUGGEST =
+            (ctx, builder) -> {
+                for (String v : new String[]{"alloy", "echo", "fable", "onyx", "nova", "shimmer", "coral", "verse", "ballad", "ash", "sage"}) {
+                    builder.suggest(v);
+                }
+                return builder.buildFuture();
+            };
+
+    private static int voiceStatus(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        boolean on = ModConfig.get().allowVoice;
+        AiAssistantEntity ai = AiAssistantEntity.findOwnedFor(player, 256);
+        String botVoice = ai == null ? "" : ai.getVoiceId();
+        player.sendSystemMessage(Component.literal(
+                "§6=== Agent voice ===\n"
+                + "§7Server voice: " + (on ? "§aON" : "§cOFF (an admin can /ai admin voice on)") + "\n"
+                + (ai == null ? "§7No companion of yours is nearby.\n"
+                        : "§7" + ai.getAssistantName() + "'s voice: §f"
+                                + (botVoice.isBlank() ? "(your client default)" : botVoice) + "\n")
+                + "§7Hold your talk key (default §fV§7, see /aivoice) to speak to YOUR companion —\n"
+                + "§7it's private: only you hear it, unless you §f/ai voice share <player>§7.\n"
+                + "§7Shared/linked agents take turns speaking — they never interrupt each other.\n"
+                + "§f/ai voice list §7— who hears your agent · §f/ai voice set <id> §7— change its voice"));
+        return 1;
+    }
+
+    /** Shows who this player shares their agent's voice with, and who shares with them. */
+    private static int voiceList(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        MinecraftServer server = player.level().getServer();
+        var shares = VoiceLinkManager.describeShares(server, player.getUUID());
+        var heard = VoiceLinkManager.sharedTo(player.getUUID());
+        StringBuilder sb = new StringBuilder("§6=== Your voice shares ===");
+        sb.append("\n§eYour agent is heard by (" + shares.size() + "):");
+        if (shares.isEmpty()) sb.append("\n§7  only you");
+        shares.forEach((name, online) ->
+                sb.append("\n§f  ").append(name).append(online ? "" : " §8(offline)"));
+        sb.append("\n§eYou can also hear (" + heard.size() + "):");
+        if (heard.isEmpty()) sb.append("\n§7  no one else's agent");
+        for (java.util.UUID id : heard) sb.append("\n§f  ").append(VoiceLinkManager.nameOf(id)).append("§7's agent");
+        sb.append("\n§7Share with §f/ai voice share <player>§7, stop with §f/ai voice unshare <player>§7.");
+        final String out = sb.toString();
+        player.sendSystemMessage(Component.literal(out));
+        return 1;
+    }
+
+    /** Lets another (online) player hear your agent — and links your agents' conversations. */
+    private static int voiceShare(CommandContext<CommandSourceStack> ctx, String name) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        MinecraftServer server = player.level().getServer();
+        ServerPlayer target = server == null ? null : server.getPlayerList().getPlayerByName(name);
+        if (target == null) {
+            player.sendSystemMessage(Component.literal(
+                    "§cCan't find an online player named §f" + name + "§c — they must be online to share with."));
+            return 0;
+        }
+        if (target.getUUID().equals(player.getUUID())) {
+            player.sendSystemMessage(Component.literal("§7You already hear your own agent."));
+            return 0;
+        }
+        boolean added = VoiceLinkManager.share(player, target);
+        player.sendSystemMessage(Component.literal(added
+                ? "§aShared your agent's voice with §f" + target.getName().getString()
+                        + "§a — your agents are now linked and will take turns speaking."
+                : "§7" + target.getName().getString() + " already hears your agent."));
+        if (added) {
+            target.sendSystemMessage(Component.literal(
+                    "§a" + player.getName().getString() + " shared their companion's voice with you — "
+                            + "you'll now hear it too. §7(They can /ai voice unshare you any time.)"));
+        }
+        return 1;
+    }
+
+    private static int voiceUnshare(CommandContext<CommandSourceStack> ctx, String name) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        MinecraftServer server = player.level().getServer();
+        ServerPlayer target = server == null ? null : server.getPlayerList().getPlayerByName(name);
+        boolean removed = target != null
+                && VoiceLinkManager.unshare(player.getUUID(), target.getUUID());
+        player.sendSystemMessage(Component.literal(removed
+                ? "§aStopped sharing your agent's voice with §f" + name + "§a."
+                : "§7" + name + " wasn't hearing your agent (they must be online to unshare by name)."));
+        return removed ? 1 : 0;
+    }
+
+    private static int voiceClear(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        int n = VoiceLinkManager.clearShares(player.getUUID());
+        player.sendSystemMessage(Component.literal(
+                "§aStopped sharing your agent's voice (" + n + " listener" + (n == 1 ? "" : "s")
+                        + " removed) — it's private to you again."));
+        return 1;
+    }
+
+    /** Gives your nearby owned bot its own TTS voice (owner/admin — it changes the bot). */
+    private static int voiceSet(CommandContext<CommandSourceStack> ctx, String voice) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        AiAssistantEntity ai = AiAssistantEntity.findOwnedFor(player, 64);
+        if (ai == null) return noOwnedAi(player);
+        ai.setVoiceId(voice);
+        player.sendSystemMessage(Component.literal(
+                "§a" + ai.getAssistantName() + " now speaks with the §f" + ai.getVoiceId()
+                        + "§a voice. §7(Try /ai voice set nova, onyx, shimmer…)"));
+        return 1;
+    }
+
     // ── re-enable after the FPS kill switch ─────────────────────────────────────
 
     private static int resume(CommandContext<CommandSourceStack> ctx) {
@@ -699,6 +839,7 @@ public class AiCommands {
                 "§f/ai admin model <id> §7— set the server default model\n" +
                 "§f/ai admin requirekey on|off §7— make players use their own API key\n" +
                 "§f/ai admin possession on|off §7— allow/deny possession mode (/ai possess)\n" +
+                "§f/ai admin voice on|off §7— allow/deny agent voice (push-to-talk + speech)\n" +
                 "§f/ai admin keylist add|remove|list <player> §7— who may use the shared key\n" +
                 "§f/ai admin models add|remove|list <id> §7— models players may pick\n" +
                 "§7Admin tier is set in the Admin panel (default: ops = 2).\n" +
@@ -991,6 +1132,15 @@ public class AiCommands {
         ctx.getSource().sendSuccess(() -> Component.literal(
                 "§a[Blockpal] Possession mode: " + (on ? "§aON" : "§7off")
                         + " §7(players hand their character to their own companion with §f/ai possess§7)"), false);
+        return 1;
+    }
+
+    private static int adminVoice(CommandContext<CommandSourceStack> ctx, boolean on) {
+        ModConfig.get().allowVoice = on;
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§a[Blockpal] Agent voice: " + (on ? "§aON" : "§7off")
+                        + " §7(push-to-talk input and spoken replies for everyone on this server)"), false);
         return 1;
     }
 

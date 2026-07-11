@@ -4,6 +4,28 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.19.0
+- **Your companion has a voice now.** Hold **V** (rebindable) and *speak* — your
+  words are transcribed with **Whisper large-v3-turbo** and go straight to **your
+  own companion**, never public chat. Quick orders ("follow me", "stay") are
+  instant; anything else becomes an AI task, exactly like typing.
+- **It talks back — privately.** Everything the agent says is also spoken out
+  loud with a natural text-to-speech voice. Only **you** hear your agent by
+  default. Pick its voice with `/ai voice set <id>` (`nova`, `onyx`, `shimmer`…)
+  and your client default with `/aivoice voice <id>`.
+- **Share & link voices.** `/ai voice share <player>` lets a friend hear your
+  agent too (and `unshare` / `clear` / `list` manage it). Sharing links your
+  agents into one conversation.
+- **Advanced talking.** Linked agents **take turns** — a server-side conversation
+  queue means one speaks while the others wait, so shared companions never talk
+  over each other; your client also plays speech one line at a time.
+- **Server management.** Ops gate the whole feature with `/ai admin voice on|off`
+  or the new **"Allow agent voice"** toggle (Settings → Behavior tab).
+- Privacy: the microphone is only open while the key is held (30 s cap), audio is
+  transcribed from your own machine and **never sent to the game server** — only
+  the final text is. With no API key, voice falls back to the free voice service,
+  so it works out of the box. New wiki page: **Voice**. Config schema → v10.
+
 ## 3.17.2
 - **API key fields now mask like a password box.** The **API token** field
   (Settings → AI & API tab) and the personal key field (**My Settings** /

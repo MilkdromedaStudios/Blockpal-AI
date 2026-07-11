@@ -27,7 +27,7 @@ Every Blockpal screen has a shared **tab bar** at the top to move between the pa
 | Sub-tab | What's here |
 |-----|-------------|
 | **Identity** | Name, skin, **Open skins folder** button, **Default personality** |
-| **Behavior** | Chat listening, active analysis, sneak-to-open-menu, **allow custom personalities**, **allow possession mode**, follow distance, guard radius, [performance preset](Performance-Presets) |
+| **Behavior** | Chat listening, active analysis, sneak-to-open-menu, **allow custom personalities**, **allow possession mode**, **allow agent voice**, follow distance, guard radius, [performance preset](Performance-Presets) |
 | **AI & API** | API URL, model, token, **free AI fallback** toggle, temperature, max tokens |
 | **Combat** | Allow commands, permission level, flee health |
 | **Developer** | Action tick delay, task watchdog timeout, flee health *(high-risk — see [Developer Menu](Developer-Menu))* |
