@@ -22,6 +22,11 @@ import com.milkdromeda.blockpal.network.ConfigSyncPayload;
 import com.milkdromeda.blockpal.network.OpenTutorialPayload;
 import com.milkdromeda.blockpal.network.PlayerPrefsSyncPayload;
 import com.milkdromeda.blockpal.network.PossessionSyncPayload;
+import com.milkdromeda.blockpal.network.VoiceSpeakPayload;
+import com.milkdromeda.blockpal.client.voice.TextToSpeech;
+import com.milkdromeda.blockpal.client.voice.VoiceClient;
+import com.milkdromeda.blockpal.client.voice.VoicePlayback;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -95,12 +100,22 @@ public class AiAssistantClient implements ClientModInitializer {
                         PossessionConsoleScreen.handleSync(context.client(),
                                 payload.open(), payload.active(), payload.line())));
 
+        // Your agent (or one shared with you) said something — speak it out loud.
+        // The server has already limited delivery to allowed listeners and
+        // turn-taken linked agents; playback here is one utterance at a time.
+        ClientPlayNetworking.registerGlobalReceiver(VoiceSpeakPayload.TYPE, (payload, context) ->
+                context.client().execute(() ->
+                        VoiceClient.onSpeak(context.client(),
+                                payload.speaker(), payload.voice(), payload.text())));
+
         // Client-side assistant loop: drives off-server possession (only where allowed)
         // and lets the "mini wiki" watcher offer the occasional private survival tip.
         // Both are client-only, so they work on any server — even without Blockpal.
+        // The voice tick polls the push-to-talk key (hold to record, release to send).
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             ClientPossession.tick();
             ScreenWatcher.tick();
+            VoiceClient.tick(client);
         });
 
         // Extreme frame-rate watchdog: auto-disable the mod if FPS collapses.
@@ -149,6 +164,55 @@ public class AiAssistantClient implements ClientModInitializer {
                                 ctx.getSource().sendFeedback(Component.literal(status));
                                 return 1;
                             })));
+
+            // Client-local voice controls (the server side lives under /ai voice):
+            //   /aivoice            — status: key, default voice, responses on/off
+            //   /aivoice on|off     — hear your agent speak (text-to-speech) or not
+            //   /aivoice key <code> — rebind push-to-talk (GLFW key code; 86 = V)
+            //   /aivoice voice <id> — your default TTS voice (alloy, nova, onyx…)
+            //   /aivoice stop       — make it stop talking right now
+            //   /aivoice test <txt> — hear a line with your current default voice
+            dispatcher.register(ClientCommands.literal("aivoice")
+                    .executes(ctx -> voiceStatus(ctx.getSource()))
+                    .then(ClientCommands.literal("on").executes(ctx -> setVoiceResponses(ctx.getSource(), true)))
+                    .then(ClientCommands.literal("off").executes(ctx -> setVoiceResponses(ctx.getSource(), false)))
+                    .then(ClientCommands.literal("stop").executes(ctx -> {
+                        VoicePlayback.stopAll();
+                        ctx.getSource().sendFeedback(Component.literal("§7Okay, quiet now."));
+                        return 1;
+                    }))
+                    .then(ClientCommands.literal("key")
+                            .then(ClientCommands.argument("code", IntegerArgumentType.integer(1, 512))
+                                    .executes(ctx -> {
+                                        com.milkdromeda.blockpal.config.ModConfig cfg =
+                                                com.milkdromeda.blockpal.config.ModConfig.get();
+                                        cfg.voicePushToTalkKey = IntegerArgumentType.getInteger(ctx, "code");
+                                        cfg.save();
+                                        ctx.getSource().sendFeedback(Component.literal(
+                                                "§bPush-to-talk key set to GLFW code §f" + cfg.voicePushToTalkKey
+                                                        + "§b (86=V, 66=B, 71=G — see GLFW key codes)."));
+                                        return 1;
+                                    })))
+                    .then(ClientCommands.literal("voice")
+                            .then(ClientCommands.argument("id", StringArgumentType.word())
+                                    .executes(ctx -> {
+                                        com.milkdromeda.blockpal.config.ModConfig cfg =
+                                                com.milkdromeda.blockpal.config.ModConfig.get();
+                                        cfg.ttsVoice = StringArgumentType.getString(ctx, "id")
+                                                .toLowerCase(java.util.Locale.ROOT);
+                                        cfg.save();
+                                        ctx.getSource().sendFeedback(Component.literal(
+                                                "§bDefault agent voice set to §f" + cfg.ttsVoice
+                                                        + "§b. Per-bot voices: §f/ai voice set <id>§b."));
+                                        return 1;
+                                    })))
+                    .then(ClientCommands.literal("test")
+                            .then(ClientCommands.argument("text", StringArgumentType.greedyString())
+                                    .executes(ctx -> {
+                                        TextToSpeech.speak(StringArgumentType.getString(ctx, "text"), "");
+                                        ctx.getSource().sendFeedback(Component.literal("§7Synthesizing…"));
+                                        return 1;
+                                    }))));
 
             dispatcher.register(ClientCommands.literal("aitips")
                     .executes(ctx -> {
@@ -245,6 +309,28 @@ public class AiAssistantClient implements ClientModInitializer {
     /** Opens the private AI chat box, remembering the screen to return to (if any). */
     private static void openChat(Minecraft client, Screen parent) {
         client.execute(() -> client.setScreenAndShow(new AssistantChatScreen(parent)));
+    }
+
+    private static int voiceStatus(FabricClientCommandSource src) {
+        com.milkdromeda.blockpal.config.ModConfig cfg = com.milkdromeda.blockpal.config.ModConfig.get();
+        src.sendFeedback(Component.literal(
+                "§6=== Blockpal voice (this client) ===\n"
+                + "§7Agent speech: " + (cfg.voiceResponses ? "§aON" : "§7off") + " §7— toggle with §f/aivoice on|off\n"
+                + "§7Push-to-talk key: §fGLFW " + cfg.voicePushToTalkKey + (cfg.voicePushToTalkKey == 86 ? " (V)" : "")
+                + " §7— hold it (no menu open) to talk to YOUR companion\n"
+                + "§7Default voice: §f" + cfg.ttsVoice + " §7— change with §f/aivoice voice <id>\n"
+                + "§7Transcription: §f" + cfg.sttModel + "\n"
+                + "§7Sharing/linking lives server-side: §f/ai voice§7."));
+        return 1;
+    }
+
+    private static int setVoiceResponses(FabricClientCommandSource src, boolean on) {
+        com.milkdromeda.blockpal.config.ModConfig cfg = com.milkdromeda.blockpal.config.ModConfig.get();
+        cfg.voiceResponses = on;
+        cfg.save();
+        if (!on) VoicePlayback.stopAll();
+        src.sendFeedback(Component.literal("§bAgent speech: " + (on ? "§aON" : "§7off")));
+        return 1;
     }
 
     private static int setTips(FabricClientCommandSource src, boolean on) {

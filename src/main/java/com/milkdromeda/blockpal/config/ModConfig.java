@@ -27,7 +27,7 @@ public class ModConfig {
      * default instead of silently inheriting Java's zero/false. A file with no
      * version at all reads back as {@code 0} and is migrated from there.
      */
-    public static final int CURRENT_CONFIG_VERSION = 9;
+    public static final int CURRENT_CONFIG_VERSION = 10;
 
     // Settings (including the API key) live in their own folder under the game's
     // config directory. That directory is untouched when you replace the mod jar,
@@ -129,6 +129,35 @@ public class ModConfig {
     // short survival tip into the assistant chat box (never the server chat). Purely
     // informational — it never controls you — so it's safe on every server.
     public boolean assistantTips = true;
+
+    // ── Voice (3.19.0) ────────────────────────────────────────────────────────────
+
+    // SERVER gate for the whole voice layer: when off, the server never sends agent
+    // speech to anyone and ignores push-to-talk input. Toggle on the Behavior tab
+    // or with /ai admin voice on|off.
+    public boolean allowVoice = true;
+
+    // CLIENT-local: speak the agent's replies out loud (text-to-speech) on this
+    // machine. Off = voice input still works, but the agent stays text-only.
+    public boolean voiceResponses = true;
+
+    // CLIENT-local: the push-to-talk key as a GLFW key code (default 86 = V). Held
+    // to record, released to send. Deliberately a raw key code polled outside GUI
+    // screens (change with /aivoice key <code>), so it can't clash with another
+    // mod's keybinding registration.
+    public int voicePushToTalkKey = 86;
+
+    // CLIENT-local: speech-to-text endpoint + model for push-to-talk. The default
+    // is Whisper large-v3-turbo on HuggingFace's serverless inference API (raw
+    // audio POST, works with the same HF token as the chat models). With no token
+    // at all, transcription falls back to the free voice-capable service instead.
+    public String sttApiUrl = "https://router.huggingface.co/hf-inference/models/openai/whisper-large-v3-turbo";
+    public String sttModel = "openai/whisper-large-v3-turbo";
+
+    // CLIENT-local: the default text-to-speech voice used when a bot has no voice
+    // of its own (per-bot voices are set with /ai voice set <id>). OpenAI-style
+    // voice ids: alloy, echo, fable, onyx, nova, shimmer, coral, ...
+    public String ttsVoice = "alloy";
 
     // Safety cap: automatically stop a running task after this many seconds, so a
     // task stuck in an endless loop can't keep running (and lagging) forever.
@@ -387,6 +416,15 @@ public class ModConfig {
             allowClientPossession = true;
             assistantTips = true;
         }
+        if (configVersion < 10) {
+            // Agent voice was added in v10; ship it on by default (an old file
+            // deserializes the new booleans to false / the key code to 0). The
+            // string fields (STT endpoint/model, default TTS voice) are seeded in
+            // normalize() since they also cover a partially-edited file.
+            allowVoice = true;
+            voiceResponses = true;
+            voicePushToTalkKey = 86;
+        }
         configVersion = CURRENT_CONFIG_VERSION;
     }
 
@@ -403,6 +441,12 @@ public class ModConfig {
         if (com.milkdromeda.blockpal.ai.Personality.byId(defaultPersonality) == null) {
             defaultPersonality = "friendly";
         }
+        if (sttApiUrl == null || sttApiUrl.isBlank()) {
+            sttApiUrl = "https://router.huggingface.co/hf-inference/models/openai/whisper-large-v3-turbo";
+        }
+        if (sttModel == null || sttModel.isBlank()) sttModel = "openai/whisper-large-v3-turbo";
+        if (ttsVoice == null || ttsVoice.isBlank()) ttsVoice = "alloy";
+        if (voicePushToTalkKey <= 0) voicePushToTalkKey = 86;   // GLFW_KEY_V
         if (maxTaskSeconds < 0) maxTaskSeconds = 0;
         if (performancePreset == null || performancePreset.isBlank()) performancePreset = "normal";
         if (adminPermissionLevel < 0) adminPermissionLevel = 0;
