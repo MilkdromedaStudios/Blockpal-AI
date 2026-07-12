@@ -680,6 +680,13 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   migrate() defaults them on upgrade.
 - Wiki: new `wiki/Voice.md`; Commands/Settings/Home/_Sidebar updated. Root
   `CHANGELOG.md` gained a player-facing 3.19.0 section.
+- **Post-release addendum (same version):** the **Modrinth project description** is now
+  kept in lockstep with GitHub — new `modrinth/description.md` (mirrors `README.md`,
+  no H1 headings since Modrinth rejects them) synced by the new
+  `modrinth-description.yml` workflow on merge to `main`; new `media/` folder
+  (banner.png, features.png, voice.png, chat.gif — generated holo-terminal-style
+  promo graphics) embedded in both the README and the Modrinth page; README refreshed
+  (stale 3.10.0 badge → 3.19.0, voice feature/commands/wiki link added).
 - **First CI run caught three 26.2 mapping renames** (confirmed via the build logs, not
   guessed): `Minecraft.screen`, `Window.getWindow()` and
   `LocalPlayer.displayClientMessage(Component, boolean)` don't exist under this
@@ -1415,7 +1422,7 @@ Whenever a jar is built and verified during testing, copy it into the repo's
 
 ## CI / workflows (all act on *merge*, never on PR-open)
 
-Three GitHub Actions workflows, deliberately consistent — real work happens on a
+Four GitHub Actions workflows, deliberately consistent — real work happens on a
 merge to `main`, not when a PR is opened (so a PR you later close has no side effects):
 
 - **`build.yml`** — compile check. Runs on pushes to `main` and `claude/**` branches
@@ -1426,6 +1433,15 @@ merge to `main`, not when a PR is opened (so a PR you later close has no side ef
 - **`release.yml`** — publishes the jar to Modrinth only when a PR is **merged**
   (`pull_request: types:[closed]` gated by `merged == true`), or on a `v*` tag / manual
   dispatch. Idempotent via the `modrinth-published/<version>` marker tag.
+- **`modrinth-description.yml`** — keeps the **Modrinth project page's description**
+  in lockstep with the repo: on a push to `main` touching `modrinth/description.md`
+  or `media/**` (or manual dispatch) it PATCHes the project `body` from
+  `modrinth/description.md`. That file mirrors `README.md` adapted for Modrinth —
+  **no H1 headings** (Modrinth rejects them; a lint step enforces this) and absolute
+  `raw.githubusercontent.com` URLs for the `media/` images/GIF. Uses the same
+  `MODRINTH_TOKEN` secret + `MODRINTH_PROJECT_ID` variable as `release.yml`; the
+  token needs project-write scope. **When `README.md` changes, update
+  `modrinth/description.md` in the same change** so the two stay in step.
 
 ## Layout
 
@@ -1435,6 +1451,8 @@ src/client/java      # client-only: rendering and the settings GUI
 src/main/resources   # fabric.mod.json, lang files, skins, assets
 builds/              # tested, ready-to-use jars (full version history, no deleting old builds.)
 wiki/                # source for the GitHub Wiki (all user docs live here)
+media/               # promo images + GIF used by README.md and the Modrinth description
+modrinth/            # description.md — the Modrinth project page body (no H1s!)
 ```
 
 ## Documentation
