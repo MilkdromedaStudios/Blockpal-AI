@@ -1,6 +1,6 @@
 # Blockpal AI
 
-![Blockpal — your AI companion for Minecraft](media/banner.png)
+![Blockpal — your AI companion for Minecraft](media/Banner.png)
 
 **A friendly AI companion for Minecraft (Fabric) that builds, fights, talks, and thinks.**
 
