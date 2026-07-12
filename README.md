@@ -16,8 +16,9 @@ Blockpal connects to any OpenAI-compatible API (Hugging Face, OpenAI, Ollama, LM
 and others), so you choose the model and supply the key — and with no key at all it
 falls back to a free built-in AI, so it works straight out of the box.
 
-![Mod version 3.19.0](https://img.shields.io/badge/mod-v3.19.0-6c63ff?style=for-the-badge)
-![Minecraft 26.2](https://img.shields.io/badge/Minecraft-26.2-62b96e?style=for-the-badge)
+[![Modrinth version](https://img.shields.io/modrinth/v/blockpal-ai?style=for-the-badge&logo=modrinth&label=Modrinth&color=00AF5C)](https://modrinth.com/mod/blockpal-ai)
+[![Modrinth downloads](https://img.shields.io/modrinth/dt/blockpal-ai?style=for-the-badge&logo=modrinth&label=Downloads&color=5da545)](https://modrinth.com/mod/blockpal-ai)
+![Minecraft 26.x](https://img.shields.io/badge/Minecraft-26.x-62b96e?style=for-the-badge)
 ![Fabric Loader 0.19.3+](https://img.shields.io/badge/Fabric_Loader-0.19.3+-dbb74b?style=for-the-badge)
 ![Java 25+](https://img.shields.io/badge/Java-25+-e76f51?style=for-the-badge)
 ![License MIT](https://img.shields.io/badge/License-MIT-264653?style=for-the-badge)
