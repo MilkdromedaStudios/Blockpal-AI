@@ -48,7 +48,7 @@ gitignored; only `build/` is.)
 
 ## Workflows (CI/CD)
 
-The three GitHub Actions workflows are deliberately consistent: real work happens on
+The four GitHub Actions workflows are deliberately consistent: real work happens on
 **merge to `main`**, never on a freshly opened PR (so a PR you later close has no
 side effects).
 
@@ -57,6 +57,7 @@ side effects).
 | `build.yml` | pushes to `main` and `claude/**` branches (so a PR's head commit still gets a compile check) | `./gradlew build` + uploads the jar artifact |
 | `wiki.yml` | push to `main` that touches `wiki/**` (i.e. after a merge), plus an hourly backup sync | publishes `wiki/` to the GitHub Wiki |
 | `release.yml` | a **merged** PR, a `v*` tag, or manual dispatch | publishes the jar to Modrinth |
+| `modrinth-description.yml` | push to `main` touching `modrinth/description.md` or `media/**`, or manual dispatch | syncs the Modrinth **project page description** from `modrinth/description.md` (which mirrors the README — no H1 headings, Modrinth rejects them; needs the token to have project-write scope) |
 
 ## Releasing to Modrinth
 

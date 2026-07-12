@@ -1,0 +1,66 @@
+name: Sync Modrinth description
+
+# Keeps the Modrinth project page's description in lockstep with the repo.
+# The page body lives in modrinth/description.md (mirroring README.md, adapted
+# for Modrinth: no H1 headings — Modrinth disallows them — and absolute
+# raw.githubusercontent.com URLs for the images/GIF under media/).
+#
+# Consistent with the other workflows (see CLAUDE.md "CI / workflows"): it acts
+# on a MERGE to main (a push touching the description or its media), never when
+# a PR is merely opened. Manual runs are available from the Actions tab.
+#
+# Uses the same MODRINTH_TOKEN secret + MODRINTH_PROJECT_ID variable as
+# release.yml; the token needs project-write ("Read/Write projects") scope for
+# the PATCH — without it the API returns 401 and this workflow fails loudly
+# rather than silently leaving the page stale.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'modrinth/description.md'
+      - 'media/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Modrinth rejects H1 headings in project bodies; catch one before it
+      # ever reaches the API (## and deeper are fine).
+      - name: Lint — no H1 headings
+        run: |
+          if grep -nE '^# ' modrinth/description.md; then
+            echo "::error::modrinth/description.md contains an H1 heading ('# ...') — Modrinth does not allow H1. Use '##' or deeper."
+            exit 1
+          fi
+          echo "No H1 headings — OK."
+
+      - name: Push description to Modrinth
+        env:
+          PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PROJECT_ID:-}" ] || [ -z "${MODRINTH_TOKEN:-}" ]; then
+            echo "::notice::MODRINTH_PROJECT_ID and/or MODRINTH_TOKEN not set — skipping description sync."
+            exit 0
+          fi
+          BODY=$(jq -Rs '{body: .}' modrinth/description.md)
+          CODE=$(curl -s -o resp.txt -w "%{http_code}" -X PATCH \
+            -H "Authorization: $MODRINTH_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$BODY" \
+            "https://api.modrinth.com/v2/project/${PROJECT_ID}")
+          if [ "$CODE" = "204" ]; then
+            echo "::notice::Modrinth project description updated from modrinth/description.md."
+          else
+            echo "::error::Modrinth description PATCH failed (HTTP $CODE): $(cat resp.txt). The token may lack project-write scope."
+            exit 1
+          fi
