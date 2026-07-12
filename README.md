@@ -1,27 +1,36 @@
 # Blockpal AI
 
+![Blockpal — your AI companion for Minecraft](media/banner.png)
+
 **A friendly AI companion for Minecraft (Fabric) that builds, fights, talks, and thinks.**
 
 Blockpal drops a player-like character named Ethan into your world. Give it a goal in
-plain language — in chat or with a command — and it plans the steps through a large
-language model and then carries them out: building, mining, gathering, fighting, and
-running commands. It defends itself on reflex, manages its own gear, talks back in its
-own voice, and is configured entirely from in-game screens. It works in singleplayer and
-multiplayer, and your Bedrock-edition friends can play with it too.
+plain language — in chat, with a command, or just by speaking into your microphone — and
+it plans the steps through a large language model and then carries them out: building,
+mining, gathering, fighting, and running commands. It defends itself on reflex, manages
+its own gear, talks back in its own voice (out loud, if you like), and is configured
+entirely from in-game screens. It works in singleplayer and multiplayer, and your
+Bedrock-edition friends can play with it too.
 
 Blockpal connects to any OpenAI-compatible API (Hugging Face, OpenAI, Ollama, LM Studio,
-and others), so you choose the model and supply the key.
+and others), so you choose the model and supply the key — and with no key at all it
+falls back to a free built-in AI, so it works straight out of the box.
 
-![Mod version 3.10.0](https://img.shields.io/badge/mod-v3.10.0-6c63ff?style=for-the-badge)
+![Mod version 3.19.0](https://img.shields.io/badge/mod-v3.19.0-6c63ff?style=for-the-badge)
 ![Minecraft 26.2](https://img.shields.io/badge/Minecraft-26.2-62b96e?style=for-the-badge)
 ![Fabric Loader 0.19.3+](https://img.shields.io/badge/Fabric_Loader-0.19.3+-dbb74b?style=for-the-badge)
 ![Java 25+](https://img.shields.io/badge/Java-25+-e76f51?style=for-the-badge)
 ![License MIT](https://img.shields.io/badge/License-MIT-264653?style=for-the-badge)
 
+![Talking to Ethan and watching it plan and build](media/chat.gif)
+
 ## Features
+
+![What Ethan can do](media/features.png)
 
 - **Natural-language task planning.** Tell it what you want — "build a 5x5 floor", "clear these trees", "guard this spot" — and it turns that into a multi-step plan it actually performs.
 - **Talks back.** It listens to chat and replies in the first person. Common orders like come, follow, stay, and stop are handled instantly with no API call.
+- **Voice.** Hold **V** and speak to your companion — Whisper large-v3-turbo transcribes you, and only your own bot hears it. It answers out loud with a text-to-speech voice you can pick per bot; share its voice with friends, and shared ("linked") agents take turns speaking so they never interrupt each other.
 - **Personalities.** Choose how it talks and acts — friendly, cheerful, grumpy, stoic, heroic, or shy — or write your own custom personality, which the AI checks to keep family-friendly.
 - **Fights on reflex.** It always watches for threats, defends itself in any mode, and retreats when its health gets low.
 - **Manages its own gear.** It picks up dropped items, equips the best weapon and armor it finds, eats food when hurt, and throws away harmful items.
@@ -68,6 +77,16 @@ get text and command fallbacks instead. One rough edge: Geyser has no general
 custom-entity support, so Ethan's appearance may render oddly on Bedrock even though it
 works fully.
 
+## Talk to it — voice
+
+![Hold V to speak; linked agents take turns](media/voice.png)
+
+Hold **V** (rebindable) and say what you want. Your words are transcribed with Whisper
+large-v3-turbo and go straight to your own companion — never public chat. Its replies
+are spoken aloud, privately: only you hear your agent unless you `/ai voice share` with
+a friend, and shared agents take turns speaking instead of interrupting each other.
+Details in the wiki's Voice page, linked below.
+
 ## Common commands
 
 A few to start with; the full list is in the wiki.
@@ -75,6 +94,7 @@ A few to start with; the full list is in the wiki.
 - `/ai summon [name]` — spawn a companion
 - `/ai come`, `/ai follow`, `/ai stay`, `/ai stop` — basic orders
 - `/ai <task>` — give a natural-language task
+- `/ai voice` — voice status; hold **V** to talk to it; `/ai voice share <player>` to share
 - `/ai personality [id]` — change how it talks and acts
 - `/ai trust <player>` — let a friend command your bot
 - `/ai panel` — open the settings and admin screens
@@ -89,6 +109,7 @@ Full documentation lives in the wiki:
 - Getting Started: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Getting-Started
 - Commands: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Commands
 - Talking to Your Assistant: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Talking-to-Your-Assistant
+- Voice: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Voice
 - Settings: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Settings
 - Personalities: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Personalities
 - Trust and Per-Bot Management: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Trust-and-Per-Bot
