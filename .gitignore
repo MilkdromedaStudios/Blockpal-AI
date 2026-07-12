@@ -19,12 +19,9 @@ upload/
 
 # Secrets — never commit tokens/keys.
 #
-# NOTE: a Minecraft mod ships as a compiled jar that anyone can decompile, so
-# .gitignore cannot "hide" the mod's source code from players or hackers, and
-# excluding source would only break building. These rules exist to keep *secrets*
-# (your API token and the runtime config that stores it) out of git — not to
-# obscure code. Real key protection: set BLOCKPAL_API_TOKEN as an environment
-# variable so the token never lands on disk. See wiki/Security.md.
+# Keep runtime tokens and configs out of git. Real key protection: set
+# BLOCKPAL_API_TOKEN as an environment variable so the token never lands on disk.
+# See wiki/Security.md.
 *.env
 .env
 secrets.properties
@@ -38,6 +35,7 @@ run/config/
 *.secret
 hf_token*
 blockpal-token*
-# To avoid making a cheat client that can get other player's api keys, unfortunately the main java code files. 
-
-
+# Java source files are intentionally ignored so new implementation files are not
+# staged accidentally. If a Java file must be added to version control, review it
+# for secret-handling risks first and force-add it deliberately.
+*.java
