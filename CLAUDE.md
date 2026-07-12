@@ -29,6 +29,13 @@ OpenAI-compatible API.
 Do not skip this. These two sections are the living record of what the mod
 can do and how it evolved.
 
+**When adding Java implementation files:**
+
+- Add each new `*.java` filename/path to `.gitignore` or confirm it is covered by
+  the existing `*.java` ignore rule before staging anything.
+- If a Java source file must be tracked, review it for API-key/secret handling
+  risks and force-add it deliberately rather than relying on normal `git add`.
+
 ---
 
 ## Features
@@ -394,8 +401,8 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   tokens migrate to obfuscated on first save.
 - **Env-var override** — set `BLOCKPAL_API_TOKEN` (or `-Dblockpal.apiToken`) and the
   token is used but **never written to disk** (`isTokenFromEnv()`) — the strong option.
-- **`.gitignore`** hardened to keep secrets/config out of git. (It can't "hide" mod
-  source — that lives in the distributed jar — see `wiki/Security.md`.)
+- **`.gitignore`** hardened to keep secrets/config out of git and to ignore new
+  Java source files by default unless they are deliberately force-added after review.
 
 ### Inventory & equipment
 - **10-slot backpack** plus four armor slots and main hand.
@@ -1171,7 +1178,8 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   `BLOCKPAL_API_TOKEN` env var / `-Dblockpal.apiToken` property, in which case it is
   used but **never written to disk**. The token is still never sent to clients or logged.
 - **`.gitignore` hardened** to keep the runtime config and stray token files out of
-  git, with a note that a mod jar is decompilable so `.gitignore` can't hide source.
+  git, and to ignore new Java source files by default unless deliberately reviewed
+  and force-added.
 - **Config schema → v2.** Added `adminPermissionLevel`, `maxBotsPerServer`,
   `hfTokenObf`; `migrate()` gives upgrading installs safe defaults (admin = ops, an
   8-bot cap) instead of Java's 0 (= everyone admin / unlimited).

@@ -113,9 +113,4 @@ Full documentation lives in the wiki:
 - Personalities: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Personalities
 - Trust and Per-Bot Management: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Trust-and-Per-Bot
 - Bedrock (Geyser) and one-click hosting: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Geyser-Bedrock
-- Building From Source: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Building-From-Source
 - Troubleshooting: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Troubleshooting
-
-## License
-
-Blockpal is released under the MIT License. See the LICENSE file for details.
