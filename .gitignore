@@ -38,3 +38,6 @@ run/config/
 *.secret
 hf_token*
 blockpal-token*
+# To avoid making a cheat client that can get other player's api keys, unfortunately the main java code files. 
+
+
