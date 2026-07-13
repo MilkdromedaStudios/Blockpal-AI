@@ -41,11 +41,22 @@ public final class TextToSpeech {
     /** Longer lines are truncated for synthesis — nobody wants a 2-minute monologue. */
     private static final int MAX_TTS_CHARS = 300;
 
+    /**
+     * When the synthesis endpoint says the audio model doesn't exist (the free
+     * service dropped it — seen live 2026-07), retrying every chat line is pure
+     * spam: mute TTS attempts for a while and explain ONCE in the log. Speech
+     * resumes automatically when the cooldown lapses (or the config changes).
+     */
+    private static final long MODEL_GONE_COOLDOWN_MS = 10 * 60 * 1000;
+    private static volatile long mutedUntilMs = 0;
+    private static volatile boolean explainedOnce = false;
+
     /** Synthesizes and queues the line. Resolves true if audio was queued. */
     public static CompletableFuture<Boolean> speak(String text, String voice) {
         if (text == null || text.isBlank()) return CompletableFuture.completedFuture(false);
         ModConfig cfg = ModConfig.get();
         if (!cfg.voiceResponses) return CompletableFuture.completedFuture(false);
+        if (System.currentTimeMillis() < mutedUntilMs) return CompletableFuture.completedFuture(false);
         String line = text.length() > MAX_TTS_CHARS ? text.substring(0, MAX_TTS_CHARS) : text;
         String v = voice == null || voice.isBlank() ? cfg.ttsVoice : voice;
 
@@ -89,6 +100,21 @@ public final class TextToSpeech {
                 .handle((resp, ex) -> {
                     if (ex != null) {
                         AiAssistantMod.LOGGER.warn("[Voice] TTS request failed: {}", ex.toString());
+                        return false;
+                    }
+                    if (resp.statusCode() == 404) {
+                        // "Model not found" — the endpoint has no audio model at all.
+                        // Cool down instead of 404-ing on every single chat line.
+                        mutedUntilMs = System.currentTimeMillis() + MODEL_GONE_COOLDOWN_MS;
+                        if (!explainedOnce) {
+                            explainedOnce = true;
+                            AiAssistantMod.LOGGER.warn(
+                                    "[Voice] The voice-output service at {} has no audio model (HTTP 404 — "
+                                            + "the free service dropped 'openai-audio'). Agent speech is paused and "
+                                            + "will retry every {} min; point freeApiUrl at an audio-capable "
+                                            + "OpenAI-compatible endpoint to restore it. Chat text is unaffected.",
+                                    cfg.freeApiUrl, MODEL_GONE_COOLDOWN_MS / 60000);
+                        }
                         return false;
                     }
                     if (resp.statusCode() != 200) {

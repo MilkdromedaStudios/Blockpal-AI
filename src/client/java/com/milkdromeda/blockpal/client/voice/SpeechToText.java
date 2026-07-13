@@ -40,17 +40,39 @@ public final class SpeechToText {
             .build();
     private static final Gson GSON = new Gson();
 
-    /** Transcribes WAV audio to text asynchronously; resolves to "" on any failure. */
+    /**
+     * Why the last transcription came back empty, in player-friendly words — so
+     * the action bar can say something accurate instead of a generic shrug.
+     * Blank when the last attempt succeeded (or nothing has run yet).
+     */
+    private static volatile String lastFailure = "";
+
+    public static String lastFailure() {
+        return lastFailure;
+    }
+
+    /**
+     * Transcribes WAV audio to text asynchronously; resolves to "" on any failure
+     * (with {@link #lastFailure} explaining why). With a token, Whisper is tried
+     * first and the free service is a second chance — never a dead end on one
+     * flaky request.
+     */
     public static CompletableFuture<String> transcribe(byte[] wav) {
         if (wav == null || wav.length == 0) return CompletableFuture.completedFuture("");
+        lastFailure = "";
         HuggingFaceClient.ApiAuth auth = ClientAi.auth();
-        if (auth.hasToken()) {
-            return viaWhisper(wav, auth.token());
-        }
         ModConfig cfg = ModConfig.get();
+        if (auth.hasToken()) {
+            return viaWhisper(wav, auth.token()).thenCompose(text -> {
+                if (text != null && !text.isBlank()) return CompletableFuture.completedFuture(text);
+                if (cfg.freeAiFallback) return viaFreeAudioChat(wav, cfg);
+                return CompletableFuture.completedFuture("");
+            });
+        }
         if (cfg.freeAiFallback) {
             return viaFreeAudioChat(wav, cfg);
         }
+        lastFailure = "No transcription available — add a key with /ai mykey, or enable the free AI.";
         return CompletableFuture.completedFuture("");
     }
 
@@ -61,6 +83,10 @@ public final class SpeechToText {
 
     /** Whisper on the HF serverless inference API: raw audio in, {"text": ...} out. */
     private static CompletableFuture<String> viaWhisper(byte[] wav, String token) {
+        return viaWhisper(wav, token, 2);
+    }
+
+    private static CompletableFuture<String> viaWhisper(byte[] wav, String token, int attemptsLeft) {
         HttpRequest request;
         try {
             request = HttpRequest.newBuilder()
@@ -72,20 +98,32 @@ public final class SpeechToText {
                     .build();
         } catch (IllegalArgumentException e) {
             AiAssistantMod.LOGGER.warn("[Voice] Bad STT URL: {}", ModConfig.get().sttApiUrl);
+            lastFailure = "The transcription URL looks invalid — check sttApiUrl in config/blockpal.";
             return CompletableFuture.completedFuture("");
         }
         return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .handle((resp, ex) -> {
-                    if (ex != null) {
-                        AiAssistantMod.LOGGER.warn("[Voice] Whisper request failed: {}", ex.toString());
-                        return "";
+                .thenCompose(resp -> {
+                    // 503 = the model is warming up on the serverless API — one retry
+                    // after a beat usually lands (a plain miss reads as "didn't hear you").
+                    if (resp.statusCode() == 503 && attemptsLeft > 1) {
+                        return CompletableFuture.supplyAsync(() -> null,
+                                        CompletableFuture.delayedExecutor(2500, java.util.concurrent.TimeUnit.MILLISECONDS))
+                                .thenCompose(x -> viaWhisper(wav, token, attemptsLeft - 1));
                     }
                     if (resp.statusCode() != 200) {
                         AiAssistantMod.LOGGER.warn("[Voice] Whisper HTTP {}: {}",
                                 resp.statusCode(), truncate(resp.body()));
-                        return "";
+                        lastFailure = resp.statusCode() == 401
+                                ? "Your API key was rejected by the transcription service — re-check /ai mykey."
+                                : "The transcription service answered HTTP " + resp.statusCode() + " — try again in a moment.";
+                        return CompletableFuture.completedFuture("");
                     }
-                    return parseWhisper(resp.body());
+                    return CompletableFuture.completedFuture(parseWhisper(resp.body()));
+                })
+                .exceptionally(ex -> {
+                    AiAssistantMod.LOGGER.warn("[Voice] Whisper request failed: {}", ex.toString());
+                    lastFailure = "Couldn't reach the transcription service — check your connection.";
+                    return "";
                 });
     }
 
@@ -141,9 +179,20 @@ public final class SpeechToText {
         }
         return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                 .handle((resp, ex) -> {
-                    if (ex != null || resp.statusCode() != 200) {
-                        AiAssistantMod.LOGGER.warn("[Voice] Free transcription failed: {}",
-                                ex != null ? ex.toString() : "HTTP " + resp.statusCode());
+                    if (ex != null) {
+                        AiAssistantMod.LOGGER.warn("[Voice] Free transcription failed: {}", ex.toString());
+                        lastFailure = "Couldn't reach the free voice service — check your connection.";
+                        return "";
+                    }
+                    if (resp.statusCode() != 200) {
+                        AiAssistantMod.LOGGER.warn("[Voice] Free transcription HTTP {}: {}",
+                                resp.statusCode(), truncate(resp.body()));
+                        // Discovered live 2026-07: the free service dropped its audio
+                        // model ("Model not found"), so keyless voice input is offline
+                        // upstream. A (free) HF key routes voice through Whisper instead.
+                        lastFailure = resp.statusCode() == 404
+                                ? "The free voice service has no speech model right now — add a free Hugging Face key with /ai mykey to talk."
+                                : "The free voice service answered HTTP " + resp.statusCode() + " — try again in a moment.";
                         return "";
                     }
                     return parseChatContent(resp.body());
