@@ -25,8 +25,10 @@ You'll see a private `You → Ethan 🎤 "…"` line confirming what was heard.
 
 - **Transcription engine:** with an API key set, Whisper large-v3-turbo
   (`sttModel`) on HuggingFace's inference API (`sttApiUrl`) — the same key you
-  already use for the chat models. With **no key at all** it falls back to the
-  free voice-capable service (like the text AI does), so voice works out of the box.
+  already use for the chat models, and a **free** HF token is enough. With no key
+  it tries the free voice service instead — but see the honesty note below: the
+  free service currently has **no speech model**, so for now voice wants a key
+  (the text AI stays fully keyless).
 - **Rebind the key** with `/aivoice key <GLFW code>` (86 = V, 66 = B, 71 = G).
   The key is only read while no GUI is open, so typing "v" in chat is safe.
 
@@ -45,8 +47,13 @@ plays only for players the server addressed, never for bystanders.
   people.
 - Hear a sample: `/aivoice test Hello! I'm your companion.`
 
-Synthesis uses the free voice-capable OpenAI-compatible service (no key
-needed), requesting WAV audio the game can play natively.
+Synthesis sends an OpenAI-style audio-out chat request to the `freeApiUrl`
+endpoint, asking for WAV audio the game can play natively. **Current status:** the
+free service dropped its audio model (verified live, July 2026 — it now serves
+text only), so agent speech stays silent until either that service restores audio
+or `freeApiUrl` points at an audio-capable OpenAI-compatible endpoint (a local
+server, or a keyed voice service). When synthesis 404s, Blockpal logs one clear
+explanation and pauses TTS attempts for 10 minutes instead of spamming.
 
 ## Sharing & linking — who hears whose agent
 
@@ -114,7 +121,13 @@ The whole voice layer is server-gated:
 - The mic is only open **while the key is held** (hard 30-second cap), and
   nothing is recorded in menus.
 - Voice output/transcription are network services — on an outage the agent
-  simply stays text-only; chat and commands are unaffected.
+  simply stays text-only; chat and commands are unaffected. Failures show an
+  accurate action-bar reason (service down vs. key rejected vs. too quiet).
+- **Verified live (July 2026):** the HF chat endpoint, the Whisper
+  large-v3-turbo route (model live on hf-inference, raw-WAV request + `{"text"}`
+  response per the official docs), and the free *text* fallback all answer as the
+  code expects. The free service's *audio* model has been removed upstream —
+  that's a service change, not a mod bug, and voice input works with a free HF key.
 - Like other recent features, the live audio path (microphone capture, the
   Whisper/TTS endpoints, playback) needs real-machine testing — it can't run in
   CI. If your setup has no microphone, push-to-talk fails with a clear message

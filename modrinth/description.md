@@ -1,4 +1,4 @@
-![Blockpal — your AI companion for Minecraft](https://raw.githubusercontent.com/MilkdromedaStudios/Blockpal-AI/main/media/banner.png)
+![Blockpal — your AI companion for Minecraft](https://raw.githubusercontent.com/MilkdromedaStudios/Blockpal-AI/main/media/Banner.png)
 
 [![Modrinth version](https://img.shields.io/modrinth/v/blockpal-ai?style=for-the-badge&logo=modrinth&label=Modrinth&color=00AF5C)](https://modrinth.com/mod/blockpal-ai)
 [![Modrinth downloads](https://img.shields.io/modrinth/dt/blockpal-ai?style=for-the-badge&logo=modrinth&label=Downloads&color=5da545)](https://modrinth.com/mod/blockpal-ai)
@@ -47,8 +47,8 @@ falls back to a free built-in AI**, so it works straight out of the box.
 ![Hold V to speak; linked agents take turns](https://raw.githubusercontent.com/MilkdromedaStudios/Blockpal-AI/main/media/voice.png)
 
 Hold **V** (rebindable) and say what you want. Your words are transcribed on your own
-machine with **Whisper large-v3-turbo** and go straight to **your own companion** —
-never public chat. Everything the agent says is also spoken aloud, **privately**: only
+machine with **Whisper large-v3-turbo** (a free Hugging Face key covers it — set it
+with `/ai mykey`) and go straight to **your own companion** — never public chat. Everything the agent says is also spoken aloud, **privately**: only
 you hear your agent unless you `/ai voice share` with a friend. Sharing links your
 agents into one conversation, where they politely take turns instead of interrupting
 each other. Server owners can gate the whole feature with `/ai admin voice on|off`.

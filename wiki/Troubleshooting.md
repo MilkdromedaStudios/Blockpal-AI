@@ -76,6 +76,26 @@ choose from the allowed list in `/ai mymenu` or with `/ai model <id>`.
   players it [trusts](Trust-and-Per-Bot) and admins) is obeyed; others get a
   polite refusal only when they address it by name.
 
+### Voice: "the free voice service has no speech model" / the agent doesn't speak
+
+Voice input and output are separate network services from the text AI, and the
+action bar tells you which one failed:
+
+- **Voice input (push-to-talk):** with an API key it uses Whisper
+  large-v3-turbo on HuggingFace (a **free** HF token is enough — `/ai mykey`).
+  Keyless input relies on the free voice service, which **currently has no
+  speech model** (it went text-only in July 2026) — so if the action bar says
+  so, add a free key and talk away. A "key was rejected" message means the
+  token itself is bad — re-check `/ai mykey`.
+- **Agent speech (TTS):** synthesis goes to the `freeApiUrl` endpoint with an
+  OpenAI-style audio request. While that service has no audio model, Blockpal
+  logs one clear explanation, pauses speech attempts for 10 minutes at a time,
+  and everything else (chat text, tasks, voice input) keeps working. To get
+  speech back now, point `freeApiUrl` at any audio-capable OpenAI-compatible
+  endpoint (a local server with an audio model, or a keyed voice service).
+- The text AI is unaffected either way — it stays fully keyless via the free
+  fallback.
+
 ### Using Ollama / LM Studio / another local model
 
 In `/ai menu` → **AI** tab set **API URL** (e.g. `http://localhost:11434/v1/chat/completions`)
