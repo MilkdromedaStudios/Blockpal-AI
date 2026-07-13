@@ -149,7 +149,12 @@ public final class VoiceClient {
         SpeechToText.transcribe(wav).thenAccept(text -> mc.execute(() -> {
             transcribing = false;
             if (text == null || text.isBlank()) {
-                actionbar(mc, "§eCouldn't make out any words — try again a bit closer to the mic.");
+                // Tell the truth about WHY: a service problem reads very
+                // differently from "you mumbled".
+                String why = SpeechToText.lastFailure();
+                actionbar(mc, why.isBlank()
+                        ? "§eCouldn't make out any words — try again a bit closer to the mic."
+                        : "§e" + why);
                 return;
             }
             if (ClientPlayNetworking.canSend(VoiceInputPayload.TYPE)) {
