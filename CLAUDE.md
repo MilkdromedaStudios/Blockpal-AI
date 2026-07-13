@@ -694,6 +694,27 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   (banner.png, features.png, voice.png, chat.gif — generated holo-terminal-style
   promo graphics) embedded in both the README and the Modrinth page; README refreshed
   (stale 3.10.0 badge → 3.19.0, voice feature/commands/wiki link added).
+- **Post-release addendum — live endpoint verification + voice resilience.** Every
+  endpoint the AI/voice code calls was exercised live from a networked session:
+  HF router chat completions (401 without a token = routed correctly), the Whisper
+  STT route (`router.huggingface.co/hf-inference/models/openai/whisper-large-v3-turbo`
+  — 401 auth challenge; raw-WAV request + `{"text"}` response confirmed against the
+  official Inference Providers docs; **model live on hf-inference** per the hub),
+  and the free fallback. Finding: the free service **dropped its audio model**
+  (`openai-audio` → 404 "Model not found"; its anonymous catalog is now a single
+  text-only model, `openai-fast` alias `openai` — the keyless *text* AI still
+  works, verified live with a real completion). Fixes: `SpeechToText` chains
+  token-Whisper → free STT (with one 503 warm-up retry) and exposes
+  `lastFailure()` so the action bar states the *true* reason (service has no
+  speech model / key rejected / network) instead of "couldn't hear you";
+  `TextToSpeech` treats 404 as "endpoint has no audio model" — one clear log line
+  plus a 10-minute mute instead of a 404 per chat line. Net: voice-in works with
+  a (free) HF key today; voice-out resumes when `freeApiUrl` points at an
+  audio-capable OpenAI-compatible endpoint (or the free service restores audio).
+  Wiki Voice/Troubleshooting updated to match; the Modrinth description's banner
+  URL was fixed for the `Banner.png` rename (raw URLs are case-sensitive). Note:
+  `.gitignore` now ignores `*.java` (owner's change in PR #66) — **new Java files
+  must be `git add -f`'d** or they silently miss commits.
 - **First CI run caught three 26.2 mapping renames** (confirmed via the build logs, not
   guessed): `Minecraft.screen`, `Window.getWindow()` and
   `LocalPlayer.displayClientMessage(Component, boolean)` don't exist under this
