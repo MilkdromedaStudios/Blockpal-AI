@@ -159,6 +159,20 @@ public final class HostManager {
     }
 
     /**
+     * Updates the status line WITHOUT appending to the log — for high-frequency
+     * progress ticks (copy percentages) that would otherwise flood it. Safe to
+     * call from worker threads ({@link #status} is volatile).
+     */
+    private void statusOnly(String msg) {
+        status = msg;
+    }
+
+    /** Bytes → a readable MB figure for progress lines. */
+    private static String mb(long bytes) {
+        return String.valueOf(bytes / (1024L * 1024L));
+    }
+
+    /**
      * Kicks off download → configure → launch on a worker thread. No-op when already
      * busy or running, or if the EULA hasn't been accepted yet.
      */
@@ -191,7 +205,13 @@ public final class HostManager {
                 set(Phase.CONFIGURING, "Waiting for the world to finish saving…");
                 waitForWorldClosed();
                 set(Phase.CONFIGURING, "Copying \"" + sourceWorldName + "\" into the server…");
-                WorldSync.copyWorld(source, HostPaths.hostedCopyDir());
+                long copyStart = System.nanoTime();
+                WorldSync.CopyStats stats = WorldSync.copyWorld(source, HostPaths.hostedCopyDir(),
+                        (pct, doneB, totalB) -> statusOnly("Copying \"" + sourceWorldName
+                                + "\" into the server… " + pct + "% (" + mb(doneB) + "/" + mb(totalB) + " MB)"));
+                log(String.format(java.util.Locale.ROOT,
+                        "World copied: %d files, %s MB in %.1f s (parallel copy)",
+                        stats.files(), mb(stats.bytes()), (System.nanoTime() - copyStart) / 1e9));
                 WorldSync.writeMarker(source);
             }
 
@@ -297,7 +317,9 @@ public final class HostManager {
         }
         try {
             set(Phase.IDLE, "Saving your world's changes back…");
-            Path backup = WorldSync.syncBack(HostPaths.hostedCopyDir(), source, HostPaths.backupsDir());
+            Path backup = WorldSync.syncBack(HostPaths.hostedCopyDir(), source, HostPaths.backupsDir(),
+                    (pct, doneB, totalB) -> statusOnly("Saving your world's changes back… "
+                            + pct + "% (" + mb(doneB) + "/" + mb(totalB) + " MB)"));
             WorldSync.clearMarker();
             syncedThisRun = true;
             pendingSync = false;

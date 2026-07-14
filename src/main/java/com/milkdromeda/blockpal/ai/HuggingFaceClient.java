@@ -258,7 +258,7 @@ public class HuggingFaceClient {
         return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                 .handle((resp, ex) -> {
                     if (ex != null) return "(" + friendlyNetworkError(ex) + ")";
-                    if (resp.statusCode() != 200) return "(" + friendlyHttpError(resp) + ")";
+                    if (resp.statusCode() != 200) return "(" + friendlyHttpError(resp, auth) + ")";
                     String content = extractContent(resp.body());
                     return content == null || content.isBlank() ? "(No reply — try again.)" : content.trim();
                 });
@@ -315,7 +315,7 @@ public class HuggingFaceClient {
                     errorPlan(task, "the API URL looks invalid — an admin can fix it in /ai menu (AI & API tab)"));
         }
 
-        return sendWithRetry(request, task, 2);
+        return sendWithRetry(request, task, 2, auth);
     }
 
     /**
@@ -437,12 +437,13 @@ public class HuggingFaceClient {
         return m;
     }
 
-    private CompletableFuture<ActionPlan> sendWithRetry(HttpRequest request, String task, int attemptsLeft) {
+    private CompletableFuture<ActionPlan> sendWithRetry(HttpRequest request, String task, int attemptsLeft,
+                                                        ApiAuth auth) {
         return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                 .handle((resp, ex) -> {
                     if (ex != null) {
                         if (attemptsLeft > 1 && isRetryable(ex)) {
-                            return sendWithRetry(request, task, attemptsLeft - 1);
+                            return sendWithRetry(request, task, attemptsLeft - 1, auth);
                         }
                         return CompletableFuture.completedFuture(errorPlan(task, friendlyNetworkError(ex)));
                     }
@@ -452,9 +453,9 @@ public class HuggingFaceClient {
                     // 5xx/429 are usually transient — especially on the shared free
                     // service, which can briefly 500 under load — so retry once.
                     if ((resp.statusCode() >= 500 || resp.statusCode() == 429) && attemptsLeft > 1) {
-                        return sendWithRetry(request, task, attemptsLeft - 1);
+                        return sendWithRetry(request, task, attemptsLeft - 1, auth);
                     }
-                    return CompletableFuture.completedFuture(errorPlan(task, friendlyHttpError(resp)));
+                    return CompletableFuture.completedFuture(errorPlan(task, friendlyHttpError(resp, auth)));
                 })
                 .thenCompose(future -> future);
     }
@@ -483,22 +484,72 @@ public class HuggingFaceClient {
         return "couldn't reach the AI service" + (msg != null ? " (" + msg + ")" : "") + ".";
     }
 
-    private String friendlyHttpError(HttpResponse<String> resp) {
+    private String friendlyHttpError(HttpResponse<String> resp, ApiAuth auth) {
+        String detail = apiErrorDetail(resp.body());
+        String said = detail.isBlank() ? "" : " The service said: \"" + detail + "\".";
         return switch (resp.statusCode()) {
-            case 400 -> "the AI service rejected the request (400). Your model id may be wrong — pick one "
-                    + "with /ai model <id>.";
-            case 401, 403 -> "my API token is missing or invalid. An admin can set it with /ai admin token "
-                    + "<token>, or set your own with /ai mykey <token>.";
-            case 404 -> "that model wasn't found (404). Pick a valid one with /ai model <id>.";
+            case 400, 404, 422 -> "the AI service rejected the request (" + resp.statusCode() + ")."
+                    + said + modelHint(auth);
+            case 401, 403 -> "my API token is missing or invalid." + said
+                    + " An admin can set one with /ai admin token <token>, or set your own with "
+                    + "/ai mykey <token>.";
             case 429 -> "the AI service is rate-limiting me. Wait a moment and try again.";
             case 503 -> "the model is still loading or unavailable. Try again in a few seconds.";
             default -> {
-                String preview = resp.body() == null ? "" :
-                        resp.body().substring(0, Math.min(120, resp.body().length()));
+                String preview = detail.isBlank()
+                        ? (resp.body() == null ? ""
+                            : resp.body().substring(0, Math.min(120, resp.body().length())))
+                        : detail;
                 yield "the AI service returned HTTP " + resp.statusCode()
                         + (preview.isBlank() ? "." : ": " + preview);
             }
         };
+    }
+
+    /** What to say about the model id when the service rejects a request outright. */
+    private static String modelHint(ApiAuth auth) {
+        if (auth == null || auth.model() == null || auth.model().isBlank()) return "";
+        String advice = ModelIds.advice(auth.model());
+        if (advice != null) return " " + advice;
+        return " Model in use: \"" + auth.model() + "\" — check it's spelled exactly as the "
+                + "provider lists it (for the HuggingFace router, copy the id from the model's "
+                + "page and make sure it shows Inference Providers).";
+    }
+
+    /**
+     * Pulls the human-readable message out of an error response body. Providers
+     * vary — OpenAI-style {@code {"error":{"message":…}}}, flat {@code {"error":…}},
+     * {@code {"message":…}} and {@code {"detail":…}} are all seen in the wild — so
+     * the raw reason behind an opaque 400 can be shown to the player instead of a
+     * guess. Returns {@code ""} when nothing readable is found.
+     */
+    private static String apiErrorDetail(String body) {
+        if (body == null || body.isBlank()) return "";
+        try {
+            JsonElement root = JsonParser.parseString(body);
+            if (!root.isJsonObject()) return "";
+            JsonObject o = root.getAsJsonObject();
+            String msg = null;
+            if (o.has("error")) {
+                JsonElement err = o.get("error");
+                if (err.isJsonObject() && err.getAsJsonObject().has("message")) {
+                    msg = err.getAsJsonObject().get("message").getAsString();
+                } else if (err.isJsonPrimitive()) {
+                    msg = err.getAsString();
+                }
+            }
+            if (msg == null && o.has("message") && o.get("message").isJsonPrimitive()) {
+                msg = o.get("message").getAsString();
+            }
+            if (msg == null && o.has("detail") && o.get("detail").isJsonPrimitive()) {
+                msg = o.get("detail").getAsString();
+            }
+            if (msg == null) return "";
+            msg = msg.replaceAll("\\s+", " ").trim();
+            return msg.length() > 200 ? msg.substring(0, 197) + "…" : msg;
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     private Throwable unwrap(Throwable ex) {
