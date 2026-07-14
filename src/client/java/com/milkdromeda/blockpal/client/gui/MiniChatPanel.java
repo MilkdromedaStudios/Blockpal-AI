@@ -10,6 +10,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
@@ -69,7 +70,7 @@ public final class MiniChatPanel {
         captureDraft();
         clearRefs();
 
-        Font f = Screens.getTextRenderer(target);
+        Font f = Screens.getFont(target);
         if (f == null || height < 140) return false;
         int right = width - 6;
         int x0 = avoidCenterColumn
@@ -254,22 +255,24 @@ public final class MiniChatPanel {
     }
 
     /**
-     * An {@link EditBox} that submits on Enter. {@code keyPressed} deliberately has
-     * no {@code @Override}: it's the standard input-event signature, but if this
-     * Minecraft version ever changes it the method simply stops being called (and
-     * the Send button remains the way to submit) instead of failing the build.
+     * An {@link EditBox} that submits on Enter. This Minecraft version's input
+     * events carry a {@link KeyEvent} record (verified against the real 26.2
+     * client jar: {@code EditBox.keyPressed(net.minecraft.client.input.KeyEvent)},
+     * with {@code key()}/{@code scancode()}/{@code modifiers()} accessors) —
+     * the old {@code (int, int, int)} signature no longer exists.
      */
     private static final class SendBox extends EditBox {
         SendBox(Font font, int x, int y, int w, int h) {
             super(font, x, y, w, h, Component.literal("Message"));
         }
 
-        public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-            if (keyCode == 257 || keyCode == 335) {   // Enter / numpad Enter
+        @Override
+        public boolean keyPressed(KeyEvent event) {
+            if (event.key() == 257 || event.key() == 335) {   // Enter / numpad Enter
                 MiniChatPanel.send();
                 return true;
             }
-            return super.keyPressed(keyCode, scanCode, modifiers);
+            return super.keyPressed(event);
         }
     }
 }
