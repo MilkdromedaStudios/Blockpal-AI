@@ -4,6 +4,28 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.20.0
+- **The AI chat now lives right in the ESC menu.** Press ESC and a mini chat panel
+  is sitting on the right side of the pause menu — recent conversation, a text box,
+  Enter to send. It also appears when you open the **chat screen** (`T`). No more
+  clicking a button into a separate menu for a quick question; the **"Full chat &
+  history ⛶"** button still opens the full box when you want scrolling and threads.
+- **Model errors finally tell you what's wrong.** An HTTP 400 from the AI service
+  now shows **the service's actual error message** and the **model id in use**
+  instead of a generic guess. Model ids are **scrubbed automatically** everywhere
+  you enter them (stray spaces, quotes and invisible paste characters were a silent
+  cause of "my valid model returns 400"). And if you set an id like
+  `Qwen/Qwen2.5-Coder-3B-Instruct-GGUF`, Blockpal warns you right away: `-GGUF` /
+  `-GPTQ` / `-AWQ` repos are **download bundles for local apps** (llama.cpp,
+  LM Studio, Ollama) — hosted APIs serve the **base** model
+  (`Qwen/Qwen2.5-Coder-3B-Instruct`) instead.
+- **"Host current world" copies much faster.** World files are now copied **in
+  parallel** instead of one at a time — a big world that took minutes now takes a
+  fraction of that — and the Host screen shows **live progress**
+  (`Copying "MyWorld" into the server… 62% (410/660 MB)`), both when hosting starts
+  and when your changes are synced back afterwards. No more staring at a frozen
+  "Copying…" line.
+
 ## 3.19.0
 - **Your companion has a voice now.** Hold **V** (rebindable) and *speak* — your
   words are transcribed with **Whisper large-v3-turbo** and go straight to **your
