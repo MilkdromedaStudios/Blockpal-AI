@@ -1,0 +1,24 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.blockpal.companion.look": {
+      "loop": true,
+      "bones": {
+        "head": {
+          "relative_to": { "rotation": "entity" },
+          "rotation": ["query.target_x_rotation", "query.target_y_rotation", 0]
+        }
+      }
+    },
+    "animation.blockpal.companion.walk": {
+      "loop": true,
+      "blend_weight": "math.clamp(query.modified_move_speed, 0.0, 1.0)",
+      "bones": {
+        "rightLeg": { "rotation": ["math.sin(query.modified_distance_moved * 38.17) * 40.0", 0, 0] },
+        "leftLeg": { "rotation": ["-math.sin(query.modified_distance_moved * 38.17) * 40.0", 0, 0] },
+        "rightArm": { "rotation": ["-math.sin(query.modified_distance_moved * 38.17) * 30.0", 0, 0] },
+        "leftArm": { "rotation": ["math.sin(query.modified_distance_moved * 38.17) * 30.0", 0, 0] }
+      }
+    }
+  }
+}
