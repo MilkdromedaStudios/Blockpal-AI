@@ -1,0 +1,17 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Blockpal Companion [RP]",
+    "description": "Blockpal for Bedrock — companion model, skins and animations.",
+    "uuid": "74c531ae-90a0-402c-8a67-6a33957d36a5",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 60]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "008c35cf-bdc6-4635-8d3f-3ce87fd87d16",
+      "version": [1, 0, 0]
+    }
+  ]
+}
