@@ -432,7 +432,10 @@ public class ModConfig {
     private void normalize() {
         if (hfToken == null) hfToken = "";
         if (hfTokenObf == null) hfTokenObf = "";
-        if (hfModel == null || hfModel.isBlank()) hfModel = "mistralai/Mistral-7B-Instruct-v0.2";
+        // A hand-edited/pasted model id may carry quotes or whitespace artifacts —
+        // scrub them here so a broken saved id self-heals on the next load.
+        hfModel = com.milkdromeda.blockpal.ai.ModelIds.clean(hfModel);
+        if (hfModel.isBlank()) hfModel = "mistralai/Mistral-7B-Instruct-v0.2";
         if (apiUrl == null || apiUrl.isBlank()) apiUrl = "https://router.huggingface.co/v1/chat/completions";
         if (freeApiUrl == null || freeApiUrl.isBlank()) freeApiUrl = "https://text.pollinations.ai/openai";
         if (freeModel == null || freeModel.isBlank()) freeModel = "openai";
@@ -458,6 +461,14 @@ public class ModConfig {
         if (playerApiKeysObf == null) playerApiKeysObf = new HashMap<>();
         if (allowedModels == null) allowedModels = new ArrayList<>();
         if (playerModels == null) playerModels = new HashMap<>();
+        // Scrub paste artifacts out of the allowed-model list too (dropping dupes
+        // and entries that clean away to nothing).
+        List<String> cleanedModels = new ArrayList<>();
+        for (String m : allowedModels) {
+            String c = com.milkdromeda.blockpal.ai.ModelIds.clean(m);
+            if (!c.isBlank() && !cleanedModels.contains(c)) cleanedModels.add(c);
+        }
+        allowedModels = cleanedModels;
         // Seed a useful starter set of models the first time, and always keep the
         // server's own default model selectable.
         if (allowedModels.isEmpty()) {

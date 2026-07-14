@@ -101,6 +101,17 @@ can do and how it evolved.
   key is strictly required). Config schema → v8.
 - Natural-language tasks (`/ai build a 5×5 floor`) are converted to a
   structured JSON action plan (5–15 steps) on a background thread.
+- **Model-id hygiene + real API errors (3.20.0)** — `ai/ModelIds` scrubs every
+  entered model id (trim, wrapping quotes/backticks, internal whitespace and
+  zero-width/BOM paste artifacts) at all entry points (`/ai admin model`,
+  `/ai admin models add`, `/ai model`, the Settings GUI via `ConfigData.applyTo`,
+  `PlayerPrefsPayload`, and `ModConfig.normalize()` on load so a broken saved id
+  self-heals). Ids naming **quantized download bundles** (`…-GGUF`/`-GPTQ`/`-AWQ`
+  etc. — hub file repos that hosted APIs don't serve) get an immediate warning with
+  the suggested base id. HTTP error handling (`HuggingFaceClient.friendlyHttpError`)
+  now parses the **error body's actual message** (OpenAI-style `error.message`, flat
+  `error`, `message`, `detail`) and reports it plus the model id in use, so a 400 is
+  actionable instead of a guess.
 - 16 available actions: `MOVE_TO`, `PLACE_BLOCK`, `BREAK_BLOCK`, `MINE_AREA`,
   `USE_BLOCK`, `RUN_COMMAND`, `JUMP`, `SET_SNEAK`, `ATTACK_NEAREST`,
   `FOLLOW_PLAYER`, `LOOK_AT`, `CHAT`, `WAIT`, `COLLECT_ITEM`, `STOP`.
@@ -219,7 +230,7 @@ server, someone else's modded server, or singleplayer. It never depends on the s
 having Blockpal. Code lives under `client/assist/` + two GUI screens.
 
 - **Private AI chat box (mini wiki assistant).** `/aichat` (or a tiny **`✦`** button
-  injected top-right into the pause menu, inventory and any container screen — anywhere
+  injected top-right into the inventory and any container screen — anywhere
   the mouse is free) opens `client/gui/AssistantChatScreen`: a small, scrollable,
   word-wrapped, theme-styled panel to chat with the AI for tips/recipes/strategy. It is
   **private** — replies render only in this box (never in server chat). History is
@@ -227,6 +238,17 @@ having Blockpal. Code lives under `client/assist/` + two GUI screens.
   **capped at 100 messages per conversation and 100 conversations** (oldest roll off);
   `＋`/`◀`/`▶` switch threads, `▲`/`▼` and the wheel scroll. The chat is **advice only** —
   it never controls the player and can't type in server chat.
+- **Mini chat panel embedded in the ESC menu & chat screen (3.20.0).**
+  `client/gui/MiniChatPanel` injects the assistant chat **directly into the pause menu**
+  (right side, clear of the centered button column) and into the **vanilla chat screen**:
+  the recent conversation (bottom-anchored, word-wrapped `StringWidget`s), an input box
+  (Enter or Send submits) and a **"Full chat & history ⛶"** button that opens the full
+  `AssistantChatScreen`. Same `ClientAi`/`ChatMemory` backend — private, advice-only,
+  works on any server. Injection rides the proven Fabric `ScreenEvents.AFTER_INIT` +
+  `Screens.getWidgets` path (no vanilla screen subclassed); message lines are recreated
+  in place on updates while the input box is never rebuilt, so focus/typing survive; a
+  typed draft survives screen switches. On GUI scales too narrow for the panel the pause
+  menu falls back to the old **`✦`** button (containers always keep `✦`).
 - **On-screen tips ("mini wiki").** `client/assist/ScreenWatcher` samples your situation
   (~1×/s, ≥90 s between tips) and, on a notable trigger (low health, starving, on fire,
   drowning, a new dimension), asks the model for one short survival tip and drops it into
@@ -590,7 +612,10 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   (`disconnectWithSavingScreen`), waits for the integrated server to close, **copies the
   save** into the server (`server/hosted-copy`, `level-name=hosted-copy`) — as of 3.16.1
   this copy happens **before** the component downloads, so the world is captured moments
-  after the save closes — and hosts it —
+  after the save closes; as of **3.20.0** the copy runs on a **parallel worker pool**
+  (region files are many independent multi-MB files; sequential copying left the disk
+  idle) with **live percent/MB progress** in the status line (`statusOnly`, no log flood)
+  for both the copy-in and the sync-back — and hosts it —
   the host rejoins via Direct Connect → `localhost:25565`. When the server stops, the played
   world is **synced back over the singleplayer save** (the pre-host original is kept in
   `blockpal-host/backups/<world>-<timestamp>`) and the server's copy is **deleted**, so
@@ -651,6 +676,59 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 ---
 
 ## Changelog
+
+### 3.20.0
+- **Mini AI chat panel in the ESC menu & chat screen.** Requested as "press esc, a mini
+  menu to chat… and when you press the chat menu, it also shows up": new
+  `client/gui/MiniChatPanel` embeds the private assistant chat **directly into the pause
+  menu** (right side, kept clear of the centered vanilla button column) and the **vanilla
+  chat screen** — recent conversation lines, an input box (Enter or Send submits) and a
+  "Full chat & history ⛶" button into the full `AssistantChatScreen`. Same
+  `ClientAi`/`ChatMemory` backend as the chat box (private, advice-only, any server).
+  Implementation stays on APIs proven in this codebase: injection via Fabric
+  `ScreenEvents.AFTER_INIT` + `Screens.getWidgets` (the ✦-button path), in-place label
+  updates via `setMessage` (the HostScreen pattern), flush-left lines via text-width-sized
+  `StringWidget`s (the PossessionConsoleScreen pattern). Message lines are recreated in
+  place on replies/tips while the input box is never rebuilt (focus + typing survive);
+  drafts survive screen switches; `MiniChatPanel.tick()` (END_CLIENT_TICK) refreshes
+  every second to pick up async tips. The Enter-to-send override deliberately carries no
+  `@Override` so a mapping drift degrades to "use the Send button" instead of failing the
+  build. Pause menus too narrow for the panel (and all containers) keep the ✦ button.
+- **Model ids: scrubbed input + real error detail.** For "I have a valid model but it
+  kept returning error 400": new `ai/ModelIds` — `clean()` strips wrapping quotes,
+  whitespace and zero-width/BOM paste artifacts at **every** model-id entry point
+  (`/ai admin model`, `/ai admin models add|remove`, `/ai model`, Settings GUI
+  (`ConfigData.applyTo`), `PlayerPrefsPayload` handler, and `ModConfig.normalize()` so a
+  broken saved id self-heals on load); `advice()` flags ids naming **quantized download
+  bundles** (`…-GGUF`, `-GGML`, `-GPTQ`, `-AWQ`, `-EXL2`, `-MLX`) — hub *file* repos that
+  hosted APIs don't serve (the exact trap in `Qwen/Qwen2.5-Coder-3B-Instruct-GGUF`) —
+  suggesting the base id, shown at set time (commands + GUI save) as a warning.
+  `HuggingFaceClient.friendlyHttpError` now parses the error body's real message
+  (OpenAI-style `error.message` / flat `error` / `message` / `detail`, truncated) and
+  includes the model id in use on 400/404/422, threading `ApiAuth` through
+  `sendWithRetry`/`requestChat`. `ModelIds` unit-tested standalone (clean + advice paths).
+- **Hosting: parallel world copy + live progress.** For "hosting takes forever to save
+  and copy the world": `WorldSync.copyWorld` now plans the file list first (metadata
+  walk), creates directories, then copies files on a **daemon worker pool** (2–6 threads
+  by CPU count — a world is mostly independent multi-MB region files, and the old
+  one-file-at-a-time loop left the disk mostly idle), returning `CopyStats(files, bytes)`
+  and reporting whole-percent ticks via a `CopyProgress` callback; failures cancel the
+  pool and surface the first `IOException`. `syncBack` gained the same progress
+  plumbing. `HostManager` shows `Copying "world" into the server… N% (X/Y MB)` via new
+  `statusOnly()` (status line only — no 200-line log flood), logs a one-line summary
+  with duration, and gives sync-back the same treatment. The real `WorldSync` was
+  compiled standalone (stubbed `HostPaths`/gson) and round-trip tested: parallel copy
+  byte-identical, `session.lock` skipped, empty dirs kept, progress reaches 100%,
+  sync-back brings served changes home with the backup intact and the copy deleted.
+- Wiki: Client-Assistant (mini panel), Troubleshooting (new "rejected the request
+  (400)" / GGUF entry), Per-Player-Keys-and-Models (id cleaning + bundle warning),
+  Friend-Sharing (fast copy + progress). Root `CHANGELOG.md` gained a player-facing
+  3.20.0 section. No config schema change (still v10).
+- *(Toolchain caveat, same as recent releases: Gradle + the 26.2 deps are unreachable in
+  this environment, so no jar was built — `build.yml` compile-checks the branch push.
+  Real-machine checks wanted: the panel on the vanilla chat screen (widget rendering +
+  click-to-focus there), Enter-to-send, and a big-world host copy timing. New Java files
+  (`ModelIds.java`, `MiniChatPanel.java`) were `git add -f`'d per the `.gitignore` rule.)*
 
 ### 3.19.0
 - **Agent voice.** The companion can now be *talked to* and *talks back out loud*:
