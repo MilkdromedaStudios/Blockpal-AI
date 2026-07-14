@@ -1,0 +1,125 @@
+{
+  "format_version": "1.19.0",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "blockpal:companion",
+      "is_spawnable": true,
+      "is_summonable": true,
+      "is_experimental": false
+    },
+    "component_groups": {
+      "blockpal:following": {
+        "minecraft:behavior.follow_owner": {
+          "priority": 4,
+          "speed_multiplier": 1.1,
+          "start_distance": 6,
+          "stop_distance": 2
+        }
+      },
+      "blockpal:staying": {
+        "minecraft:behavior.look_at_player": {
+          "priority": 6,
+          "look_distance": 8
+        }
+      },
+      "blockpal:guarding": {
+        "minecraft:behavior.nearest_attackable_target": {
+          "priority": 2,
+          "must_see": true,
+          "reselect_targets": true,
+          "within_radius": 16,
+          "entity_types": [
+            {
+              "filters": { "test": "is_family", "subject": "other", "value": "monster" },
+              "max_dist": 16
+            }
+          ]
+        }
+      },
+      "blockpal:skin_default": { "minecraft:variant": { "value": 0 } },
+      "blockpal:skin_robot": { "minecraft:variant": { "value": 1 } },
+      "blockpal:skin_ember": { "minecraft:variant": { "value": 2 } },
+      "blockpal:skin_void": { "minecraft:variant": { "value": 3 } }
+    },
+    "components": {
+      "minecraft:type_family": { "family": ["blockpal_companion", "mob"] },
+      "minecraft:is_hidden_when_invisible": {},
+      "minecraft:nameable": { "always_show": true, "allow_name_tag_renaming": true },
+      "minecraft:persistent": {},
+      "minecraft:health": { "value": 40, "max": 40 },
+      "minecraft:attack": { "damage": 5 },
+      "minecraft:collision_box": { "width": 0.6, "height": 1.8 },
+      "minecraft:physics": {},
+      "minecraft:pushable": { "is_pushable": true, "is_pushable_by_piston": true },
+      "minecraft:jump.static": {},
+      "minecraft:breathable": { "total_supply": 15, "suffocate_time": 0 },
+      "minecraft:movement": { "value": 0.32 },
+      "minecraft:movement.basic": {},
+      "minecraft:navigation.walk": {
+        "can_path_over_water": true,
+        "avoid_water": true,
+        "avoid_damage_blocks": true,
+        "can_open_doors": true
+      },
+      "minecraft:knockback_resistance": { "value": 0.2 },
+      "minecraft:follow_range": { "value": 48, "max": 48 },
+      "minecraft:inventory": {
+        "container_type": "inventory",
+        "inventory_size": 10,
+        "private": true
+      },
+      "minecraft:tameable": {
+        "probability": 1.0,
+        "within_radius": 3,
+        "tame_items": ["minecraft:apple"]
+      },
+      "minecraft:behavior.float": { "priority": 0 },
+      "minecraft:behavior.hurt_by_target": { "priority": 1 },
+      "minecraft:behavior.melee_attack": {
+        "priority": 3,
+        "speed_multiplier": 1.25,
+        "track_target": true,
+        "require_complete_path": false
+      },
+      "minecraft:behavior.look_at_player": {
+        "priority": 8,
+        "look_distance": 6,
+        "probability": 0.4
+      },
+      "minecraft:behavior.random_look_around": { "priority": 9 }
+    },
+    "events": {
+      "minecraft:entity_spawned": {
+        "add": { "component_groups": ["blockpal:following", "blockpal:skin_default"] }
+      },
+      "blockpal:set_follow": {
+        "remove": { "component_groups": ["blockpal:staying", "blockpal:guarding"] },
+        "add": { "component_groups": ["blockpal:following"] }
+      },
+      "blockpal:set_stay": {
+        "remove": { "component_groups": ["blockpal:following", "blockpal:guarding"] },
+        "add": { "component_groups": ["blockpal:staying"] }
+      },
+      "blockpal:set_guard": {
+        "remove": { "component_groups": ["blockpal:following"] },
+        "add": { "component_groups": ["blockpal:staying", "blockpal:guarding"] }
+      },
+      "blockpal:skin_default": {
+        "remove": { "component_groups": ["blockpal:skin_robot", "blockpal:skin_ember", "blockpal:skin_void"] },
+        "add": { "component_groups": ["blockpal:skin_default"] }
+      },
+      "blockpal:skin_robot": {
+        "remove": { "component_groups": ["blockpal:skin_default", "blockpal:skin_ember", "blockpal:skin_void"] },
+        "add": { "component_groups": ["blockpal:skin_robot"] }
+      },
+      "blockpal:skin_ember": {
+        "remove": { "component_groups": ["blockpal:skin_default", "blockpal:skin_robot", "blockpal:skin_void"] },
+        "add": { "component_groups": ["blockpal:skin_ember"] }
+      },
+      "blockpal:skin_void": {
+        "remove": { "component_groups": ["blockpal:skin_default", "blockpal:skin_robot", "blockpal:skin_ember"] },
+        "add": { "component_groups": ["blockpal:skin_void"] }
+      }
+    }
+  }
+}

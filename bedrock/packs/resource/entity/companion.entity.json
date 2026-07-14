@@ -1,0 +1,28 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "blockpal:companion",
+      "materials": { "default": "entity_alphatest" },
+      "textures": {
+        "default": "textures/entity/companion/default",
+        "robot": "textures/entity/companion/robot",
+        "ember": "textures/entity/companion/ember",
+        "void": "textures/entity/companion/void"
+      },
+      "geometry": { "default": "geometry.blockpal_companion" },
+      "animations": {
+        "look_at_target": "animation.blockpal.companion.look",
+        "walk": "animation.blockpal.companion.walk"
+      },
+      "scripts": {
+        "animate": ["look_at_target", "walk"]
+      },
+      "render_controllers": ["controller.render.blockpal_companion"],
+      "spawn_egg": {
+        "base_color": "#2aa6a0",
+        "overlay_color": "#12325a"
+      }
+    }
+  }
+}
