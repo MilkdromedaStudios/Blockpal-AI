@@ -724,10 +724,32 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   (400)" / GGUF entry), Per-Player-Keys-and-Models (id cleaning + bundle warning),
   Friend-Sharing (fast copy + progress). Root `CHANGELOG.md` gained a player-facing
   3.20.0 section. No config schema change (still v10).
-- *(Toolchain caveat, same as recent releases: Gradle + the 26.2 deps are unreachable in
-  this environment, so no jar was built — `build.yml` compile-checks the branch push.
-  Real-machine checks wanted: the panel on the vanilla chat screen (widget rendering +
-  click-to-focus there), Enter-to-send, and a big-world host copy timing. New Java files
+- **Post-merge compile fix (same version).** The first push carried two 26.2 compile
+  errors in `MiniChatPanel` (caught by CI; the PR was merged before the fix landed, so
+  a follow-up PR repaired `main`): Fabric's accessor is **`Screens.getFont(screen)`**
+  (not `getTextRenderer`), and this MC version's input events carry a
+  **`net.minecraft.client.input.KeyEvent`** record (`key()`/`scancode()`/`modifiers()`)
+  — `EditBox.keyPressed(int,int,int)` no longer exists, so the Enter-to-send override
+  now overrides `keyPressed(KeyEvent)` (with `@Override`, since it's verified).
+- **New verification recipe — the 26.2 APIs ARE checkable from this environment.**
+  Gradle itself stays unusable (its distribution redirects to a GitHub release download
+  the proxy 403s), but this session discovered that `piston-meta`/`piston-data.mojang.com`,
+  `libraries.minecraft.net`, `maven.fabricmc.net`, `download.java.net` and
+  `repo1.maven.org` are all fetchable. Since 26.x ships **unobfuscated with official
+  names** (no mappings step), the whole compile check can be reproduced locally:
+  fetch the 26.2 `client.jar` via the piston manifest + all `libraries[]` jars, unpack
+  the fabric-api fat jar's `META-INF/jars/*` modules, grab Fabric Loader from the
+  FabricMC maven and a JDK 25 tarball from `jdk.java.net` (find the real URL by
+  scraping the page — the GA path hashes aren't guessable), then
+  `javac -proc:none -cp <all of it> $(find src -name '*.java')`. Both source sets (98
+  files) compile cleanly this way, and `javap` against those jars answers any
+  signature question (e.g. it confirmed `StringWidget`'s 6-arg constructor +
+  `setMessage`, and `ScreenKeyboardEvents` as a Fabric-stable input hook). **Do this
+  before pushing any change that touches new MC/Fabric API surface** — it turns the
+  old "wait for CI to find out" loop into a local check.
+- *(Still wanting a real machine: running the game itself — the panel's rendering and
+  click-to-focus on the vanilla chat screen, and big-world host copy timing. No jar was
+  built here — javac compiles, but Loom packaging still needs Gradle. New Java files
   (`ModelIds.java`, `MiniChatPanel.java`) were `git add -f`'d per the `.gitignore` rule.)*
 
 ### 3.19.0
@@ -1526,6 +1548,13 @@ Whenever a jar is built and verified during testing, copy it into the repo's
 - Key versions live in `gradle.properties` (Minecraft, Fabric Loader/API, Loom)
   and `gradle/wrapper/gradle-wrapper.properties` (Gradle itself).
 - Verify with a real `./gradlew clean build` before committing a jar.
+- **In a network-restricted Claude session** (Gradle's distribution download is
+  blocked): the compile check can still be reproduced with plain `javac` — fetch the
+  26.2 `client.jar` + `libraries[]` via the piston manifest, the fabric-api fat jar's
+  nested modules + Fabric Loader from `maven.fabricmc.net`, and a JDK 25 from
+  `jdk.java.net`; 26.x is unobfuscated so no mappings step is needed. See the 3.20.0
+  changelog entry for the full recipe, and run it before pushing anything that
+  touches new MC/Fabric API surface.
 
 ## CI / workflows (all act on *merge*, never on PR-open)
 
