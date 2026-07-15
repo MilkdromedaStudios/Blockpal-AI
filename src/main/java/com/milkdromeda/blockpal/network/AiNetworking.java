@@ -153,6 +153,13 @@ public final class AiNetworking {
                             "§c[Blockpal] Settings applied for this session but could NOT be written to "
                                     + ModConfig.configPath() + " — check the log."));
                 }
+                // Catch a model id that can't work on a hosted API right at save time,
+                // instead of letting every later request die with a bare 400.
+                String modelAdvice = com.milkdromeda.blockpal.ai.ModelIds.advice(ModConfig.get().hfModel);
+                if (modelAdvice != null) {
+                    player.sendSystemMessage(Component.literal(
+                            "§e[Blockpal] Model warning: §7" + modelAdvice));
+                }
             });
         });
 
@@ -214,9 +221,10 @@ public final class AiNetworking {
             if (server == null) return;
             server.execute(() -> {
                 ModConfig cfg = ModConfig.get();
-                if (cfg.allowPlayerModelChoice && payload.model() != null && !payload.model().isBlank()
-                        && cfg.isModelAllowed(payload.model())) {
-                    cfg.setPlayerModel(player.getUUID(), payload.model());
+                String chosenModel = com.milkdromeda.blockpal.ai.ModelIds.clean(payload.model());
+                if (cfg.allowPlayerModelChoice && !chosenModel.isBlank()
+                        && cfg.isModelAllowed(chosenModel)) {
+                    cfg.setPlayerModel(player.getUUID(), chosenModel);
                 }
                 if (payload.clearKey()) {
                     cfg.setPlayerToken(player.getUUID(), "");

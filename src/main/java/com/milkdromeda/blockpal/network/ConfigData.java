@@ -87,7 +87,10 @@ public record ConfigData(
         c.debugLogging = debugLogging;
         if (notBlank(defaultName)) c.defaultName = defaultName.trim();
         if (notBlank(token)) c.setToken(token.trim());   // blank = keep existing
-        if (notBlank(model)) c.hfModel = model.trim();
+        // Model ids are pasted from web pages, so scrub quotes/whitespace artifacts
+        // that make an otherwise-valid id come back as an opaque HTTP 400.
+        String cleanedModel = com.milkdromeda.blockpal.ai.ModelIds.clean(model);
+        if (!cleanedModel.isBlank()) c.hfModel = cleanedModel;
         if (notBlank(apiUrl)) c.apiUrl = apiUrl.trim();
         c.temperature = clamp(temperature, 0.0, 2.0);
         c.maxNewTokens = (int) clamp(maxTokens, 32, 2048);

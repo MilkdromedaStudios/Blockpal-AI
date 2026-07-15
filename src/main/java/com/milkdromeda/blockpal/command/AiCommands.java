@@ -966,12 +966,22 @@ public class AiCommands {
 
     private static int adminSetModel(CommandContext<CommandSourceStack> ctx, String model) {
         ModConfig cfg = ModConfig.get();
-        String m = model.trim();
+        // Pasted ids carry quotes/whitespace artifacts that read as a bare 400 later.
+        String m = com.milkdromeda.blockpal.ai.ModelIds.clean(model);
+        if (m.isBlank()) {
+            ctx.getSource().sendSuccess(() -> Component.literal("§c[Blockpal] That model id is empty."), false);
+            return 0;
+        }
         cfg.hfModel = m;
         cfg.addAllowedModel(m);   // keep the server default selectable by players
         ModConfig.save();
         ctx.getSource().sendSuccess(() -> Component.literal(
                 "§a[Blockpal] Server default model set to §f" + m), false);
+        String advice = com.milkdromeda.blockpal.ai.ModelIds.advice(m);
+        if (advice != null) {
+            ctx.getSource().sendSuccess(() -> Component.literal(
+                    "§e[Blockpal] Heads-up: §7" + advice), false);
+        }
         return 1;
     }
 
@@ -1052,7 +1062,7 @@ public class AiCommands {
             player.sendSystemMessage(Component.literal("§cThis server doesn't allow choosing your own model."));
             return 0;
         }
-        String m = model.trim();
+        String m = com.milkdromeda.blockpal.ai.ModelIds.clean(model);
         if (!cfg.isModelAllowed(m)) {
             player.sendSystemMessage(Component.literal(
                     "§cThat model isn't on the allowed list — see §f/ai models§c."));
@@ -1187,17 +1197,27 @@ public class AiCommands {
     }
 
     private static int adminModelsAdd(CommandContext<CommandSourceStack> ctx, String model) {
-        boolean added = ModConfig.get().addAllowedModel(model);
+        String m = com.milkdromeda.blockpal.ai.ModelIds.clean(model);
+        if (m.isBlank()) {
+            ctx.getSource().sendSuccess(() -> Component.literal("§c[Blockpal] That model id is empty."), false);
+            return 0;
+        }
+        boolean added = ModConfig.get().addAllowedModel(m);
         ModConfig.save();
         ctx.getSource().sendSuccess(() -> Component.literal(added
-                ? "§a[Blockpal] Added model §f" + model.trim()
+                ? "§a[Blockpal] Added model §f" + m
                 : "§7[Blockpal] That model is already allowed."), false);
+        String advice = com.milkdromeda.blockpal.ai.ModelIds.advice(m);
+        if (advice != null) {
+            ctx.getSource().sendSuccess(() -> Component.literal(
+                    "§e[Blockpal] Heads-up: §7" + advice), false);
+        }
         return 1;
     }
 
     private static int adminModelsRemove(CommandContext<CommandSourceStack> ctx, String model) {
         ModConfig cfg = ModConfig.get();
-        String m = model.trim();
+        String m = com.milkdromeda.blockpal.ai.ModelIds.clean(model);
         if (m.equals(cfg.hfModel)) {
             ctx.getSource().sendSuccess(() -> Component.literal(
                     "§c[Blockpal] Can't remove the server default model — change it with /ai admin model <id> first."), false);
