@@ -1602,3 +1602,6 @@ modrinth/            # description.md — the Modrinth project page body (no H1s
   command → `wiki/Commands.md`, new setting → `wiki/Settings.md`, dev-tab change
   → `wiki/Developer-Menu.md`) in the same change. Keep `wiki/Home.md` and
   `wiki/_Sidebar.md` in sync if you add or rename a page.
+
+## Testing
+- Every time you finish a mod, you will pull the request and test the mod. Private AI API keys can be found in huggingface.env. 
