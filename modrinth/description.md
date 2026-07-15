@@ -21,7 +21,7 @@ Blockpal connects to any OpenAI-compatible API (Hugging Face, OpenAI, Ollama, LM
 and others), so you choose the model and supply the key — **and with no key at all it
 falls back to a free built-in AI**, so it works straight out of the box.
 
-![Talking to Ethan and watching it plan and build](https://raw.githubusercontent.com/MilkdromedaStudios/Blockpal-AI/main/media/chat.gif)
+![Ethan in action — walking over on command, building a tower it planned itself, and handing over a diamond pickaxe (live in Minecraft 26.2)](https://raw.githubusercontent.com/MilkdromedaStudios/Blockpal-AI/main/media/gameplay.gif)
 
 ## Features
 
