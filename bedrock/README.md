@@ -1,4 +1,4 @@
-# Blockpal for Bedrock — single-player AI companion Add-On
+# Blockpal for Bedrock — single-player AI companion Add-On [Experimental, will break]
 
 A from-scratch recreation of the Blockpal companion as a **Minecraft Bedrock
 Edition Add-On** (behavior pack + resource pack, Script API), so Bedrock
