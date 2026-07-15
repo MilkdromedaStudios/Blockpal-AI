@@ -59,6 +59,24 @@ folder than vanilla's `.minecraft`. The green "Settings saved ✓" chat message
 Open `/ai menu` → **AI** tab and set **Model** to a valid id, then **Save**. Players
 choose from the allowed list in `/ai mymenu` or with `/ai model <id>`.
 
+### "The AI service rejected the request (400)" / my model id looks valid but won't work
+
+Since 3.20.0 the error message includes **what the service actually said** and the
+**model id in use** — read that first, it usually names the real problem. The two big
+causes:
+
+- **The id names a download bundle, not a hosted model.** Repos ending in **`-GGUF`**,
+  `-GPTQ`, `-AWQ` etc. (e.g. `Qwen/Qwen2.5-Coder-3B-Instruct-GGUF`) are **quantized
+  files for local apps** — llama.cpp, LM Studio, Ollama — and hosted APIs like the
+  HuggingFace router **don't serve them**, with or without the `owner/` prefix. Use the
+  **base model id** instead (e.g. `Qwen/Qwen2.5-Coder-3B-Instruct`) and check the
+  model's HuggingFace page lists **Inference Providers**. Blockpal now warns you the
+  moment you save an id like this. (To run a GGUF file itself, run it locally in
+  Ollama/LM Studio and point Blockpal's **API URL** at that — see below.)
+- **Paste artifacts.** Stray spaces, quotes, or invisible characters copied from a web
+  page break the id. Blockpal now scrubs these automatically everywhere a model id is
+  entered, so re-saving the id is enough.
+
 ### It doesn't react to chat
 
 - Open `/ai menu` → **Behavior** tab and make sure **Chat listening** is on.

@@ -17,11 +17,19 @@ server or in singleplayer you can also set a personal key with `/ai mykey <token
 
 ---
 
-## 1. The private chat box — `/aichat`
+## 1. The private chat box — `/aichat` (and the mini panel in the ESC menu)
 
-Open it with **`/aichat`**, or click the tiny **`✦`** button that appears in the
-**top-right corner** of the pause menu, your inventory, and any chest/container screen —
-anywhere the mouse is free to move.
+**Press ESC and the assistant is right there:** a **mini chat panel** sits on the right
+side of the pause menu — the recent conversation, a text box, and a Send button — so a
+quick question never needs a separate menu. The same panel appears when you **open the
+chat screen** (press `T`): click its box, type, and press Enter. The **"Full chat &
+history ⛶"** button under the panel opens the full chat box below when you want
+scrolling, threads, or the Tips toggle. (On a very small GUI scale with no room for the
+panel, the tiny **`✦`** button appears instead.)
+
+The full box opens with **`/aichat`**, the panel's ⛶ button, or the tiny **`✦`** button
+that appears in the **top-right corner** of your inventory and any chest/container
+screen — anywhere the mouse is free to move.
 
 - Ask anything: recipes, "where do I find diamonds", "how do I beat the Warden", strategy,
   what a block does. Replies appear **only in this box** — nothing is ever sent to the

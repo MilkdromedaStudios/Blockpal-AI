@@ -63,6 +63,13 @@ The list is seeded with a few common models on first run, and the **server defau
 model** (set in the Settings panel's AI tab) is always kept on it. Removing the
 default isn't allowed — change the default first if you need to.
 
+Model ids are **cleaned automatically (3.20.0)** — stray spaces, quotes and invisible
+paste artifacts are stripped wherever an id is entered. Adding an id that names a
+**quantized download bundle** (`…-GGUF`, `…-GPTQ`, `…-AWQ`) gets an immediate warning:
+those repos are files for local apps, not hosted API models — use the base id (e.g.
+`Qwen/Qwen2.5-Coder-3B-Instruct`, not `…-Instruct-GGUF`). See
+[Troubleshooting](Troubleshooting) for the full story.
+
 ### Players pick a model
 ```
 /ai models            # list the allowed models (your current one is marked)
