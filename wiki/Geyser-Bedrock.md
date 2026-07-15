@@ -5,6 +5,10 @@ phone, console, or the Windows 10/11 app — and play with **Ethan** too? You ca
 Blockpal is built to work for Bedrock players through a **Geyser** proxy, with no
 special build of the mod.
 
+> **Playing solo on Bedrock, with no server at all?** There's now a native
+> **[Bedrock Add-On](Bedrock-Add-On)** — a from-scratch recreation of the
+> companion that runs entirely inside a single-player Bedrock world.
+
 > **Short version:** Blockpal is mostly *server-side*, so once you install **Geyser**
 > and **Floodgate** on your Fabric server, Bedrock players can summon Ethan, talk to
 > it, and give it tasks — all from chat and `/ai` commands. There is **no client mod

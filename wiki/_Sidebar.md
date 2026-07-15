@@ -20,6 +20,7 @@
 - [Running Commands](Running-Commands)
 - [AI Actions](AI-Actions)
 - [Bedrock (Geyser)](Geyser-Bedrock)
+- [Bedrock Add-On (single-player)](Bedrock-Add-On)
 
 **Multiplayer & games**
 - [Friend Sharing](Friend-Sharing)
