@@ -1686,4 +1686,4 @@ modrinth/            # description.md — the Modrinth project page body (no H1s
   `wiki/_Sidebar.md` in sync if you add or rename a page.
 
 ## Testing
-- Every time you finish a mod, you will pull the request and test the mod. Private AI API keys can be found in huggingface.env. 
+- Every time you finish a mod, you will pull the request and test the mod. Private AI API keys can be found in ~/.config/git/ignore. 
