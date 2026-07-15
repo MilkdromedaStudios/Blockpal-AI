@@ -25,11 +25,14 @@ upload/
 *.env
 .env
 huggingface.env
-!huggingface.env
-`huggingface.env
-* `huggingface.env
-
 secrets.properties
+# Git config / global-excludes files dropped inside the repo. The testing HF key
+# lives in the machine's ~/.config/git/ignore; a copy of that folder must NEVER be
+# committed here. Ignore any .config directory at any depth (e.g. .config/git/ignore,
+# builds/.config/...). Does NOT affect the source 'config' Java package, which lives
+# under src/.../com/milkdromeda/blockpal/config/.
+.config/
+**/.config/
 # Runtime config that can contain the (obfuscated) API token — never commit it.
 # (Specifically the game's config/blockpal/ folder — NOT the source 'config'
 # package, which is com/milkdromeda/blockpal/config/.)
@@ -39,6 +42,7 @@ run/config/
 *.token
 *.secret
 hf_token*
+hf_tocken*
 blockpal-token*
 # Java source files are intentionally ignored so new implementation files are not
 # staged accidentally. If a Java file must be added to version control, review it
