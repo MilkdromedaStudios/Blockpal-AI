@@ -25,6 +25,9 @@ upload/
 *.env
 .env
 huggingface.env
+`huggingface.env
+* `huggingface.env
+
 secrets.properties
 # Runtime config that can contain the (obfuscated) API token — never commit it.
 # (Specifically the game's config/blockpal/ folder — NOT the source 'config'
