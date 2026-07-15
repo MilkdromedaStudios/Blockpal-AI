@@ -579,6 +579,51 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   though it's fully functional server-side. Improving rendering (Geyser resource pack /
   player-type representation) is a future phase. Docs: `wiki/Geyser-Bedrock.md`.
 
+### Bedrock Edition Add-On — single-player companion, no server (bedrock/ 1.0.0+)
+Everything above is the Java/Fabric mod. This is a **from-scratch recreation for
+Minecraft Bedrock Edition** — a behavior pack + resource pack (`.mcaddon`) so Bedrock
+players get the companion **in their own single-player worlds**: no server, no Geyser,
+no Java Edition. Deliberately **repo-only** (never published to Modrinth); it does not
+share code or versioning with the Java mod. Source in `bedrock/`, packaged artifact in
+`builds/blockpal-bedrock-<version>.mcaddon`.
+
+- **Companion entity** `blockpal:companion` — player-shaped custom model (classic
+  64×64 skin layout), spawn egg, persistent, never despawns; follows (native
+  `follow_owner` pathfinding via script-side taming, with a script-walk fallback),
+  fights back (`hurt_by_target` + melee), floats, opens doors, calls for help when
+  badly hurt, guards (hostile-mob targeting within 16 blocks). Modes
+  (follow/stay/guard) are component groups switched by entity events; right-click
+  toggles follow/stay; up to 4 companions per player.
+- **All chat-driven** (`!ai …` — Bedrock has no client GUI API in stable scripts):
+  summon/dismiss/come/follow/stay/guard/stop/where/name/skin/personality/bots/inv/say,
+  plus name-addressing (`Ethan, follow me`) and `/scriptevent blockpal:ai <cmd>` as a
+  cheats-enabled slash alternative. One-time `!ai help` hint on first join.
+- **Offline task planner instead of the LLM** — Bedrock's Script API has **no network
+  access in single-player** (`@minecraft/server-net` is BDS-only), so cloud planning
+  physically can't run; the planning layer is recreated **on-device**: quick intents +
+  a natural-language parser (floors/platforms, walls, towers, bridges, a little house,
+  mine areas, dig-down staircases, collect items, guard/kill, wait, jump, say) that
+  emits step-by-step plans executed **one block per tick** with a **300 s watchdog**
+  (the Java mod's hard-won execution rules). Floors/bridges pave terrain; other builds
+  only fill air (never overwrite player builds); mining uses `setblock … destroy` for
+  real drops. LLM-over-BDS is a possible future phase.
+- **Six personalities** (friendly/cheerful/grumpy/stoic/heroic/shy) recreated as
+  response pools driving every line; per-bot, persisted via entity dynamic properties.
+  Four built-in **skins** (default/robot/ember/void) as variant component groups,
+  switchable live.
+- **Ownership** — summoner (or first claimer of a spawn-egg bot) is the owner; only
+  the owner commands it (polite personality-voiced refusals otherwise).
+- **Stable APIs only** (`@minecraft/server` 1.17.0, min engine 1.21.60) — no
+  experimental toggles needed; version-difference shims (isValid method/property,
+  `tame(player)`/`tame()`, before/after chat events) fail safe.
+- **Tooling** — `bedrock/build.py` zips the packs into the `.mcaddon`;
+  `bedrock/tools/gen_assets.py` regenerates skins/icons (pure-stdlib PNG writer). An
+  offline Node smoke harness (stubbed `@minecraft/server`) exercised the full
+  chat→planner→executor pipeline (20/20 scenarios) — but the packs have **not** been
+  run inside a real Bedrock client; that's the standing verification caveat.
+- Docs: `bedrock/README.md` + `wiki/Bedrock-Add-On.md` (Home/_Sidebar/Geyser page
+  cross-linked).
+
 ### One-click self-hosting — "Host with Blockpal" (3.10.0+)
 - A **Java-client-only** flow that stands up a Bedrock-capable dedicated server so friends
   (Java **and** Bedrock) can join, without hand-installing anything. Opened from the
@@ -677,6 +722,43 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
 
 ## Changelog
 
+### Bedrock Add-On 1.0.0 (side release — no Java `mod_version` bump)
+- **Recreated Blockpal as a native Bedrock Edition Add-On** so Bedrock players can
+  play with an AI companion in a **single-player world** — behavior pack + resource
+  pack + Script API JavaScript, packaged as `builds/blockpal-bedrock-1.0.0.mcaddon`.
+  Source lives in `bedrock/` (see the new Features section above for the full
+  capability list). **Repo-only by request — not published to Modrinth**, which is
+  also why `mod_version` (3.19.0) was deliberately left untouched: `release.yml`
+  publishes on merge keyed by `mod_version`, and its `modrinth-published/3.19.0`
+  marker keeps this merge a no-op for Modrinth.
+- **Core recreation:** `blockpal:companion` entity (player model, classic 64×64 skin
+  layout, spawn egg, 4 variant skins), follow/stay/guard modes, ownership + claiming,
+  six personalities as response pools, 10-slot backpack + item collection, combat
+  reflexes with call-for-help, `!ai …` chat commands + `Ethan, …` name addressing +
+  `/scriptevent blockpal:ai`, right-click follow/stay toggle.
+- **The LLM is replaced by an on-device planner** — Bedrock scripts have no HTTP in
+  single-player (`@minecraft/server-net` is dedicated-server-only), so natural-language
+  tasks (`build a 5x5 floor of stone`, `build a house`, `mine a 3x3 hole`, `dig down
+  10`, `build a bridge 12`, `collect items`, …) are parsed locally into step plans run
+  **one block per tick** under a **300 s watchdog** — porting the Java mod's 2.8.x
+  performance lessons instead of relearning them. Paving plans replace terrain; walls/
+  houses only fill air so player builds are never overwritten (a bug the offline smoke
+  harness caught: ground-level floors previously placed 0 blocks on solid terrain).
+- **Compatibility engineering:** stable `@minecraft/server` 1.17.0 only (min engine
+  1.21.60, no experiments); runtime shims for known API drift (`isValid`
+  method↔property, `tame(player)`↔`tame()` with a script-follow fallback,
+  `beforeEvents.chatSend`→`afterEvents.chatSend` fallback); all dialogue/claim/skin
+  state in entity dynamic properties so it persists with the world.
+- **Tooling & verification:** `bedrock/build.py` (packs → `.mcaddon`),
+  `bedrock/tools/gen_assets.py` (pure-stdlib PNG generator for the 4 skins + pack
+  icons). All pack JSON schema-validated; all JS syntax-checked; a Node harness with a
+  stubbed `@minecraft/server` ran the real scripts end-to-end (summon → chat → planner
+  → executor; 20/20 checks). **Not yet run in a real Bedrock client** — Minecraft
+  can't run in this environment; behavior-JSON/Molang and the live tame/pathfinding
+  paths want on-device testing before calling it played-tested.
+- Docs: new `wiki/Bedrock-Add-On.md`, `bedrock/README.md`; `wiki/Home.md`,
+  `wiki/_Sidebar.md` and `wiki/Geyser-Bedrock.md` cross-linked. README/Modrinth
+  description intentionally untouched (nothing Modrinth-facing changed).
 ### 3.20.0
 - **Mini AI chat panel in the ESC menu & chat screen.** Requested as "press esc, a mini
   menu to chat… and when you press the chat menu, it also shows up": new

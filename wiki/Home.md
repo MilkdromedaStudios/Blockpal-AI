@@ -48,6 +48,9 @@ and configures itself from a real in-game settings screen.
 - **Works in every gamemode** — survival, adventure and creative.
 - **Bedrock-friendly** — friends on iPad/console/phone can join and play with Ethan
   through a [Geyser](Geyser-Bedrock) proxy; no client mod needed on Bedrock.
+- **Native Bedrock Add-On** — a from-scratch recreation for Bedrock Edition puts the
+  companion in your own **single-player Bedrock world** (offline planner, personalities,
+  chat commands — no server needed). See [Bedrock Add-On](Bedrock-Add-On).
 - **One-click hosting** — a Java player can download & launch a Bedrock-ready server
   (Minecraft + Fabric + the latest Geyser & Floodgate) from the pause menu or `/aihost`.
   See [Bedrock (Geyser)](Geyser-Bedrock).
@@ -71,6 +74,7 @@ and configures itself from a real in-game settings screen.
 | [Running Commands](Running-Commands) | Command execution, permission levels, denylist |
 | [AI Actions](AI-Actions) | The 16 action types the planner can use |
 | [Bedrock (Geyser)](Geyser-Bedrock) | Let Bedrock players join via Geyser & Floodgate, plus one-click "Host with Blockpal" |
+| [Bedrock Add-On](Bedrock-Add-On) | The native Bedrock Edition recreation — AI companion in a single-player Bedrock world |
 | [Friend Sharing](Friend-Sharing) | Host, invite (Java + Bedrock), and share control of your bot |
 | [Minigames](Minigames) | Play game modes with the bot & friends — Chained, Same Health, One Block, Fusion *(in development)* |
 | [Per-Player Keys & Models](Per-Player-Keys-and-Models) | Bring-your-own-key, exemptions, selectable models |
