@@ -25,6 +25,7 @@ upload/
 *.env
 .env
 huggingface.env
+!huggingface.env
 `huggingface.env
 * `huggingface.env
 
