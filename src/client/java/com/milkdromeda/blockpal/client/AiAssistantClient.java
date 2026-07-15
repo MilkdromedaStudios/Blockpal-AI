@@ -8,6 +8,7 @@ import com.milkdromeda.blockpal.client.gui.AiConfigScreen;
 import com.milkdromeda.blockpal.client.gui.AssistantChatScreen;
 import com.milkdromeda.blockpal.client.gui.BotManagerScreen;
 import com.milkdromeda.blockpal.client.gui.HostScreen;
+import com.milkdromeda.blockpal.client.gui.MiniChatPanel;
 import com.milkdromeda.blockpal.client.gui.PlayerSettingsScreen;
 import com.milkdromeda.blockpal.client.gui.PossessionConsoleScreen;
 import com.milkdromeda.blockpal.client.gui.PossessionDriveScreen;
@@ -40,6 +41,7 @@ import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -112,10 +114,12 @@ public class AiAssistantClient implements ClientModInitializer {
         // and lets the "mini wiki" watcher offer the occasional private survival tip.
         // Both are client-only, so they work on any server — even without Blockpal.
         // The voice tick polls the push-to-talk key (hold to record, release to send).
+        // The mini chat panel tick refreshes its message lines when a tip arrives.
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             ClientPossession.tick();
             ScreenWatcher.tick();
             VoiceClient.tick(client);
+            MiniChatPanel.tick();
         });
 
         // Tell the voice layer whether a GUI screen is open, so the push-to-talk key
@@ -234,13 +238,20 @@ public class AiAssistantClient implements ClientModInitializer {
                     .then(ClientCommands.literal("off").executes(ctx -> setTips(ctx.getSource(), false))));
         });
 
-        // Inject a tiny "✦" button into any screen where the mouse is free (pause menu,
-        // inventory, chests and other containers) so the chat box is one click away
-        // without overlapping the vanilla/other-mod widgets. It sits in the top-right
-        // corner and is deliberately mini (14×14).
+        // The AI chat lives directly in the ESC (pause) menu and the chat screen: a
+        // mini panel with the recent conversation and an input box, embedded on the
+        // right side — no button-into-a-submenu detour needed. Inventory/containers
+        // (and any pause menu too narrow for the panel) keep the tiny "✦" button in
+        // the top-right corner that opens the full chat box instead.
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
-            if (screen instanceof PauseScreen
-                    || screen instanceof AbstractContainerScreen<?>) {
+            boolean paneled = false;
+            if (screen instanceof PauseScreen) {
+                paneled = MiniChatPanel.install(client, screen, scaledWidth, scaledHeight, true);
+            } else if (screen instanceof ChatScreen) {
+                paneled = MiniChatPanel.install(client, screen, scaledWidth, scaledHeight, false);
+            }
+            if (!paneled && (screen instanceof PauseScreen
+                    || screen instanceof AbstractContainerScreen<?>)) {
                 Button chat = Button.builder(Component.literal("✦"),
                                 b -> openChat(client, screen))
                         .bounds(scaledWidth - 18, 2, 14, 14)

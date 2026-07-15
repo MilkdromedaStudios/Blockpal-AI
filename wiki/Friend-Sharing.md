@@ -29,7 +29,10 @@ A Java player can stand up a Bedrock-ready server from inside the game — no ma
   you stop, the changes are **saved back to your singleplayer world** (with a timestamped
   backup) and the server's copy is deleted. Toggle it off to host a fresh world instead.
   As of 3.16.1 the world is copied **before** any downloading, so it's captured moments
-  after the save closes.
+  after the save closes. **The copy is much faster now (3.20.0):** world files are
+  copied in parallel instead of one at a time, and the status line shows live progress
+  (`Copying "MyWorld" into the server… 62% (410/660 MB)`) both when hosting starts and
+  when changes are synced back — so a big world no longer looks stuck on "Copying…".
 - When it's running it shows the **Java** (`ip:25565`) and **Bedrock** (`ip:19132`)
   connect addresses, for both your local network and the internet, with copy buttons.
 
