@@ -100,7 +100,11 @@ can do and how it evolved.
   display). Ops toggle: `freeAiFallback` (AI & API tab, default true; off = a real
   key is strictly required). Config schema → v8.
 - Natural-language tasks (`/ai build a 5×5 floor`) are converted to a
-  structured JSON action plan (5–15 steps) on a background thread.
+  structured JSON action plan (5–15 steps) on a background thread. The request uses
+  OpenAI-style `response_format: {"type":"json_object"}` and the reply is parsed
+  leniently (`parseStep`) — a missing/lower-case `action`, the alternate
+  `{"ACTION": {…}}` shape, or one malformed step never fails the whole plan — so the
+  small/free models the keyless fallback and cheap keys use plan reliably.
 - **Model-id hygiene + real API errors (3.20.0)** — `ai/ModelIds` scrubs every
   entered model id (trim, wrapping quotes/backticks, internal whitespace and
   zero-width/BOM paste artifacts) at all entry points (`/ai admin model`,
@@ -833,6 +837,27 @@ share code or versioning with the Java mod. Source in `bedrock/`, packaged artif
   click-to-focus on the vanilla chat screen, and big-world host copy timing. No jar was
   built here — javac compiles, but Loom packaging still needs Gradle. New Java files
   (`ModelIds.java`, `MiniChatPanel.java`) were `git add -f`'d per the `.gitignore` rule.)*
+- **Post-merge fix (same version) — reliable JSON plans + first real in-game run.** The
+  planner (`HuggingFaceClient.requestPlan`) now asks the provider for
+  `response_format: {"type":"json_object"}` and parses steps leniently
+  (`parseStep`): a missing/lower-case `action`, the alternate `{"RUN_COMMAND": {…}}`
+  shape, or one malformed step no longer sinks the whole plan. Cause found by actually
+  **running the mod for the first time in this environment** (Gradle 9.5.1 fetched from a
+  mirror since the wrapper's GitHub download is egress-blocked; JDK 25 from
+  download.java.net; `runClient` headless under Xvfb + llvmpipe): small/free models like
+  `meta-llama/Llama-3.1-8B-Instruct` emit invalid JSON often enough that "give me a
+  diamond pickaxe"-style tasks failed to parse ~half the time — exactly the models the
+  keyless fallback and cheap keys use. With json_object mode + lenient parsing the same
+  request succeeds 6/6. Also confirmed live: summon/greet, come/follow/stay, name-address
+  chat, and natural-language build ("build a stone tower") all work end-to-end.
+  Note: the shipped default `hfModel` (`mistralai/Mistral-7B-Instruct-v0.2`) returns
+  *"not supported by any provider"* on a free HF token — a free-tier model such as
+  `meta-llama/Llama-3.1-8B-Instruct` works.
+- **README: real gameplay GIF.** Replaced the generated promo `media/chat.gif` reference
+  with `media/gameplay.gif` — a real capture from the headless run (Ethan walks over on a
+  chat command, builds a tower it planned, hands over a diamond pickaxe). `README.md` and
+  the mirrored `modrinth/description.md` both point at it; the old `chat.gif` file is left
+  in `media/` untouched.
 
 ### 3.19.0
 - **Agent voice.** The companion can now be *talked to* and *talks back out loud*:

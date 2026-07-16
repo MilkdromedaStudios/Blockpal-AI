@@ -21,7 +21,7 @@ falls back to a free built-in AI, so it works straight out of the box.
 ![Java 25+](https://img.shields.io/badge/Java-25+-e76f51?style=for-the-badge)
 ![License MIT](https://img.shields.io/badge/License-MIT-264653?style=for-the-badge)
 
-![Talking to Ethan and watching it plan and build](media/chat.gif)
+![Ethan in action — walking over on command, building a tower it planned itself, and handing over a diamond pickaxe (live in Minecraft 26.2)](media/gameplay.gif)
 
 ## Features
 

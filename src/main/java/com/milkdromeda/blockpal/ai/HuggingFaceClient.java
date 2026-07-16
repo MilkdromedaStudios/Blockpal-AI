@@ -398,6 +398,13 @@ public class HuggingFaceClient {
         body.addProperty("temperature", cfg.temperature);
         body.addProperty("max_tokens", cfg.maxNewTokens);
         body.addProperty("stream", false);
+        // Ask the provider to guarantee syntactically valid JSON. Small/free models
+        // (the ones the keyless fallback and cheap keys use) otherwise emit broken
+        // JSON often enough that plans fail to parse; the system prompt already says
+        // "valid JSON", which OpenAI-compatible json_object mode requires.
+        JsonObject responseFormat = new JsonObject();
+        responseFormat.addProperty("type", "json_object");
+        body.add("response_format", responseFormat);
 
         JsonArray messages = new JsonArray();
         messages.add(message("system", systemPrompt(personaStyle)));
@@ -582,14 +589,9 @@ public class HuggingFaceClient {
             List<ActionStep> steps = new ArrayList<>();
             if (plan.has("steps") && plan.get("steps").isJsonArray()) {
                 for (JsonElement el : plan.getAsJsonArray("steps")) {
-                    JsonObject step = el.getAsJsonObject();
-                    String actionStr = step.get("action").getAsString();
-                    JsonObject params = step.has("params") ? step.getAsJsonObject("params") : new JsonObject();
-                    try {
-                        steps.add(new ActionStep(ActionStep.ActionType.valueOf(actionStr), params));
-                    } catch (IllegalArgumentException ignored) {
-                        // Skip unknown actions rather than failing the whole plan.
-                    }
+                    if (!el.isJsonObject()) continue;
+                    ActionStep parsed = parseStep(el.getAsJsonObject());
+                    if (parsed != null) steps.add(parsed);   // one bad step never sinks the plan
                 }
             }
 
@@ -598,6 +600,50 @@ public class HuggingFaceClient {
 
         } catch (Exception e) {
             return errorPlan(originalTask, "I couldn't understand the AI's reply.");
+        }
+    }
+
+    /**
+     * Turns one step object into an {@link ActionStep}, tolerating the small
+     * variations weaker/free models produce: a missing or lower-case
+     * {@code action}, or the alternate {@code {"RUN_COMMAND": {..params..}}}
+     * shape where the action name is the key. Returns {@code null} for a step it
+     * can't make sense of, so a single malformed step never sinks the whole plan.
+     */
+    private ActionStep parseStep(JsonObject step) {
+        try {
+            String actionStr = null;
+            JsonObject params = new JsonObject();
+            if (step.has("action") && step.get("action").isJsonPrimitive()) {
+                actionStr = step.get("action").getAsString();
+                if (step.has("params") && step.get("params").isJsonObject()) {
+                    params = step.getAsJsonObject("params");
+                }
+            } else {
+                // Alternate shape: the action name is the key, its value is the params.
+                for (Map.Entry<String, JsonElement> e : step.entrySet()) {
+                    if (isActionType(e.getKey())) {
+                        actionStr = e.getKey();
+                        if (e.getValue().isJsonObject()) params = e.getValue().getAsJsonObject();
+                        break;
+                    }
+                }
+            }
+            if (actionStr == null || actionStr.isBlank()) return null;
+            return new ActionStep(
+                    ActionStep.ActionType.valueOf(actionStr.trim().toUpperCase(Locale.ROOT)), params);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static boolean isActionType(String s) {
+        if (s == null) return false;
+        try {
+            ActionStep.ActionType.valueOf(s.trim().toUpperCase(Locale.ROOT));
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
         }
     }
 
