@@ -34,32 +34,55 @@ public class HuggingFaceClient {
      * free keyless fallback), so one server can bill different players to their own
      * keys, let them pick models — and still work with no key at all.
      */
-    public record ApiAuth(String token, String model, String url, boolean free) {
+    public record ApiAuth(String token, String model, String url, boolean free, boolean local) {
         public boolean hasToken() {
             return token != null && !token.isBlank();
         }
 
-        /** True when a request can actually be sent: we have a key, or the endpoint is keyless. */
+        /**
+         * True when a request can actually be sent: we have a key, the endpoint is the
+         * free keyless service, or it's a keyless <b>local</b> endpoint (a self-hosted
+         * Ollama / LM Studio on the player's own machine, which needs no token).
+         */
         public boolean usable() {
-            return hasToken() || free;
+            return hasToken() || free || local;
         }
 
         /**
-         * Resolves what a bot owned by {@code owner} should talk to. A personal or
-         * shared key always wins (the configured — HuggingFace by default — endpoint
-         * is used with it); with no key at all the free keyless service steps in,
-         * unless ops disabled it — then the auth comes back unusable.
+         * Resolves what a bot owned by {@code owner} should talk to, in priority order:
+         * <ol>
+         *   <li>a personal or shared API key → the configured (HuggingFace by default)
+         *       endpoint — a real key always wins;</li>
+         *   <li>otherwise, if the local Player2 app is enabled → its keyless endpoint
+         *       (the lowest-effort real AI: install the app, no key, no model download);</li>
+         *   <li>otherwise, if a local Ollama endpoint is enabled → that keyless local
+         *       server, so custom local models work with no key or internet;</li>
+         *   <li>otherwise the free keyless service, unless ops disabled it — then the
+         *       auth comes back unusable.</li>
+         * </ol>
          */
         public static ApiAuth resolveFor(UUID owner, String ownerName) {
             ModConfig cfg = ModConfig.get();
             String token = cfg.resolveTokenFor(owner, ownerName);
             if (!token.isBlank()) {
-                return new ApiAuth(token, cfg.resolveModelFor(owner), cfg.apiUrl, false);
+                return new ApiAuth(token, cfg.resolveModelFor(owner), cfg.apiUrl, false, false);
+            }
+            if (cfg.player2Enabled) {
+                String p2 = cfg.resolvePlayer2Key();
+                if (!p2.isBlank()) {
+                    // Online (cloud) Player2 with the key.
+                    return new ApiAuth(p2, cfg.player2Model, cfg.player2OnlineUrl, false, false);
+                }
+                // Local Player2 app — keyless.
+                return new ApiAuth("", cfg.player2Model, cfg.player2Url, false, true);
+            }
+            if (cfg.ollamaEnabled) {
+                return new ApiAuth("", cfg.ollamaModel, cfg.ollamaUrl, false, true);
             }
             if (cfg.freeAiFallback) {
-                return new ApiAuth("", cfg.freeModel, cfg.freeApiUrl, true);
+                return new ApiAuth("", cfg.freeModel, cfg.freeApiUrl, true, false);
             }
-            return new ApiAuth("", cfg.resolveModelFor(owner), cfg.apiUrl, false);
+            return new ApiAuth("", cfg.resolveModelFor(owner), cfg.apiUrl, false, false);
         }
     }
 
@@ -95,20 +118,34 @@ public class HuggingFaceClient {
             STOP           {}
 
             Power tips:
-            - RUN_COMMAND is your superpower. Use it for anything fiddly or large:
-              redstone with exact orientation (/setblock x y z minecraft:repeater[facing=east,delay=2]),
-              big structures (/fill), copying (/clone), items (/give @p ...), summons,
-              teleports, effects, time/weather. Prefer it for precise redstone builds.
-            - For escape rooms/puzzles: read the context's "Interactables" list, then
-              USE_BLOCK the lever/button, or MOVE_TO a pressure plate, to progress.
-            - For building by hand, MOVE_TO near the spot then PLACE_BLOCK.
+            - Prefer doing things BY HAND like a survival player: MOVE_TO the spot, then
+              PLACE_BLOCK / BREAK_BLOCK / MINE_AREA / COLLECT_ITEM. That is the normal
+              way to build, dig, gather and farm — take it step by step, not instantly.
+            - Use WORK STATIONS ("tables") when a job calls for one — not just crafting
+              tables. USE_BLOCK a crafting_table, furnace/blast_furnace/smoker,
+              smithing_table, anvil, brewing_stand, loom, stonecutter, cartography_table,
+              grindstone or enchanting_table. The context's "Interactables" list shows
+              nearby ones with coordinates: walk to one and USE_BLOCK it, or PLACE_BLOCK
+              one first if none is near.
+            - USE_BLOCK also flips levers/buttons, opens doors/gates and works pressure
+              plates — use it for escape rooms and puzzles.
             - To chop a tree, BREAK_BLOCK the wood from the bottom up.
+            - RUN_COMMAND is a LAST RESORT, not your first move. Only use it when the task
+              genuinely cannot be done by hand — precise redstone orientation
+              (/setblock ... minecraft:repeater[facing=east,delay=2]), a very large /fill
+              or /clone, or an explicit admin request (give/tp/effect/time/weather). If a
+              survival player could do it by hand, do it by hand instead.
             - Set "loop": true for ongoing activities (patrol, guard, keep mining,
               explore) so you keep going and re-plan with fresh context each round.
             - Plan 5-15 steps per response; combat reflexes are automatic, so focus
               your steps on the actual task.
             - Respond with ONLY the JSON object, no extra text.
             """;
+
+    /** Appended when ops have turned OFF "prefer survival actions" — lets the bot lean on commands again. */
+    private static final String COMMAND_HAPPY_NOTE =
+            "\n\nNote: you may freely use RUN_COMMAND for any large or fiddly work "
+            + "(/fill, /clone, /setblock, /give, /tp, /effect) — efficiency is preferred over doing it by hand.";
 
     private static final String CLASSIFIER_PROMPT = """
             You decide whether a single Minecraft chat message is aimed at an in-game
@@ -195,9 +232,7 @@ public class HuggingFaceClient {
                 .header("Content-Type", "application/json")
                 .timeout(Duration.ofSeconds(30))
                 .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body)));
-        if (auth.hasToken()) {
-            builder.header("Authorization", "Bearer " + auth.token());
-        }
+        addProviderHeaders(builder, auth);
         return builder.build();
     }
 
@@ -288,9 +323,7 @@ public class HuggingFaceClient {
                 .header("Content-Type", "application/json")
                 .timeout(Duration.ofSeconds(45))
                 .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body)));
-        if (auth.hasToken()) {
-            builder.header("Authorization", "Bearer " + auth.token());
-        }
+        addProviderHeaders(builder, auth);
         return builder.build();
     }
 
@@ -365,9 +398,7 @@ public class HuggingFaceClient {
                 .timeout(Duration.ofSeconds(30))
                 .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body)));
 
-        if (auth.hasToken()) {
-            builder.header("Authorization", "Bearer " + auth.token());
-        }
+        addProviderHeaders(builder, auth);
         return builder.build();
     }
 
@@ -417,24 +448,42 @@ public class HuggingFaceClient {
                 .timeout(Duration.ofSeconds(60))
                 .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body)));
 
-        if (auth.hasToken()) {
-            builder.header("Authorization", "Bearer " + auth.token());
-        }
+        addProviderHeaders(builder, auth);
         return builder.build();
     }
 
-    /** The planner system prompt, with the bot's personality flavour appended (if any). */
+    /** The planner system prompt, with command-preference and the bot's personality flavour appended. */
     private String systemPrompt(String personaStyle) {
-        if (personaStyle == null || personaStyle.isBlank()) return SYSTEM_PROMPT;
-        return SYSTEM_PROMPT
-                + "\n\nPersonality: " + personaStyle.trim()
-                + " Stay in character in the wording of any CHAT action, but never let it "
-                + "change the JSON schema or the actions you choose.";
+        StringBuilder sb = new StringBuilder(SYSTEM_PROMPT);
+        // When ops turn off "prefer survival actions", relax the command-restraint guidance.
+        if (!ModConfig.get().preferSurvivalActions) sb.append(COMMAND_HAPPY_NOTE);
+        if (personaStyle != null && !personaStyle.isBlank()) {
+            sb.append("\n\nPersonality: ").append(personaStyle.trim())
+              .append(" Stay in character in the wording of any CHAT action, but never let it "
+                    + "change the JSON schema or the actions you choose.");
+        }
+        return sb.toString();
     }
 
     /** The chat-completions URL a request should go to — the auth's endpoint, else the configured one. */
     private static String endpoint(ModConfig cfg, ApiAuth auth) {
         return (auth != null && auth.url() != null && !auth.url().isBlank()) ? auth.url() : cfg.apiUrl;
+    }
+
+    /**
+     * Adds the per-request headers a provider needs: a Bearer key when we have one, and
+     * — for a keyless local <b>Player2</b> endpoint (player2.game's local AI app on
+     * {@code localhost:4315}) — the recommended {@code player2-game-key} identifying header,
+     * so its keyless "just install the app" API works out of the box with no token.
+     */
+    private static void addProviderHeaders(HttpRequest.Builder builder, ApiAuth auth) {
+        if (auth.hasToken()) {
+            builder.header("Authorization", "Bearer " + auth.token());
+        }
+        String url = auth.url() == null ? "" : auth.url().toLowerCase(Locale.ROOT);
+        if (url.contains(":4315") || url.contains("player2")) {
+            builder.header("player2-game-key", "blockpal");
+        }
     }
 
     private JsonObject message(String role, String content) {

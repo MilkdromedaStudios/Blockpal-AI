@@ -88,6 +88,22 @@ can do and how it evolved.
 ### AI / LLM planning
 - Connects to any **OpenAI-compatible** API (HuggingFace, Ollama, OpenAI,
   LM Studio, etc.) via `apiUrl` + `hfToken`.
+- **Local & easy AI providers (3.21.0)** — beyond a key and the free service, two
+  opt-in providers slot into `ApiAuth.resolveFor` (priority: real key → Player2 →
+  Ollama → free):
+  - **Ollama / custom local models** — `ollamaEnabled` points the bot at a **local
+    Ollama** (`ollamaUrl`, default `http://localhost:11434/v1/chat/completions`;
+    `ollamaModel`, default `llama3.2`) or any keyless local OpenAI-compatible server,
+    so **custom local models** run with no key or internet.
+    `/ai admin ollama on|off|url|model|models …`.
+  - **Player2 (player2.game)** — `player2Enabled`. **Keyless local**: install the
+    Player2 app (`player2Url`, `localhost:4315`). **Online cloud** when a
+    **`PLAYER2_KEY`** is set (`player2OnlineUrl` `https://api.player2.game/v1/chat/
+    completions`, `Authorization: Bearer`, default model **`gpt-oss-120b`**). The key
+    comes from the **`PLAYER2_KEY` env / `-Dplayer2.key`** (used, never written to disk
+    or baked into the jar; a config value is obfuscated at rest). Player2 endpoints also
+    get the `player2-game-key` header. `/ai admin player2 on|off|url …`.
+  - A keyless **local** endpoint is "usable" via `ApiAuth`'s new `local` flag.
 - **Free keyless fallback (3.17.0)** — when *no* key resolves for a request (no
   shared key, no personal key), the bot automatically uses a **free keyless
   OpenAI-compatible service** (`freeApiUrl`, default Pollinations
@@ -119,8 +135,22 @@ can do and how it evolved.
 - 16 available actions: `MOVE_TO`, `PLACE_BLOCK`, `BREAK_BLOCK`, `MINE_AREA`,
   `USE_BLOCK`, `RUN_COMMAND`, `JUMP`, `SET_SNEAK`, `ATTACK_NEAREST`,
   `FOLLOW_PLAYER`, `LOOK_AT`, `CHAT`, `WAIT`, `COLLECT_ITEM`, `STOP`.
+- **Survival-first, "use tables", commands last (3.21.0)** — the planner prompt does
+  things **by hand** (move/place/break/mine/collect) and treats **RUN_COMMAND as a last
+  resort** (only when a task truly can't be done by hand). It uses **work stations** —
+  not just crafting tables: furnace/blast_furnace/smoker, smithing_table, anvil,
+  brewing_stand, loom, stonecutter, cartography_table, grindstone, enchanting_table (added
+  to `AiTaskManager.isInteresting`'s context scan). `preferSurvivalActions` (default true;
+  off re-enables liberal command use via a system-prompt note).
+- **Human-like pacing (3.21.0)** — `humanizeActions` (default true) adds small randomised
+  reaction pauses so the bot doesn't act instantly: a jittered inter-step delay
+  (`ExecuteTaskGoal.interStepDelay`), a "reach out" dwell before COLLECT_ITEM, and a
+  "notice" pause before `CollectItemsGoal` pursues loot. Off = snappy/instant.
 - Looping tasks (patrol, guard, farm) re-plan continuously with fresh context.
 - Planning is async — entity stays responsive and fights back during planning.
+- **Per-bot model override (3.21.0)** — `AiAssistantEntity.setAiOverride(ApiAuth)` (transient)
+  lets a bot use a specific model/endpoint instead of resolving from its owner; the Growth
+  village game uses it to give each villager a different small local model.
 
 ### Per-player API keys & selectable models (3.3.0+)
 - **Bring-your-own-key** — `requireOwnApiKey` (off by default) makes each bot use
@@ -357,6 +387,10 @@ having Blockpal. Code lives under `client/assist/` + two GUI screens.
 | `/ai model [<id>]` / `/ai models` | Pick your bot's model / list the allowed models |
 | `/ai mymenu` | Personal settings screen (model + your own key) |
 | `/ai admin …` | **(ops only)** admin panel — see *Admin menu* below |
+| `/ai admin ollama on\|off\|url\|model\|models …` | **(ops)** use custom LOCAL models (Ollama) |
+| `/ai admin player2 on\|off\|url …` | **(ops)** easiest AI: Player2 (local app, or online w/ `PLAYER2_KEY`) |
+| `/village start\|status\|join <role>\|leave\|surrender\|stop` | **Growth** — an AI village that grows or collapses |
+| `/game start growth` | Same as `/village start` |
 | `/ai <task>` | Give a natural-language task |
 
 **No more setting commands (3.4.0).** The confusing per-setting commands were
@@ -472,7 +506,11 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   half-written file), keeps the previous good file as `config.json.prev`, retries
   once on a transient IO failure, and is `synchronized`.
 - Full list of settings: `hfToken`/`hfTokenObf`, `hfModel`, `apiUrl`,
-  `freeAiFallback`, `freeApiUrl`, `freeModel`, `maxNewTokens`,
+  `freeAiFallback`, `freeApiUrl`, `freeModel`,
+  `ollamaEnabled`, `ollamaUrl`, `ollamaModel`, `ollamaModels`,
+  `player2Enabled`, `player2Url`, `player2OnlineUrl`, `player2Model`, `player2KeyObf`,
+  `preferSurvivalActions`, `humanizeActions`,
+  `villageTargetPopulation`, `villageStartPopulation`, `maxNewTokens`,
   `temperature`, `debugLogging`, `actionTickDelay`, `followDistance`,
   `guardRadius`, `fleeHealthPercent`, `allowCommands`,
   `commandPermissionLevel`, `adminPermissionLevel`, `maxBotsPerServer`,
@@ -721,10 +759,108 @@ share code or versioning with the Java mod. Source in `bedrock/`, packaged artif
   the "each game is its own resumeable world" vision (custom dimensions/persistence) is a
   future enhancement. The mechanics compile and follow standard server APIs but need
   in-world play-testing and tuning (leash feel, One Block placement, shared-death timing).
+- **Growth (3.21.0)** is a fifth `GameMode`, but it's a solo AI-village sim rather than a
+  party tether game, so `MinigameManager.start` hands `GROWTH` off to `VillageManager` (see
+  below) instead of creating a `GameSession`. Reachable as `/game start growth` **or**
+  `/village start`.
+
+### Growth — an AI village that lives or dies on its own (3.21.0+)
+- **The pitch (VoxelMind-style):** `/village start` (or `/game start growth`) grows an
+  **AI-run village** around where you stand. Villagers are Blockpal bots
+  (`AiAssistantEntity`), each spawned with a different **role** (builder, farmer, teacher,
+  trader, guard, scholar — `VillageRole`), a different **personality**, and — on a local
+  Ollama with a model pool — a different **small model**, so they genuinely "think
+  differently". They **build huts, farm, teach and trade**, and **narrate** what they're
+  doing (from their own model when one is reachable, from a role script otherwise) so their
+  intelligence shows.
+- **The sim runs at 2×.** An internal day clock (`simTicks += 2` per server tick,
+  `DAY_SIM_TICKS`) turns the workforce into **food, houses, knowledge, morale and defence**
+  each day: farmers feed the village, builders raise houses (a real 3×3 hut is placed), teachers/
+  scholars raise knowledge (→ efficiency), traders lift morale, guards fend off night **raids**.
+  A thriving, fed, housed, hopeful village **births** new settlers; a starving or broken one
+  **loses** them. Mob deaths count too (villagers are pruned each tick).
+- **You can "be one of them":** `/village join <role>` makes your work count toward that
+  role's daily output; `/village leave` steps back; `/village status` shows the state.
+- **Win / lose (exactly as designed):** if the village **dies out** (population 0) you
+  **win** — you outlasted them. If it grows **as big as ever** (peak ≥ `villageTargetPopulation`,
+  default 24) you're offered **`/village surrender`** to concede it its triumph. `/village stop`
+  (founder) ends it and dismisses the villagers.
+- **Lag-safe & server-authoritative** (works for Java + Bedrock): one villager narrates every
+  few seconds (async, at most ~60% hit a model), the day sim runs a couple of times a minute,
+  hut building is capped per day, and villagers are **hand-driven** (`setAutonomousMode(false)`)
+  so they never run the per-bot survival loop and never storm the API. Each villager's model is
+  set with the per-bot `AiAssistantEntity.setAiOverride(ApiAuth)`.
+- **Code:** `minigame/village/VillageRole.java`, `minigame/village/VillageGame.java`,
+  `minigame/village/VillageManager.java` (tick sim + spawn/build/narrate/win logic, registered
+  via `VillageManager.registerEvents()`), `command/VillageCommands.java` (`/village`); wired in
+  `AiAssistantMod` with a disconnect hook. **Config:** `villageTargetPopulation` (24),
+  `villageStartPopulation` (5).
+- **Honest limits:** it runs **in the current world**; the LLM narration and the growth/decline
+  tuning (day length, food/morale curves, raid odds) want **in-world play-testing** — Minecraft
+  and Ollama can't run in the build environment, so this is compile-verified (via CI) but not
+  yet played in-game here.
 
 ---
 
 ## Changelog
+
+### 3.21.0
+- **Custom LOCAL models via Ollama.** New `ollamaEnabled` (+ `ollamaUrl` default
+  `http://localhost:11434/v1/chat/completions`, `ollamaModel` default `llama3.2`) lets the
+  bot talk to a **local Ollama** (or any keyless OpenAI-compatible local server, e.g. LM
+  Studio) with **no key and no internet** — so you can run your own custom local models.
+  Resolution priority in `HuggingFaceClient.ApiAuth.resolveFor`: a real API key → **Player2**
+  (below) → **Ollama** → the free service. `ApiAuth` grew a `local` flag so a keyless *local*
+  endpoint counts as usable (`usable() = hasToken() || free || local`); `ModConfig.aiAvailable()
+  /aiAvailableFor()` now include both new providers. Text config:
+  `/ai admin ollama on|off|url <url>|model <id>|models add|remove|list <id>`.
+- **Player2 (player2.game) — the easiest AI, local OR online.** New `player2Enabled`. With
+  **no key** it uses the free local **Player2 app** (keyless, `http://localhost:4315/v1/chat/
+  completions`) — install-and-go. With a **`PLAYER2_KEY`** it uses Player2's **online cloud**
+  (`https://api.player2.game/v1/chat/completions`, `Authorization: Bearer`) with model
+  **`gpt-oss-120b`** by default. The key is read from the **`PLAYER2_KEY` env var /
+  `-Dplayer2.key`** (used but **never written to disk** and **never baked into the jar**,
+  like `BLOCKPAL_API_TOKEN`); a value set via config is obfuscated at rest. `build.yml` exposes
+  the `PLAYER2_KEY` repo secret to the **build/CI environment** only (not the artifact).
+  Requests to a Player2 endpoint also send the recommended `player2-game-key: blockpal` header
+  (`HuggingFaceClient.addProviderHeaders`). Text config: `/ai admin player2 on|off|url <url>`.
+  *(Note: player2.game's `/api/v1/mcp` route is an **MCP** server, a different protocol from the
+  OpenAI-style HTTP chat-completions Blockpal speaks — so the online default is Player2's
+  chat-completions endpoint, and `/ai admin player2 url <url>` repoints it if needed.)*
+- **Survival-first behaviour — "use tables", commands only when needed.** The planner prompt
+  was rewritten to **do things by hand** (MOVE_TO/PLACE_BLOCK/BREAK_BLOCK/MINE_AREA/COLLECT_ITEM)
+  and to treat **RUN_COMMAND as a last resort** (only when a task truly can't be done by hand).
+  It now explicitly uses **work stations** — not just crafting tables: furnace/blast_furnace/
+  smoker, smithing_table, anvil, brewing_stand, loom, stonecutter, cartography_table, grindstone,
+  enchanting_table — which are added to the planner context's "Interactables" scan
+  (`AiTaskManager.isInteresting`). New `preferSurvivalActions` (default true; off appends a note
+  re-enabling liberal command use).
+- **Human-like delays.** New `humanizeActions` (default true) adds small randomised reaction
+  pauses so the bot doesn't act with inhuman speed: a jittered inter-step delay in
+  `ExecuteTaskGoal`, a short "reach out" dwell before COLLECT_ITEM completes, and a "notice"
+  pause in `CollectItemsGoal` before it beelines to loot. Off = the old snappy/instant behaviour.
+- **New mini-game: "Growth" (an AI village that lives or dies on its own).** `/village start`
+  (or `/game start growth`) grows an **AI-run village** around you: villagers are Blockpal bots,
+  each with a different **role** (builder/farmer/teacher/trader/guard/scholar), a different
+  **personality**, and — on local Ollama — a different **small model**, so they "think
+  differently". A **2× day clock** turns their roles into food, houses, knowledge, morale and
+  defence; the village **builds huts, farms, teaches and trades**, **births** new settlers when
+  it thrives and **loses** them when it starves or is raided. Villagers narrate what they're
+  doing — from their own model when reachable, from a role script otherwise — so their
+  intelligence shows. You can **`/village join <role>`** to be one of them. **Win/lose:** if the
+  village **dies out** you win; if it grows **as big as ever** (peak ≥ `villageTargetPopulation`,
+  default 24) you may **`/village surrender`**. Code: `minigame/village/` (`VillageRole`,
+  `VillageGame`, `VillageManager`) + `command/VillageCommands`; each villager's model comes from
+  a new transient per-bot `AiAssistantEntity` AI override (`setAiOverride`), and villagers are
+  hand-driven (`setAutonomousMode(false)`) so they never storm the API.
+- **Config schema → v11** (`ollama*`, `player2*`, `preferSurvivalActions`, `humanizeActions`,
+  `villageTargetPopulation`, `villageStartPopulation`; migrate defaults the two survival-feel
+  toggles on, leaves the providers opt-in). New Java files (`VillageRole`, `VillageGame`,
+  `VillageManager`, `VillageCommands`) were `git add -f`'d per the `*.java` ignore rule.
+- *(Toolchain caveat, same as recent releases: Gradle + the 26.2 deps aren't reachable in this
+  environment, so no jar was built — `build.yml` compile-checks the branch push. Ollama isn't
+  installed and Minecraft can't run here, so the live in-world play-test of the village game and
+  the local-AI paths want a real machine; the code mirrors APIs already proven in this codebase.)*
 
 ### Bedrock Add-On 1.0.0 (side release — no Java `mod_version` bump)
 - **Recreated Blockpal as a native Bedrock Edition Add-On** so Bedrock players can

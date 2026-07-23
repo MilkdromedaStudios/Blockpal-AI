@@ -69,8 +69,19 @@ bot.
 > the other modes play wherever you are. A separate, saved, resumeable world per game is a
 > planned enhancement.
 
+## Growth — the AI village mode (3.21.0)
+
+There's a fifth mode that's different from the co-op games above: **Growth**, an
+**AI-run village** that grows or collapses on its own. Start it with
+`/game start growth` or `/village start`. It has its own commands (`/village
+status`, `/village join <role>`, `/village surrender`, …) and its own page:
+
+- **[Growth — the AI village game](Growth-Village)**
+
 ## Related pages
 
+- [Growth (AI village)](Growth-Village) — the living AI village mode.
+- [Local & Player2 AI](Local-AI-Ollama-and-Player2) — run local models (smartest villagers).
 - [Friend Sharing](Friend-Sharing) — host a world and invite friends (Java and Bedrock).
 - [Trust & Per-Bot Management](Trust-and-Per-Bot) — let friends command your bot.
 - [Bedrock (Geyser)](Geyser-Bedrock) — how Bedrock friends join, and one-click hosting.

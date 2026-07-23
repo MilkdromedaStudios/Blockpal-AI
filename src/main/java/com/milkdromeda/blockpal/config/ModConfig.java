@@ -27,7 +27,7 @@ public class ModConfig {
      * default instead of silently inheriting Java's zero/false. A file with no
      * version at all reads back as {@code 0} and is migrated from there.
      */
-    public static final int CURRENT_CONFIG_VERSION = 10;
+    public static final int CURRENT_CONFIG_VERSION = 11;
 
     // Settings (including the API key) live in their own folder under the game's
     // config directory. That directory is untouched when you replace the mod jar,
@@ -233,6 +233,79 @@ public class ModConfig {
     public String freeApiUrl = "https://text.pollinations.ai/openai";
     public String freeModel = "openai";
 
+    // ---- Local Ollama / custom local models ----
+
+    // When true, and no personal/shared API key resolves for a request, the bot talks
+    // to a LOCAL Ollama server (or any keyless OpenAI-compatible local server such as
+    // LM Studio) instead of the free internet service. This is what lets you run your
+    // own CUSTOM local models with no key and no internet. A real API key still wins;
+    // Ollama sits above the free fallback. Toggle with /ai admin ollama on|off.
+    public boolean ollamaEnabled = false;
+
+    // Ollama's OpenAI-compatible chat-completions endpoint. The default is a local
+    // Ollama's own compatibility route; point it at any local server you like.
+    public String ollamaUrl = "http://localhost:11434/v1/chat/completions";
+
+    // The default local model to use (any model you've `ollama pull`ed, e.g.
+    // "llama3.2", "qwen2.5:3b", "phi3", "gemma2:2b"). Set with /ai admin ollama model <id>.
+    public String ollamaModel = "llama3.2";
+
+    // A pool of small local models the Growth village game hands out to its AI
+    // villagers — one each, round-robin — so different villagers "think differently".
+    // Any models you've pulled into Ollama. Managed with /ai admin ollama models ...
+    public List<String> ollamaModels = new ArrayList<>();
+
+    // ---- Player2 (player2.game) — the easiest keyless AI, local OR online ----
+
+    // When true, and no personal/shared API key resolves, the bot uses Player2
+    // (player2.game) — an OpenAI-compatible AI that works TWO ways:
+    //   • LOCAL  — install the free Player2 app, no key needed (localhost:4315); or
+    //   • ONLINE — a hosted cloud API (api.player2.game) used when a PLAYER2_KEY is set.
+    // It sits ABOVE Ollama and the free service, but a real HuggingFace key still wins.
+    // Toggle with /ai admin player2 on|off. This is the lowest-effort way to get real AI.
+    public boolean player2Enabled = false;
+
+    // Player2's LOCAL OpenAI-compatible endpoint (its desktop app serves this, keyless).
+    public String player2Url = "http://localhost:4315/v1/chat/completions";
+
+    // Player2's ONLINE (cloud) OpenAI-compatible endpoint, used when a PLAYER2_KEY is set.
+    public String player2OnlineUrl = "https://api.player2.game/v1/chat/completions";
+
+    // The model id sent to Player2. Defaults to the strong open model gpt-oss-120b
+    // (Player2 serves it online); change with /ai admin player2 model <id>.
+    public String player2Model = "gpt-oss-120b";
+
+    // Optional Player2 cloud API key. PREFER the PLAYER2_KEY environment variable /
+    // -Dplayer2.key system property, which is used but NEVER written to disk (the
+    // same secure pattern as the main token). A value stored here is obfuscated at
+    // rest like the main token. When a key resolves, Player2 runs ONLINE with it;
+    // with no key it runs against the LOCAL app.
+    public String player2KeyObf = "";
+    // Live, in-memory Player2 key (env/property or deobfuscated store); never plaintext on disk.
+    public transient String player2Key = "";
+    private transient boolean player2KeyFromEnv = false;
+
+    // ---- Behaviour tuning (survival feel) ----
+
+    // When true, the planner is told to do things BY HAND like a survival player and to
+    // treat RUN_COMMAND as a last resort (only when a task truly can't be done by hand).
+    // Turn off to let the bot lean on commands (/fill, /setblock, /give) for efficiency.
+    public boolean preferSurvivalActions = true;
+
+    // When true, the bot adds small, slightly-randomised delays before picking things
+    // up and between action steps, so it doesn't teleport loot into its hands or act
+    // inhumanly fast. Off = snappy/instant (the old behaviour).
+    public boolean humanizeActions = true;
+
+    // ---- Growth village mini-game ----
+
+    // Population the AI village must reach for the player to be allowed to surrender
+    // ("as big as ever"). The player WINS instead if the village dies out (hits 0).
+    public int villageTargetPopulation = 24;
+
+    // How many AI villagers a fresh Growth game starts with.
+    public int villageStartPopulation = 5;
+
     // Whether the first-run tutorial has already been shown. Fresh installs start
     // false (so the tutorial auto-opens once); upgrading installs are set true by
     // migrate() so existing servers aren't nagged.
@@ -261,9 +334,11 @@ public class ModConfig {
                 if (loaded != null) {
                     instance = loaded;
                     instance.deobfuscateToken();   // hfTokenObf -> live hfToken (must run before save)
+                    instance.deobfuscatePlayer2Key();
                     instance.migrate();
                     instance.normalize();
                     instance.applyEnvToken();      // env/property override (never persisted)
+                    instance.applyEnvPlayer2Key(); // PLAYER2_KEY env/property (never persisted)
                     save();   // (re)write into the folder, persisting the token obfuscated
                     return;
                 }
@@ -277,6 +352,7 @@ public class ModConfig {
         }
         instance = new ModConfig();
         instance.applyEnvToken();
+        instance.applyEnvPlayer2Key();
         save();
     }
 
@@ -296,6 +372,9 @@ public class ModConfig {
         String plain = instance.hfToken == null ? "" : instance.hfToken;
         instance.hfTokenObf = obfuscate(instance.tokenFromEnv ? "" : plain);
         instance.hfToken = "";
+        // Persist the Player2 key obfuscated too, and never an env-provided one.
+        String p2plain = instance.player2Key == null ? "" : instance.player2Key;
+        instance.player2KeyObf = obfuscate(instance.player2KeyFromEnv ? "" : p2plain);
         String json;
         try {
             json = GSON.toJson(instance);
@@ -425,6 +504,15 @@ public class ModConfig {
             voiceResponses = true;
             voicePushToTalkKey = 86;
         }
+        if (configVersion < 11) {
+            // Local Ollama support, survival-first behaviour and the Growth village
+            // game were added in v11. Ship the survival-feel toggles ON by default
+            // (an old file deserializes the new booleans to false, which would silently
+            // disable them); leave Ollama OFF (opt-in — a real key / free AI still works
+            // out of the box). The int/list fields are seeded in normalize().
+            preferSurvivalActions = true;
+            humanizeActions = true;
+        }
         configVersion = CURRENT_CONFIG_VERSION;
     }
 
@@ -439,6 +527,16 @@ public class ModConfig {
         if (apiUrl == null || apiUrl.isBlank()) apiUrl = "https://router.huggingface.co/v1/chat/completions";
         if (freeApiUrl == null || freeApiUrl.isBlank()) freeApiUrl = "https://text.pollinations.ai/openai";
         if (freeModel == null || freeModel.isBlank()) freeModel = "openai";
+        if (ollamaUrl == null || ollamaUrl.isBlank()) ollamaUrl = "http://localhost:11434/v1/chat/completions";
+        if (ollamaModel == null || ollamaModel.isBlank()) ollamaModel = "llama3.2";
+        if (ollamaModels == null) ollamaModels = new ArrayList<>();
+        if (player2Url == null || player2Url.isBlank()) player2Url = "http://localhost:4315/v1/chat/completions";
+        if (player2OnlineUrl == null || player2OnlineUrl.isBlank()) player2OnlineUrl = "https://api.player2.game/v1/chat/completions";
+        if (player2Model == null || player2Model.isBlank()) player2Model = "gpt-oss-120b";
+        if (player2Key == null) player2Key = "";
+        if (player2KeyObf == null) player2KeyObf = "";
+        if (villageTargetPopulation < 2) villageTargetPopulation = 24;
+        if (villageStartPopulation < 1) villageStartPopulation = 5;
         if (defaultName == null || defaultName.isBlank()) defaultName = "Ethan";
         if (defaultSkin == null || defaultSkin.isBlank()) defaultSkin = "default";
         if (com.milkdromeda.blockpal.ai.Personality.byId(defaultPersonality) == null) {
@@ -498,6 +596,44 @@ public class ModConfig {
         }
     }
 
+    /** Recovers the live Player2 key from its obfuscated on-disk form (if needed). */
+    private void deobfuscatePlayer2Key() {
+        if (player2Key == null) player2Key = "";
+        if (player2Key.isBlank() && player2KeyObf != null && !player2KeyObf.isBlank()) {
+            player2Key = deobfuscate(player2KeyObf);
+        }
+    }
+
+    /**
+     * Applies a PLAYER2_KEY from the environment / {@code -Dplayer2.key} property. Used
+     * but NEVER written to disk — the secure way to supply the Player2 cloud key (a CI
+     * build/test can inject it, a self-hosted server can set it), so it isn't baked into
+     * the distributed jar. An env/property key overrides any value stored in config.
+     */
+    private void applyEnvPlayer2Key() {
+        String env = System.getProperty("player2.key");
+        if (env == null || env.isBlank()) env = System.getenv("PLAYER2_KEY");
+        if (env != null && !env.isBlank()) {
+            player2Key = env.trim();
+            player2KeyFromEnv = true;
+        }
+    }
+
+    /** The Player2 cloud key to use (may be ""). When blank, Player2 runs against the local app. */
+    public String resolvePlayer2Key() {
+        return player2Key == null ? "" : player2Key;
+    }
+
+    public boolean isPlayer2KeyFromEnv() {
+        return player2KeyFromEnv;
+    }
+
+    /** Sets the Player2 key and marks it as a persisted (non-env) value. */
+    public void setPlayer2Key(String key) {
+        player2Key = key == null ? "" : key.trim();
+        player2KeyFromEnv = false;
+    }
+
     private static void backup(Path source) {
         try {
             Files.copy(source, source.resolveSibling(source.getFileName() + ".bak"),
@@ -515,15 +651,52 @@ public class ModConfig {
      * checks — {@link #hasApiToken()} stays strictly "is a key set" for display.
      */
     public boolean aiAvailable() {
-        return hasApiToken() || freeAiFallback;
+        return hasApiToken() || player2Enabled || ollamaEnabled || freeAiFallback;
     }
 
     /**
      * True when a bot owned by {@code owner} can use SOME language model: a
-     * personal/shared key resolves for them, or the free fallback is enabled.
+     * personal/shared key resolves for them, the local Player2 app or a local Ollama
+     * server is enabled, or the free fallback is enabled.
      */
     public boolean aiAvailableFor(UUID owner, String ownerName) {
-        return !resolveTokenFor(owner, ownerName).isBlank() || freeAiFallback;
+        return !resolveTokenFor(owner, ownerName).isBlank()
+                || player2Enabled || ollamaEnabled || freeAiFallback;
+    }
+
+    // ---- Local Ollama model pool (used by the Growth village game) ----
+
+    /** @return true if added (false if blank or already present). */
+    public boolean addOllamaModel(String model) {
+        if (model == null || model.isBlank()) return false;
+        String m = com.milkdromeda.blockpal.ai.ModelIds.clean(model);
+        if (m.isBlank() || ollamaModels.contains(m)) return false;
+        ollamaModels.add(m);
+        return true;
+    }
+
+    /** @return true if an entry was removed. */
+    public boolean removeOllamaModel(String model) {
+        return model != null && ollamaModels.remove(com.milkdromeda.blockpal.ai.ModelIds.clean(model));
+    }
+
+    /**
+     * The pool of models the village game hands out to villagers so they "think
+     * differently". Prefers the curated {@link #ollamaModels} list; falls back to the
+     * single {@link #ollamaModel}. Never empty.
+     */
+    public List<String> villageModelPool() {
+        List<String> pool = new ArrayList<>();
+        if (ollamaEnabled) {
+            for (String m : ollamaModels) if (m != null && !m.isBlank()) pool.add(m);
+            if (pool.isEmpty()) pool.add(ollamaModel);
+        }
+        if (pool.isEmpty()) {
+            // No Ollama: fall back to the curated allowed-models list, then the default.
+            for (String m : allowedModels) if (m != null && !m.isBlank()) pool.add(m);
+        }
+        if (pool.isEmpty()) pool.add(hfModel);
+        return pool;
     }
 
     /** True when the active token came from the environment (never persisted). */

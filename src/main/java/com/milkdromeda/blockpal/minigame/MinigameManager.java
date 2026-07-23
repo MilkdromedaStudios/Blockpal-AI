@@ -74,6 +74,12 @@ public final class MinigameManager {
         MinecraftServer server = leader.level().getServer();
         if (server == null) return;
 
+        // The Growth game is a solo AI-village sim, not a party tether game — hand it off.
+        if (mode.isVillage()) {
+            com.milkdromeda.blockpal.minigame.village.VillageManager.start(leader);
+            return;
+        }
+
         Party party = PartyManager.partyOf(leader);
         if (party != null && !party.isLeader(leader.getUUID())) {
             msg(leader, "§cOnly the party leader can start a game.");

@@ -91,6 +91,11 @@ public class AiAssistantEntity extends PathfinderMob {
     // re-trust). Insertion order is kept so the list reads consistently.
     private final LinkedHashMap<UUID, String> trusted = new LinkedHashMap<>();
     private String pendingTask;
+    // Optional per-bot override of which model/endpoint this bot's planner talks to,
+    // instead of resolving from the owner's config. Transient/session-only (never NBT):
+    // used by the Growth village game to give each AI villager a different (small) local
+    // model so they "think differently". Null = resolve normally from the owner.
+    private com.milkdromeda.blockpal.ai.HuggingFaceClient.ApiAuth aiOverride;
     private final AiTaskManager taskManager;
     private BuildGoal buildGoal;
     private int idleMessageTimer = 0;
@@ -727,6 +732,20 @@ public class AiAssistantEntity extends PathfinderMob {
 
     public Mode getMode() { return mode; }
     public void setMode(Mode mode) { this.mode = mode; }
+
+    /** Whether this bot self-directs (picks its own survival tasks). */
+    public boolean isAutonomous() { return autonomousMode; }
+
+    /** Turns self-direction on/off directly (used by the village game to hand-drive villagers). */
+    public void setAutonomousMode(boolean value) { this.autonomousMode = value; }
+
+    /** A per-bot model/endpoint override for the planner, or null to resolve from the owner. */
+    public com.milkdromeda.blockpal.ai.HuggingFaceClient.ApiAuth getAiOverride() { return aiOverride; }
+
+    /** Overrides which model/endpoint this bot's planner uses (village villagers), or null to reset. */
+    public void setAiOverride(com.milkdromeda.blockpal.ai.HuggingFaceClient.ApiAuth override) {
+        this.aiOverride = override;
+    }
 
     /** This bot's TTS voice id ("" = the listening client's default voice). */
     public String getVoiceId() { return voiceId == null ? "" : voiceId; }

@@ -4,9 +4,11 @@ import com.milkdromeda.blockpal.chat.ChatListener;
 import com.milkdromeda.blockpal.command.AiCommands;
 import com.milkdromeda.blockpal.command.GameCommands;
 import com.milkdromeda.blockpal.command.PartyCommands;
+import com.milkdromeda.blockpal.command.VillageCommands;
 import com.milkdromeda.blockpal.config.ModConfig;
 import com.milkdromeda.blockpal.entity.AiAssistantEntity;
 import com.milkdromeda.blockpal.minigame.MinigameManager;
+import com.milkdromeda.blockpal.minigame.village.VillageManager;
 import com.milkdromeda.blockpal.network.AiNetworking;
 import com.milkdromeda.blockpal.party.PartyManager;
 import com.milkdromeda.blockpal.possession.PossessionManager;
@@ -33,7 +35,9 @@ public class AiAssistantMod implements ModInitializer {
         AiCommands.register();
         PartyCommands.register();
         GameCommands.register();
+        VillageCommands.register();
         MinigameManager.registerEvents();
+        VillageManager.registerEvents();
         PossessionManager.registerEvents();
         VoiceCoordinator.registerEvents();
         ChatListener.register();
@@ -42,6 +46,7 @@ public class AiAssistantMod implements ModInitializer {
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             PartyManager.handleDisconnect(handler.player);
             MinigameManager.handleDisconnect(handler.player);
+            VillageManager.handleDisconnect(handler.player);
             PossessionManager.handleDisconnect(handler.player);
         });
 

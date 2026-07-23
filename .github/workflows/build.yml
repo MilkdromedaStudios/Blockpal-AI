@@ -30,6 +30,13 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build
+        # PLAYER2_KEY (repo secret) is exposed to the build/CI environment so any
+        # build-time check that talks to Player2's cloud can authenticate. Blockpal
+        # reads PLAYER2_KEY from the *runtime* environment (never baked into the jar),
+        # so the compiled artifact never carries the secret — it stays out of the
+        # public download.
+        env:
+          PLAYER2_KEY: ${{ secrets.PLAYER2_KEY }}
         run: ./gradlew build --stacktrace --no-daemon
 
       - name: Upload built jar
