@@ -192,6 +192,29 @@ public class AiCommands {
                                 .then(Commands.literal("voice")
                                         .then(Commands.literal("on").executes(ctx -> adminVoice(ctx, true)))
                                         .then(Commands.literal("off").executes(ctx -> adminVoice(ctx, false))))
+                                // Local Ollama (custom local models) — keyless local AI.
+                                .then(Commands.literal("ollama")
+                                        .executes(AiCommands::adminOllamaShow)
+                                        .then(Commands.literal("on").executes(ctx -> adminOllama(ctx, true)))
+                                        .then(Commands.literal("off").executes(ctx -> adminOllama(ctx, false)))
+                                        .then(Commands.literal("url").then(Commands.argument("url", StringArgumentType.greedyString())
+                                                .executes(ctx -> adminOllamaUrl(ctx, StringArgumentType.getString(ctx, "url")))))
+                                        .then(Commands.literal("model").then(Commands.argument("model", StringArgumentType.greedyString())
+                                                .executes(ctx -> adminOllamaModel(ctx, StringArgumentType.getString(ctx, "model")))))
+                                        .then(Commands.literal("models")
+                                                .executes(AiCommands::adminOllamaModelsShow)
+                                                .then(Commands.literal("list").executes(AiCommands::adminOllamaModelsShow))
+                                                .then(Commands.literal("add").then(Commands.argument("model", StringArgumentType.greedyString())
+                                                        .executes(ctx -> adminOllamaModelsAdd(ctx, StringArgumentType.getString(ctx, "model")))))
+                                                .then(Commands.literal("remove").then(Commands.argument("model", StringArgumentType.greedyString())
+                                                        .executes(ctx -> adminOllamaModelsRemove(ctx, StringArgumentType.getString(ctx, "model")))))))
+                                // Player2 (player2.game) — the easiest keyless local AI (just install its app).
+                                .then(Commands.literal("player2")
+                                        .executes(AiCommands::adminPlayer2Show)
+                                        .then(Commands.literal("on").executes(ctx -> adminPlayer2(ctx, true)))
+                                        .then(Commands.literal("off").executes(ctx -> adminPlayer2(ctx, false)))
+                                        .then(Commands.literal("url").then(Commands.argument("url", StringArgumentType.greedyString())
+                                                .executes(ctx -> adminPlayer2Url(ctx, StringArgumentType.getString(ctx, "url"))))))
                                 .then(Commands.literal("keylist")
                                         .executes(AiCommands::adminKeyListShow)
                                         .then(Commands.literal("list").executes(AiCommands::adminKeyListShow))
@@ -251,6 +274,7 @@ public class AiCommands {
                 "§f/ai voice §7— hold §fV§7 to TALK to it; share/link voices, pick its voice\n" +
                 "§f/ai <task> §7— tell it what to do (e.g. /ai build a 5x5 floor)\n" +
                 "§f/ai dismiss §7— send it away\n" +
+                "§f/village start §7— play §fGrowth§7: an AI village that grows on its own (also §f/game start growth§7)\n" +
                 "§6\n" +
                 "§eSettings live in the panel — no confusing setting commands:\n" +
                 "§f/ai panel §7— the unified menu (tabs: Settings · Admin · My Settings)\n" +
@@ -837,6 +861,8 @@ public class AiCommands {
                 "§f/ai admin token <token> §7— set the shared AI API key (no GUI needed)\n" +
                 "§f/ai admin apiurl <url> §7— set the OpenAI-compatible API endpoint\n" +
                 "§f/ai admin model <id> §7— set the server default model\n" +
+                "§f/ai admin ollama on|off|url|model|models §7— use custom LOCAL models (Ollama)\n" +
+                "§f/ai admin player2 on|off|url §7— easiest AI: Player2 (local app, or online w/ PLAYER2_KEY)\n" +
                 "§f/ai admin requirekey on|off §7— make players use their own API key\n" +
                 "§f/ai admin possession on|off §7— allow/deny possession mode (/ai possess)\n" +
                 "§f/ai admin voice on|off §7— allow/deny agent voice (push-to-talk + speech)\n" +
@@ -990,6 +1016,122 @@ public class AiCommands {
         ModConfig.save();
         ctx.getSource().sendSuccess(() -> Component.literal(
                 "§a[Blockpal] Max bots per server = " + (count == 0 ? "unlimited" : count)), false);
+        return 1;
+    }
+
+    // ── local Ollama (custom local models) ──────────────────────────────────────
+
+    private static int adminOllama(CommandContext<CommandSourceStack> ctx, boolean on) {
+        ModConfig cfg = ModConfig.get();
+        cfg.ollamaEnabled = on;
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§a[Blockpal] Local Ollama " + (on ? "§aENABLED" : "§7disabled")
+                        + (on ? " §7— using §f" + cfg.ollamaUrl + "§7 (model §f" + cfg.ollamaModel
+                                + "§7). A real API key still wins." : ".")), false);
+        return 1;
+    }
+
+    private static int adminOllamaUrl(CommandContext<CommandSourceStack> ctx, String url) {
+        ModConfig cfg = ModConfig.get();
+        cfg.ollamaUrl = url.trim();
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§a[Blockpal] Ollama URL set to §f" + cfg.ollamaUrl), false);
+        return 1;
+    }
+
+    private static int adminOllamaModel(CommandContext<CommandSourceStack> ctx, String model) {
+        ModConfig cfg = ModConfig.get();
+        String m = com.milkdromeda.blockpal.ai.ModelIds.clean(model);
+        if (m.isBlank()) {
+            ctx.getSource().sendSuccess(() -> Component.literal("§c[Blockpal] That model id is empty."), false);
+            return 0;
+        }
+        cfg.ollamaModel = m;
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§a[Blockpal] Ollama default model set to §f" + m + " §7(run §follama pull " + m + "§7 first)."), false);
+        return 1;
+    }
+
+    private static int adminOllamaShow(CommandContext<CommandSourceStack> ctx) {
+        ModConfig cfg = ModConfig.get();
+        StringBuilder sb = new StringBuilder("§6=== Local Ollama ===");
+        sb.append("\n§7Status: ").append(cfg.ollamaEnabled ? "§aenabled" : "§7disabled");
+        sb.append("\n§7URL: §f").append(cfg.ollamaUrl);
+        sb.append("\n§7Default model: §f").append(cfg.ollamaModel);
+        sb.append("\n§7Village model pool: §f")
+          .append(cfg.ollamaModels.isEmpty() ? "(uses the default)" : String.join(", ", cfg.ollamaModels));
+        sb.append("\n§7Toggle: §f/ai admin ollama on|off§7 · set: §furl <url>§7 · §fmodel <id>§7 · §fmodels add|remove <id>");
+        final String out = sb.toString();
+        ctx.getSource().sendSuccess(() -> Component.literal(out), false);
+        return 1;
+    }
+
+    private static int adminOllamaModelsShow(CommandContext<CommandSourceStack> ctx) {
+        return adminOllamaShow(ctx);
+    }
+
+    private static int adminOllamaModelsAdd(CommandContext<CommandSourceStack> ctx, String model) {
+        boolean added = ModConfig.get().addOllamaModel(model);
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(added
+                ? "§a[Blockpal] Added §f" + com.milkdromeda.blockpal.ai.ModelIds.clean(model)
+                        + "§a to the village model pool."
+                : "§7[Blockpal] That model is already in the pool (or was empty)."), false);
+        return 1;
+    }
+
+    private static int adminOllamaModelsRemove(CommandContext<CommandSourceStack> ctx, String model) {
+        boolean removed = ModConfig.get().removeOllamaModel(model);
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(removed
+                ? "§a[Blockpal] Removed §f" + com.milkdromeda.blockpal.ai.ModelIds.clean(model) + "§a from the pool."
+                : "§7[Blockpal] That model wasn't in the pool."), false);
+        return 1;
+    }
+
+    // ── Player2 (player2.game) — easiest keyless AI, local or online ─────────────
+
+    private static int adminPlayer2(CommandContext<CommandSourceStack> ctx, boolean on) {
+        ModConfig cfg = ModConfig.get();
+        cfg.player2Enabled = on;
+        ModConfig.save();
+        boolean online = !cfg.resolvePlayer2Key().isBlank();
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§a[Blockpal] Player2 " + (on ? "§aENABLED" : "§7disabled")
+                        + (on ? " §7— " + (online ? "§aONLINE §7(" + cfg.player2OnlineUrl + ", model §f"
+                                    + cfg.player2Model + "§7)"
+                                : "§eLOCAL §7(install the Player2 app for " + cfg.player2Url
+                                    + "; set PLAYER2_KEY for online)") : ".")), false);
+        return 1;
+    }
+
+    private static int adminPlayer2Url(CommandContext<CommandSourceStack> ctx, String url) {
+        ModConfig cfg = ModConfig.get();
+        cfg.player2OnlineUrl = url.trim();
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§a[Blockpal] Player2 online URL set to §f" + cfg.player2OnlineUrl), false);
+        return 1;
+    }
+
+    private static int adminPlayer2Show(CommandContext<CommandSourceStack> ctx) {
+        ModConfig cfg = ModConfig.get();
+        boolean hasKey = !cfg.resolvePlayer2Key().isBlank();
+        StringBuilder sb = new StringBuilder("§6=== Player2 (player2.game) ===");
+        sb.append("\n§7Status: ").append(cfg.player2Enabled ? "§aenabled" : "§7disabled");
+        sb.append("\n§7Mode: ").append(hasKey ? "§aONLINE (cloud)" : "§eLOCAL (app on localhost:4315)");
+        sb.append("\n§7Key: ").append(hasKey
+                ? (cfg.isPlayer2KeyFromEnv() ? "§aset ✓ (from PLAYER2_KEY env)" : "§aset ✓")
+                : "§7not set — install the Player2 app, or set §fPLAYER2_KEY§7 for online");
+        sb.append("\n§7Online URL: §f").append(cfg.player2OnlineUrl);
+        sb.append("\n§7Local URL: §f").append(cfg.player2Url);
+        sb.append("\n§7Model: §f").append(cfg.player2Model);
+        sb.append("\n§7Toggle: §f/ai admin player2 on|off§7 · set online endpoint: §furl <url>");
+        final String out = sb.toString();
+        ctx.getSource().sendSuccess(() -> Component.literal(out), false);
         return 1;
     }
 

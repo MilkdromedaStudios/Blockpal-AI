@@ -4,6 +4,35 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.21.0
+- **Run your own AI locally — or the easiest AI ever.** Two new ways to power your
+  companion, no HuggingFace key needed:
+  - **Ollama (custom local models).** Point Blockpal at a local Ollama and run **any
+    model you've pulled** — `llama3.2`, `qwen2.5`, `phi3`, whatever — with **no key and
+    no internet**. Turn it on with `/ai admin ollama on` (set the model with
+    `/ai admin ollama model <id>`).
+  - **Player2 (player2.game).** The lowest-effort option: **install the free Player2
+    app** and it just works, keyless, on your machine. Or go **online** — set a
+    `PLAYER2_KEY` and Blockpal uses Player2's cloud with the strong **`gpt-oss-120b`**
+    model. `/ai admin player2 on`. (The key is read from your environment and is never
+    written to disk or shipped inside the mod.)
+  A real HuggingFace key still takes priority if you've set one.
+- **It plays more like a real player now.** The companion **does things by hand** and
+  only runs commands when it truly has to — so it builds, digs and gathers like a
+  survivor instead of `/fill`-ing everything. It also knows how to **use work stations**,
+  not just crafting tables: furnaces, smithing tables, anvils, brewing stands, looms,
+  stonecutters and more. And it **no longer snatches items instantly** — small, human
+  reaction pauses make it feel alive (toggle with the new *humanize* setting).
+- **New game mode: Growth — an AI village that grows or dies on its own.**
+  `/village start` (or `/game start growth`) grows a living village of AI people around
+  you. Each villager has a **job** (builder, farmer, teacher, trader, guard, scholar),
+  its **own personality**, and — with local models — its **own brain**, so they think
+  differently. Days run at **2× speed**; they **build houses, farm, teach and trade**,
+  welcome newcomers when they thrive and lose people when they starve or get raided —
+  and they **talk about what they're doing**. You can **`/village join <role>`** and be
+  one of them. **If the village dies out, you win. If it grows as big as ever, you can
+  `/village surrender`.** Check on it any time with `/village status`.
+
 ## 3.20.0
 - **The AI chat now lives right in the ESC menu.** Press ESC and a mini chat panel
   is sitting on the right side of the pause menu — recent conversation, a text box,

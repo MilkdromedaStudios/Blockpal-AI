@@ -17,7 +17,11 @@ public enum GameMode {
             false, false, true),
     FUSION("fusion", "Fusion",
             "Chained AND Same Health at once — the ultimate co-op (or co-death).",
-            true, true, false);
+            true, true, false),
+    GROWTH("growth", "Growth",
+            "An AI village that grows or collapses on its own — villagers build, farm, teach and trade. "
+                    + "Days run 2x. If it dies out you win; if it grows as big as ever you may surrender.",
+            false, false, false);
 
     public final String id;
     public final String display;
@@ -36,6 +40,11 @@ public enum GameMode {
         this.chained = chained;
         this.sharedHealth = sharedHealth;
         this.oneBlock = oneBlock;
+    }
+
+    /** The Growth game is run by the dedicated village manager, not the co-op tether logic. */
+    public boolean isVillage() {
+        return this == GROWTH;
     }
 
     public static GameMode byId(String id) {

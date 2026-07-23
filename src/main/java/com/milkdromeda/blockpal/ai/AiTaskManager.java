@@ -50,8 +50,14 @@ public class AiTaskManager {
         pendingFuture = CLIENT.requestPlan(task, buildContext(), auth, entity.getPlanStyle());
     }
 
-    /** The token + model + endpoint a request from this bot should use, based on its owner. */
+    /**
+     * The token + model + endpoint a request from this bot should use. A per-bot
+     * override (set by the Growth village game to give each villager a different local
+     * model) wins; otherwise it's resolved from the bot's owner.
+     */
     private HuggingFaceClient.ApiAuth authForOwner() {
+        HuggingFaceClient.ApiAuth override = entity.getAiOverride();
+        if (override != null && override.usable()) return override;
         return HuggingFaceClient.ApiAuth.resolveFor(entity.getOwnerUuid(), entity.getOwnerName());
     }
 
@@ -207,6 +213,16 @@ public class AiTaskManager {
                 || path.contains("piston") || path.contains("dispenser") || path.contains("dropper")
                 || path.contains("hopper") || path.contains("chest") || path.contains("lectern")
                 || path.contains("note_block") || path.contains("target") || path.contains("tripwire")
-                || path.contains("lamp") || path.contains("bell");
+                || path.contains("lamp") || path.contains("bell")
+                // Work stations ("tables") the bot can USE_BLOCK — not just crafting tables.
+                || path.contains("crafting_table") || path.contains("furnace")
+                || path.contains("smoker") || path.contains("blast_furnace")
+                || path.contains("smithing_table") || path.contains("anvil")
+                || path.contains("brewing_stand") || path.contains("enchanting_table")
+                || path.contains("loom") || path.contains("stonecutter")
+                || path.contains("cartography_table") || path.contains("grindstone")
+                || path.contains("barrel") || path.contains("beacon")
+                || path.contains("campfire") || path.contains("cauldron")
+                || path.contains("composter") || path.contains("bee_nest") || path.contains("beehive");
     }
 }

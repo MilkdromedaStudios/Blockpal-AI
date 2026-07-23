@@ -29,6 +29,9 @@ public class CollectItemsGoal extends Goal {
     private int scanCooldown;
     private int repathCooldown;
     private int pursuitTicks;
+    /** Ticks to wait after spotting loot before walking over — a human "notice" pause. */
+    private int noticeDelay;
+    private final java.util.Random rng = new java.util.Random();
 
     public CollectItemsGoal(AiAssistantEntity entity) {
         this.entity = entity;
@@ -45,10 +48,26 @@ public class CollectItemsGoal extends Goal {
     @Override
     public boolean canUse() {
         if (!modeAllows()) return false;
+        // Already spotted something and pausing before we react — count down, then pursue.
+        if (noticeDelay > 0) {
+            if (target == null || !target.isAlive() || target.getItem().isEmpty()) {
+                noticeDelay = 0;
+                return false;
+            }
+            if (--noticeDelay > 0) return false;
+            repathCooldown = 0;
+            pursuitTicks = MAX_PURSUIT;
+            return true;
+        }
         if (scanCooldown > 0) { scanCooldown--; return false; }
         scanCooldown = SCAN_INTERVAL;
         target = findItem();
         if (target == null) return false;
+        // Don't beeline the instant loot appears — take a short human "notice" pause first.
+        if (com.milkdromeda.blockpal.config.ModConfig.get().humanizeActions) {
+            noticeDelay = 5 + rng.nextInt(15);   // ~0.25–1.0 s
+            return false;
+        }
         repathCooldown = 0;          // path on the very first tick
         pursuitTicks = MAX_PURSUIT;
         return true;
@@ -79,6 +98,7 @@ public class CollectItemsGoal extends Goal {
     public void stop() {
         target = null;
         pursuitTicks = 0;
+        noticeDelay = 0;
         entity.getNavigation().stop();
     }
 

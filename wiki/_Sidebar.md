@@ -25,6 +25,11 @@
 **Multiplayer & games**
 - [Friend Sharing](Friend-Sharing)
 - [Minigames](Minigames)
+- [Growth (AI village)](Growth-Village)
+
+**AI providers**
+- [Local & Player2 AI](Local-AI-Ollama-and-Player2)
+- [Per-Player Keys & Models](Per-Player-Keys-and-Models)
 
 **Admin & safety**
 - [Per-Player Keys & Models](Per-Player-Keys-and-Models)

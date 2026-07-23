@@ -42,6 +42,9 @@ public class ExecuteTaskGoal extends Goal {
     /** Block queue for MINE_AREA — breaks one block per tick instead of all at once. */
     private final Queue<BlockPos> mineQueue = new ArrayDeque<>();
     private int pathCooldown = 0;
+    /** Ticks left to "reach out" for an item before it's collected, so pick-ups aren't instant. */
+    private int collectDwell = -1;
+    private final java.util.Random rng = new java.util.Random();
 
     public ExecuteTaskGoal(AiAssistantEntity entity) {
         this.entity = entity;
@@ -70,6 +73,7 @@ public class ExecuteTaskGoal extends Goal {
             currentStep = entity.getTaskManager().pollNextStep();
             stepTimer = 0;
             pathCooldown = 0;   // let the new step issue its path immediately
+            collectDwell = -1;  // reset the pick-up "reach" timer for the new step
             if (currentStep == null) { entity.finishTask(); return; }
         }
 
@@ -79,12 +83,25 @@ public class ExecuteTaskGoal extends Goal {
         if (done || stepTimer > 200) {
             currentStep = null;
             mineQueue.clear();
-            waitRemaining = com.milkdromeda.blockpal.config.ModConfig.get().actionTickDelay;
+            collectDwell = -1;
+            waitRemaining = interStepDelay();
         }
     }
 
+    /**
+     * How long to pause between action steps. With {@code humanizeActions} on this is
+     * the configured base delay plus a small random jitter, so the bot doesn't act with
+     * inhuman, frame-perfect speed; off, it's the plain configured delay (snappy).
+     */
+    private int interStepDelay() {
+        int base = com.milkdromeda.blockpal.config.ModConfig.get().actionTickDelay;
+        if (!com.milkdromeda.blockpal.config.ModConfig.get().humanizeActions) return base;
+        // A human "reaction" pause: the base delay plus 3–12 extra ticks of jitter.
+        return base + 3 + rng.nextInt(10);
+    }
+
     @Override
-    public void stop() { currentStep = null; stepTimer = 0; pathCooldown = 0; mineQueue.clear(); }
+    public void stop() { currentStep = null; stepTimer = 0; pathCooldown = 0; mineQueue.clear(); collectDwell = -1; }
 
     /**
      * Issues a navigation path only periodically (or once the current one ends)
@@ -391,6 +408,14 @@ public class ExecuteTaskGoal extends Goal {
             navTo(x, y, z, 1.0);
             return false;
         }
+        // In range — "reach out" for a few ticks before it's collected, so items aren't
+        // snatched the instant the bot arrives (skipped when humanizeActions is off).
+        if (com.milkdromeda.blockpal.config.ModConfig.get().humanizeActions) {
+            if (collectDwell < 0) collectDwell = 5 + rng.nextInt(8);   // ~0.25–0.65 s
+            entity.getLookControl().setLookAt(x, y, z, 30f, 30f);
+            if (collectDwell-- > 0) return false;
+        }
+        entity.swing(InteractionHand.MAIN_HAND);
         return true;
     }
 }
