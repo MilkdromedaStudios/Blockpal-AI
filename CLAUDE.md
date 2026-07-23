@@ -555,10 +555,15 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   **My Settings** (everyone). Switching a tab asks the server for that panel's data
   (`ConfigRequestPayload` / an admin refresh / a no-op `PlayerPrefsPayload`) and the
   matching sync packet opens the right screen, so the three panels feel like one place.
-- **Tabbed categories** — the Settings panel is split into **Identity**, **Behavior**,
-  **AI & API**, **Combat** and **Developer** sub-tabs, shown one at a time. The
-  current tab reads as "pressed" in the pinned tab bar. Each setting has a hover
-  **tooltip** explaining it.
+- **Tabbed categories, Sodium-style (3.22.0)** — the Settings panel is split into
+  **Identity**, **Behavior**, **AI & API**, **Combat** and **Developer** sub-tabs. As of
+  3.22.0 they're a **vertical tab column on the left** (like Sodium's video settings), with
+  the content beside them on the right (`buildTabColumn()` + `blockLeft()`/`contentLeft()`);
+  the current tab reads as "pressed". Each setting has a hover **tooltip**.
+- **Local & easy AI in the panel (3.22.0)** — the **AI & API** tab has a "Local & easy AI"
+  section: **Use Player2** and **Use local Ollama** toggles + their model/URL boxes, and a
+  live "▶ Bots will use: …" line showing which provider resolves (key › Player2 › Ollama ›
+  free). These ride 7 new `ConfigData` fields; the Player2 cloud key stays env-only.
 - Values are held in a pending draft and `capture()`d at the top of `init()`
   (3.17.1), so edits survive **every** widget rebuild — sub-tab switches, window
   resizes, fullscreen/GUI-scale changes; nothing is lost until you Cancel. A
@@ -779,6 +784,10 @@ share code or versioning with the Java mod. Source in `bedrock/`, packaged artif
   scholars raise knowledge (→ efficiency), traders lift morale, guards fend off night **raids**.
   A thriving, fed, housed, hopeful village **births** new settlers; a starving or broken one
   **loses** them. Mob deaths count too (villagers are pruned each tick).
+- **They work together (3.22.0):** a village with a broad mix of roles gets a **teamwork**
+  bonus to production and morale (up to +24% with all six roles, `distinctRoles`), and
+  villagers periodically **pair up on a shared job** (a joint narration that also advances
+  that role's output) — so the AIs visibly cooperate, not just coexist.
 - **You can "be one of them":** `/village join <role>` makes your work count toward that
   role's daily output; `/village leave` steps back; `/village status` shows the state.
 - **Win / lose (exactly as designed):** if the village **dies out** (population 0) you
@@ -803,6 +812,31 @@ share code or versioning with the Java mod. Source in `bedrock/`, packaged artif
 ---
 
 ## Changelog
+
+### 3.22.0
+- **Ollama & Player2 are now configurable in the Settings GUI.** They existed only as
+  `/ai admin ollama|player2 …` text commands before (nothing in the panel), which read as
+  "there's no Ollama/Player2 config in AI & API". The **AI & API** tab now has a
+  **"Local & easy AI (no key needed)"** section: toggles for **Use Player2** and **Use
+  local Ollama**, plus their model/URL boxes, and a live **"▶ Bots will use: …"** status
+  line showing which provider actually resolves for the current draft (priority: key ›
+  Player2 › Ollama › free). Wired through `ConfigData` (7 new fields:
+  `ollamaEnabled/ollamaUrl/ollamaModel`, `player2Enabled/player2Url/player2Model`,
+  display-only `player2KeySet`) → `fromConfig`/`applyTo` + the StreamCodec; the Player2
+  cloud key is still only ever the `PLAYER2_KEY` env var (never sent to or from the client).
+- **Sodium-style tabs.** The Settings sub-tabs (Identity/Behavior/AI & API/Combat/Developer)
+  moved from a horizontal bar to a **vertical tab column on the left**, with the settings
+  content beside it on the right — the layout Sodium uses. `AiConfigScreen.buildTabColumn()`
+  replaces `buildTabBar()`; new `blockLeft()`/`contentLeft()` centre the sidebar+content as
+  one unit.
+- **Villagers work together.** The Growth village now models **teamwork**: a settlement with
+  a broad mix of roles gets a production + morale bonus (up to +24% with all six roles
+  filled — `distinctRoles`), and villagers periodically **pair up on a shared job** (a joint
+  "teaming up to raise the walls / work the fields / …" narration that also advances that
+  role's output), so the AIs visibly cooperate.
+- No config schema change (still v11 — these settings already existed; this exposes them).
+  *(Toolchain caveat unchanged: Gradle 9.5.1 is blocked by this environment's egress policy,
+  so the client can't be launched here; `build.yml` compile-checks the push.)*
 
 ### 3.21.0
 - **Custom LOCAL models via Ollama.** New `ollamaEnabled` (+ `ollamaUrl` default

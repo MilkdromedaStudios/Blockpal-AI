@@ -288,9 +288,16 @@ public final class VillageManager {
         int guards   = counts.getOrDefault(VillageRole.GUARD, 0);
         int scholars = counts.getOrDefault(VillageRole.SCHOLAR, 0);
 
+        // Teamwork: a village with a broad mix of roles cooperates better — the
+        // villagers specialise and work together, so a balanced settlement out-produces
+        // a lopsided one and its people are happier pulling together.
+        int distinctRoles = 0;
+        for (VillageRole r : VillageRole.values()) if (counts.getOrDefault(r, 0) > 0) distinctRoles++;
+        double teamwork = 1.0 + distinctRoles * 0.04;   // up to +24% with all six roles filled
+
         // Teaching/scholarship compounds into efficiency (capped so it can't run away).
         g.knowledge += teachers + scholars;
-        double efficiency = 1.0 + Math.min(0.6, g.knowledge * 0.015);
+        double efficiency = (1.0 + Math.min(0.6, g.knowledge * 0.015)) * teamwork;
 
         // Food: farmers produce, everyone eats.
         double production = (farmers * 3.0 + 1.0) * efficiency;
@@ -301,7 +308,8 @@ public final class VillageManager {
 
         // Morale.
         boolean defended = guards >= 1 || pop == 0;
-        double dm = (starving ? -0.16 : 0.06) + (defended ? 0.02 : -0.09) + traders * 0.03;
+        double dm = (starving ? -0.16 : 0.06) + (defended ? 0.02 : -0.09) + traders * 0.03
+                + (distinctRoles >= 4 ? 0.03 : 0.0);   // a village pulling together lifts spirits
         g.morale = clamp(g.morale + dm, 0.0, 1.0);
 
         // Houses: builders expand the settlement (and we physically raise a hut or two).
@@ -456,6 +464,29 @@ public final class VillageManager {
             String partner = otherName(g, id);
             broadcast(server, g, "§b" + info.name() + ": §f\"Struck a fair trade with " + partner
                     + " — we both come out ahead.\"");
+            return;
+        }
+
+        // Cooperation: two villagers pair up on a shared job — the AIs working together,
+        // and getting it done faster than either would alone.
+        if (ids.size() > 1 && RNG.nextInt(100) < 25) {
+            String partner = otherName(g, id);
+            String verb = switch (info.role()) {
+                case BUILDER -> "raise the walls";
+                case FARMER  -> "work the fields";
+                case TEACHER -> "train the youngsters";
+                case TRADER  -> "run the market";
+                case GUARD   -> "hold the watch";
+                case SCHOLAR -> "plan the expansion";
+            };
+            switch (info.role()) {
+                case BUILDER -> placeHut(level, g);                        // two hands, a house rises
+                case FARMER  -> g.food += 2;
+                case SCHOLAR, TEACHER -> g.knowledge += 1;
+                default -> g.morale = clamp(g.morale + 0.02, 0, 1);
+            }
+            broadcast(server, g, "§d" + info.name() + " §7& §d" + partner + ": §f\"Teaming up to "
+                    + verb + " — together we get twice as much done.\"");
             return;
         }
 

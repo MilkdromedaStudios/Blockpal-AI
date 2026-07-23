@@ -44,7 +44,16 @@ public record ConfigData(
         boolean allowCustomPersonality,
         boolean allowPossession,
         boolean freeAiFallback,
-        boolean allowVoice
+        boolean allowVoice,
+        // Local Ollama (custom local models)
+        boolean ollamaEnabled,
+        String ollamaUrl,
+        String ollamaModel,
+        // Player2 (player2.game) — easiest AI, local or online
+        boolean player2Enabled,
+        String player2Url,
+        String player2Model,
+        boolean player2KeySet   // display-only: is a PLAYER2_KEY resolved (→ online)?
 ) {
     public static final StreamCodec<FriendlyByteBuf, ConfigData> STREAM_CODEC =
             StreamCodec.of(ConfigData::write, ConfigData::read);
@@ -77,7 +86,14 @@ public record ConfigData(
                 c.allowCustomPersonality,
                 c.allowPossession,
                 c.freeAiFallback,
-                c.allowVoice);
+                c.allowVoice,
+                c.ollamaEnabled,
+                c.ollamaUrl,
+                c.ollamaModel,
+                c.player2Enabled,
+                c.player2OnlineUrl,
+                c.player2Model,
+                !c.resolvePlayer2Key().isBlank());
     }
 
     /** Applies this snapshot onto the live config, clamping and keeping blanks. */
@@ -113,6 +129,14 @@ public record ConfigData(
         c.allowPossession = allowPossession;
         c.freeAiFallback = freeAiFallback;
         c.allowVoice = allowVoice;
+        // Local Ollama + Player2 providers.
+        c.ollamaEnabled = ollamaEnabled;
+        if (notBlank(ollamaUrl)) c.ollamaUrl = ollamaUrl.trim();
+        if (notBlank(ollamaModel)) c.ollamaModel = com.milkdromeda.blockpal.ai.ModelIds.clean(ollamaModel);
+        c.player2Enabled = player2Enabled;
+        if (notBlank(player2Url)) c.player2OnlineUrl = player2Url.trim();
+        if (notBlank(player2Model)) c.player2Model = com.milkdromeda.blockpal.ai.ModelIds.clean(player2Model);
+        // player2KeySet is display-only — the key comes from the PLAYER2_KEY env, never the client.
     }
 
     private static boolean notBlank(String s) {
@@ -149,6 +173,13 @@ public record ConfigData(
         buf.writeBoolean(d.allowPossession);
         buf.writeBoolean(d.freeAiFallback);
         buf.writeBoolean(d.allowVoice);
+        buf.writeBoolean(d.ollamaEnabled);
+        buf.writeUtf(d.ollamaUrl == null ? "" : d.ollamaUrl);
+        buf.writeUtf(d.ollamaModel == null ? "" : d.ollamaModel);
+        buf.writeBoolean(d.player2Enabled);
+        buf.writeUtf(d.player2Url == null ? "" : d.player2Url);
+        buf.writeUtf(d.player2Model == null ? "" : d.player2Model);
+        buf.writeBoolean(d.player2KeySet);
     }
 
     private static ConfigData read(FriendlyByteBuf buf) {
@@ -177,6 +208,13 @@ public record ConfigData(
                 buf.readBoolean(),
                 buf.readBoolean(),
                 buf.readBoolean(),
-                buf.readBoolean());
+                buf.readBoolean(),
+                buf.readBoolean(),   // ollamaEnabled
+                buf.readUtf(),       // ollamaUrl
+                buf.readUtf(),       // ollamaModel
+                buf.readBoolean(),   // player2Enabled
+                buf.readUtf(),       // player2Url
+                buf.readUtf(),       // player2Model
+                buf.readBoolean());  // player2KeySet
     }
 }
