@@ -193,7 +193,7 @@ public final class VillageManager {
             msg(player, "§7No village here. Start one with §f/village start§7.");
             return;
         }
-        Map<VillageRole, Integer> counts = roleCounts(g, player.getServer());
+        Map<VillageRole, Integer> counts = roleCounts(g, player.level().getServer());
         StringBuilder sb = new StringBuilder("§6=== Village · Day " + g.day + " ===");
         sb.append("\n§7Population: §f").append(g.population()).append("§7/").append(g.targetPopulation)
           .append("  §7peak: §f").append(g.peakPopulation);
