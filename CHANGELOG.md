@@ -4,6 +4,19 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.22.0
+- **Ollama and Player2 are now in the settings menu.** Open `/ai menu` → **AI & API** and
+  you'll find a new **"Local & easy AI"** section with **Use Player2** and **Use local
+  Ollama** switches, their model/URL boxes, and a live line telling you exactly which AI
+  your bots will use. No more needing the `/ai admin …` chat commands to turn them on.
+- **Cleaner, Sodium-style tabs.** The settings tabs (Identity, Behavior, AI & API, Combat,
+  Developer) now run **down the left side** with the options beside them — the same tidy
+  layout as Sodium.
+- **Village AIs work together.** In the **Growth** game, a village with lots of different
+  jobs filled gets a **teamwork bonus**, and villagers now **team up on shared jobs**
+  ("teaming up to raise the walls — together we get twice as much done"), so they visibly
+  cooperate to grow the town.
+
 ## 3.21.0
 - **Run your own AI locally — or the easiest AI ever.** Two new ways to power your
   companion, no HuggingFace key needed:

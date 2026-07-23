@@ -12,6 +12,12 @@ for the absolute easiest setup.
 3. **Ollama**, if enabled;
 4. the free keyless service.
 
+> **In the settings menu (3.22.0):** open `/ai menu` → **AI & API** tab. Under **"Local &
+> easy AI"** you'll find **Use Player2** and **Use local Ollama** toggles, their model/URL
+> boxes, and a live **"▶ Bots will use: …"** line that tells you exactly which provider is
+> active for your current settings. The `/ai admin …` text commands below still work (and
+> are the way to configure on Bedrock/vanilla clients with no GUI).
+
 ## Ollama — run your own custom local models
 
 [Ollama](https://ollama.com) runs language models on your own machine and exposes

@@ -48,9 +48,12 @@ public class AiConfigScreen extends Screen {
     private static final int SPACING = 3;
     private static final int NAV_Y = 20;     // cross-panel tab bar (Settings/Admin/Me)
     private static final int NAV_H = 14;
-    private static final int TAB_Y = 38;     // settings sub-tab bar
+    // Sodium-style vertical tab column on the left, content beside it on the right.
+    private static final int SIDEBAR_W = 84;   // width of the vertical tab column
+    private static final int SIDEBAR_GAP = 8;  // gap between the tab column and the content
+    private static final int TAB_Y = 40;     // top of the vertical sub-tab column
     private static final int TAB_H = 18;
-    private static final int BODY_TOP = 60;  // first row of the scrollable body
+    private static final int BODY_TOP = 40;  // first row of the scrollable body (beside the tabs)
     private static final int FOOTER = 28;
     private static final Component SAVED_MSG =
             Component.literal("Settings applied ✓").withStyle(s -> s.withColor(0x55FF55));
@@ -74,6 +77,9 @@ public class AiConfigScreen extends Screen {
     private boolean pAllowPossession;
     private boolean pAllowVoice;
     private boolean pFreeFallback;
+    // Local Ollama + Player2 providers (surfaced on the AI & API tab).
+    private boolean pOllamaEnabled, pPlayer2Enabled, pPlayer2KeySet;
+    private String pOllamaUrl, pOllamaModel, pPlayer2Url, pPlayer2Model;
     private boolean tokenSet;
     // Whether the token box currently shows plaintext instead of masking dots. Purely a
     // display preference (not part of the saved config), so it isn't in ConfigData —
@@ -84,6 +90,8 @@ public class AiConfigScreen extends Screen {
     private EditBox nameBox, skinBox, modelBox, apiUrlBox, tokenBox;
     private StringWidget tokenStatus;
     private CycleButton<Boolean> listenButton, activeButton, commandsButton, debugButton, sneakButton, allowCustomButton, allowPossessionButton, allowVoiceButton, freeFallbackButton, tokenShowButton;
+    private CycleButton<Boolean> ollamaEnabledButton, player2EnabledButton;
+    private EditBox ollamaUrlBox, ollamaModelBox, player2UrlBox, player2ModelBox;
     private CycleButton<String> presetButton, defaultPersonalityButton;
     private OptionSlider tempSlider, maxTokensSlider, followSlider, guardSlider, cmdLevelSlider;
     private OptionSlider actionDelaySlider, maxTaskSlider, fleeSlider;
@@ -122,6 +130,13 @@ public class AiConfigScreen extends Screen {
         pAllowPossession = d.allowPossession();
         pAllowVoice = d.allowVoice();
         pFreeFallback = d.freeAiFallback();
+        pOllamaEnabled = d.ollamaEnabled();
+        pOllamaUrl = d.ollamaUrl();
+        pOllamaModel = d.ollamaModel();
+        pPlayer2Enabled = d.player2Enabled();
+        pPlayer2Url = d.player2Url();
+        pPlayer2Model = d.player2Model();
+        pPlayer2KeySet = d.player2KeySet();
         // Capture the as-loaded state once so dirty-tracking survives tab switches
         // (init() runs on every tab change, so we must NOT recompute it there).
         baseline = buildData();
@@ -146,10 +161,10 @@ public class AiConfigScreen extends Screen {
         PanelNav.build(this.width, W + 12, NAV_Y, NAV_H, PanelNav.Tab.SETTINGS, true, this::addRenderableWidget,
                 () -> { if (isDirty()) sendCurrent(); });
 
-        // -- pinned settings sub-tab bar --
-        buildTabBar();
+        // -- pinned Sodium-style vertical sub-tab column (left) --
+        buildTabColumn();
 
-        // -- scrollable body for the active tab --
+        // -- scrollable body for the active tab (right of the tab column) --
         LinearLayout body = LinearLayout.vertical().spacing(SPACING);
         switch (tab) {
             case IDENTITY  -> buildIdentityTab(body);
@@ -163,7 +178,7 @@ public class AiConfigScreen extends Screen {
         ScrollableLayout scroll = new ScrollableLayout(this.minecraft, body, maxHeight);
         scroll.setMinWidth(W + 12);
         scroll.arrangeElements();
-        scroll.setX(this.width / 2 - (W + 12) / 2);
+        scroll.setX(contentLeft());
         scroll.setY(BODY_TOP);
         scroll.visitWidgets(this::addRenderableWidget);
 
@@ -187,29 +202,41 @@ public class AiConfigScreen extends Screen {
         nameBox = skinBox = modelBox = apiUrlBox = tokenBox = null;
         tokenStatus = null;
         listenButton = activeButton = commandsButton = debugButton = sneakButton = allowCustomButton = allowPossessionButton = allowVoiceButton = freeFallbackButton = tokenShowButton = null;
+        ollamaEnabledButton = player2EnabledButton = null;
+        ollamaUrlBox = ollamaModelBox = player2UrlBox = player2ModelBox = null;
         presetButton = defaultPersonalityButton = null;
         tempSlider = maxTokensSlider = followSlider = guardSlider = cmdLevelSlider = null;
         actionDelaySlider = maxTaskSlider = fleeSlider = null;
     }
 
-    // ── tab bar ─────────────────────────────────────────────────────────────────
+    // ── tab column (Sodium-style vertical tabs on the left) ─────────────────────────
 
-    private void buildTabBar() {
+    /** Left edge of the whole sidebar+content block (both are centred as one unit). */
+    private int blockLeft() {
+        int totalW = SIDEBAR_W + SIDEBAR_GAP + (W + 12);
+        return this.width / 2 - totalW / 2;
+    }
+
+    /** Left edge of the content column, to the right of the vertical tab column. */
+    private int contentLeft() {
+        return blockLeft() + SIDEBAR_W + SIDEBAR_GAP;
+    }
+
+    private void buildTabColumn() {
         Tab[] tabs = Tab.values();
-        int gap = 2;
-        int barW = W + 12;
-        int bw = (barW - gap * (tabs.length - 1)) / tabs.length;
-        int x0 = this.width / 2 - barW / 2;
-        for (int i = 0; i < tabs.length; i++) {
-            Tab t = tabs[i];
+        int x = blockLeft();
+        int gap = 3;
+        int y = TAB_Y;
+        for (Tab t : tabs) {
             boolean current = (t == tab);
             Component label = current
                     ? Component.literal(t.label).withStyle(TechTheme::accent)
                     : Component.literal(t.label);
             Button b = Button.builder(label, btn -> { if (tab != t) { capture(); tab = t; rebuildWidgets(); } })
-                    .bounds(x0 + i * (bw + gap), TAB_Y, bw, TAB_H).build();
+                    .bounds(x, y, SIDEBAR_W, TAB_H).build();
             b.active = !current;   // the current tab reads as "pressed"
             addRenderableWidget(b);
+            y += TAB_H + gap;
         }
     }
 
@@ -311,6 +338,40 @@ public class AiConfigScreen extends Screen {
                         + "Turn off to strictly require a key.");
         tempSlider = bodySlider(body, "Temperature", 0.0, 2.0, pTemp, false, "Creativity of the model — lower is more focused, higher is more varied.");
         maxTokensSlider = bodySlider(body, "Max tokens", 32, 2048, pMaxTokens, true, "Upper bound on the length of each plan the model returns.");
+
+        // ── Local & easy AI providers (no HuggingFace key needed) ──
+        header(body, "Local & easy AI (no key needed)");
+        body.addChild(new StringWidget(W, LABEL_H, activeProviderText(), this.font));
+
+        // Player2 — the easiest: install the app (local), or set PLAYER2_KEY (online, gpt-oss-120b).
+        player2EnabledButton = bodyToggle(body, "Use Player2 (player2.game)", pPlayer2Enabled,
+                "Easiest real AI: install the free Player2 app (local, keyless), or set a PLAYER2_KEY "
+                        + "env var for the online cloud (gpt-oss-120b). Used when no HuggingFace key is set.");
+        player2ModelBox = bodyBox(body, "Player2 model", pPlayer2Model, 128,
+                "Model sent to Player2 online (default gpt-oss-120b). Ignored for the local app.");
+        player2UrlBox = bodyBox(body, "Player2 online URL", pPlayer2Url, 256,
+                "Player2 cloud chat-completions endpoint (used when PLAYER2_KEY is set).");
+
+        // Ollama — run your own custom local models.
+        ollamaEnabledButton = bodyToggle(body, "Use local Ollama", pOllamaEnabled,
+                "Run your own CUSTOM local models via Ollama (or any keyless local OpenAI server). "
+                        + "No key, no internet. Used when no HuggingFace key and Player2 is off.");
+        ollamaModelBox = bodyBox(body, "Ollama model", pOllamaModel, 128,
+                "A model you've pulled, e.g. llama3.2, qwen2.5, phi3, gemma2:2b.");
+        ollamaUrlBox = bodyBox(body, "Ollama URL", pOllamaUrl, 256,
+                "Ollama's OpenAI-compatible endpoint (default http://localhost:11434/v1/chat/completions).");
+    }
+
+    /** A one-line hint of which provider the bots will actually use, given the current draft. */
+    private Component activeProviderText() {
+        String who; String color;
+        if (tokenSet || !pToken.isBlank()) { who = "your HuggingFace/API key"; color = "§a"; }
+        else if (pPlayer2Enabled) { who = pPlayer2KeySet ? "Player2 (online · gpt-oss-120b)" : "Player2 (local app)"; color = "§b"; }
+        else if (pOllamaEnabled) { who = "Ollama (" + (pOllamaModel == null || pOllamaModel.isBlank() ? "local" : pOllamaModel) + ")"; color = "§b"; }
+        else if (pFreeFallback) { who = "the free built-in AI"; color = "§b"; }
+        else { who = "nothing — no key, no provider (AI can't run)"; color = "§c"; }
+        return Component.literal(color + "▶ Bots will use: " + who
+                + "  §7(priority: key › Player2 › Ollama › free)");
     }
 
     private void buildCombatTab(LinearLayout body) {
@@ -421,6 +482,12 @@ public class AiConfigScreen extends Screen {
         if (allowPossessionButton != null) pAllowPossession = allowPossessionButton.getValue();
         if (allowVoiceButton != null) pAllowVoice = allowVoiceButton.getValue();
         if (freeFallbackButton != null) pFreeFallback = freeFallbackButton.getValue();
+        if (ollamaEnabledButton != null) pOllamaEnabled = ollamaEnabledButton.getValue();
+        if (ollamaUrlBox != null) pOllamaUrl = ollamaUrlBox.getValue();
+        if (ollamaModelBox != null) pOllamaModel = ollamaModelBox.getValue();
+        if (player2EnabledButton != null) pPlayer2Enabled = player2EnabledButton.getValue();
+        if (player2UrlBox != null) pPlayer2Url = player2UrlBox.getValue();
+        if (player2ModelBox != null) pPlayer2Model = player2ModelBox.getValue();
         if (presetButton != null) pPreset = presetButton.getValue();
         if (defaultPersonalityButton != null) pDefaultPersonality = defaultPersonalityButton.getValue();
         if (tempSlider != null) pTemp = tempSlider.current();
@@ -439,7 +506,9 @@ public class AiConfigScreen extends Screen {
                 pListen, pActive, pDebug, pName, pToken, tokenSet, pModel, pApiUrl,
                 pTemp, pMaxTokens, pFollow, pGuard, pCommands, pCmdLevel, pSkin,
                 pActionDelay, pMaxTask, pFlee, pPreset, pSneakMenu,
-                pDefaultPersonality, pAllowCustom, pAllowPossession, pFreeFallback, pAllowVoice);
+                pDefaultPersonality, pAllowCustom, pAllowPossession, pFreeFallback, pAllowVoice,
+                pOllamaEnabled, pOllamaUrl, pOllamaModel,
+                pPlayer2Enabled, pPlayer2Url, pPlayer2Model, pPlayer2KeySet);
     }
 
     private Component tokenStatusText() {
