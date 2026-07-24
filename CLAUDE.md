@@ -88,6 +88,21 @@ can do and how it evolved.
 ### AI / LLM planning
 - Connects to any **OpenAI-compatible** API (HuggingFace, Ollama, OpenAI,
   LM Studio, etc.) via `apiUrl` + `hfToken`.
+- **Provider presets (3.24.0)** — `ai/ProviderPreset` bundles the endpoint + a matching
+  default model for the big providers so switching "which AI company you use" is one click
+  instead of hand-typing a URL: **HuggingFace**, **ChatGPT** (OpenAI,
+  `api.openai.com/v1/chat/completions`, `gpt-4o-mini`), **Claude** (Anthropic's
+  OpenAI-compatible `api.anthropic.com/v1/chat/completions`, `claude-3-5-sonnet-20241022`),
+  **Gemini** (Google's OpenAI-compatible `generativelanguage.googleapis.com/v1beta/openai/…`,
+  `gemini-2.0-flash`) and **Grok** (xAI, `api.x.ai/v1/chat/completions`, `grok-2-latest`).
+  All speak the OpenAI wire format and auth with `Authorization: Bearer`, so no client
+  change is needed — a preset only sets `apiUrl` + `hfModel` (+ pre-fills a **default key**
+  when it has one). The **ChatGPT** preset ships with a public demo key so it isn't blank
+  out of the box (replace with your own for real use). In the Settings → **AI & API** tab a
+  **"AI provider"** cycler picks a preset (auto-fills URL/model, reveals+fills the ChatGPT
+  key); a URL matching no preset reads as **Custom**. Text/Bedrock:
+  `/ai admin provider [huggingface|chatgpt|claude|gemini|grok]` (bare lists them + the
+  current one). The provider is derived from `apiUrl` (nothing new persisted).
 - **Local & easy AI providers (3.21.0)** — beyond a key and the free service, two
   opt-in providers slot into `ApiAuth.resolveFor` (priority: real key → Player2 →
   Ollama → free):
@@ -393,6 +408,7 @@ having Blockpal. Code lives under `client/assist/` + two GUI screens.
 | `/ai model [<id>]` / `/ai models` | Pick your bot's model / list the allowed models |
 | `/ai mymenu` | Personal settings screen (model + your own key) |
 | `/ai admin …` | **(ops only)** admin panel — see *Admin menu* below |
+| `/ai admin provider [<name>]` | **(ops)** quick-switch provider: `huggingface`/`chatgpt`/`claude`/`gemini`/`grok` |
 | `/ai admin ollama on\|off\|url\|model\|models …` | **(ops)** use custom LOCAL models (Ollama) |
 | `/ai admin player2 on\|off\|url …` | **(ops)** easiest AI: Player2 (local app, or online w/ `PLAYER2_KEY`) |
 | `/ai minigame start <mode>` / `/ai minigame list` / `/ai minigame stop` | Play a mini-game (Chained, Same Health, One Block, Fusion, Growth) with your party & bot |
@@ -822,6 +838,41 @@ share code or versioning with the Java mod. Source in `bedrock/`, packaged artif
 ---
 
 ## Changelog
+
+### 3.24.0
+- **One-click AI provider presets — HuggingFace / ChatGPT / Claude / Gemini / Grok.**
+  Blockpal already talks to any OpenAI-compatible endpoint, so switching "which AI company
+  you use" is really just swapping `apiUrl` + a matching default model. New
+  `ai/ProviderPreset` bundles the endpoint and a sensible default model for the big
+  providers so you don't hand-type a URL:
+  - **HuggingFace** — `router.huggingface.co/v1/chat/completions`, `mistralai/Mistral-7B-Instruct-v0.2`.
+  - **ChatGPT (OpenAI)** — `api.openai.com/v1/chat/completions`, `gpt-4o-mini`. Ships with a
+    **public demo key** (`FKzEL…pump`) pre-filled so it isn't blank the first time you pick
+    it (probably rate-limited/dead — replace with your own OpenAI key for real use).
+  - **Claude (Anthropic)** — the OpenAI-compatible `api.anthropic.com/v1/chat/completions`,
+    `claude-3-5-sonnet-20241022`.
+  - **Gemini (Google)** — the OpenAI-compatible
+    `generativelanguage.googleapis.com/v1beta/openai/chat/completions`, `gemini-2.0-flash`.
+  - **Grok (xAI)** — `api.x.ai/v1/chat/completions`, `grok-2-latest`.
+
+  All speak the OpenAI wire format and authenticate with `Authorization: Bearer <key>`,
+  which `HuggingFaceClient` already sends — so a preset needs **no client change**, only the
+  URL, model and the caller's own key. In **Settings → AI & API** a new **"AI provider"**
+  cycler picks a preset (auto-fills the API URL + Model boxes, and for ChatGPT reveals +
+  pre-fills the demo key); a URL matching no preset reads as **Custom**, chosen automatically
+  when you hand-edit the URL. For Bedrock/vanilla admins (no Java GUI):
+  **`/ai admin provider [huggingface|chatgpt|claude|gemini|grok]`** — bare lists the presets
+  and the current one, a name switches the endpoint + default model (and pre-fills the demo
+  key for ChatGPT), keeping the preset's model selectable via `addAllowedModel`. The provider
+  is derived from `apiUrl`, so nothing new is persisted and **no config schema bump** (still
+  v11). New file `ai/ProviderPreset.java` (`git add -f`'d per the `*.java` ignore rule);
+  wiki Settings/Commands/Local-AI updated.
+- *(Toolchain caveat unchanged: Gradle + the 26.2 deps aren't reachable under this
+  environment's egress policy, so no jar was built — `build.yml` compile-checks the push. The
+  change reuses existing API surface only — a new enum, one `CycleButton<String>` mirroring
+  the existing preset/personality cyclers, and brigadier literals copied from the sibling
+  `ollama`/`player2` admin nodes — so it touches no new MC/Fabric API. The provider endpoints
+  themselves want a real key per provider to verify end-to-end in-game.)*
 
 ### 3.23.0
 - **The mini-game command is now `/ai minigame`.** The standalone `/game` command was

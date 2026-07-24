@@ -28,7 +28,7 @@ Every Blockpal screen has a shared **tab bar** at the top to move between the pa
 |-----|-------------|
 | **Identity** | Name, skin, **Open skins folder** button, **Default personality** |
 | **Behavior** | Chat listening, active analysis, sneak-to-open-menu, **allow custom personalities**, **allow possession mode**, **allow agent voice**, follow distance, guard radius, [performance preset](Performance-Presets) |
-| **AI & API** | API URL, model, token, **free AI fallback** toggle, temperature, max tokens |
+| **AI & API** | **AI provider preset**, API URL, model, token, **free AI fallback** toggle, temperature, max tokens |
 | **Combat** | Allow commands, permission level, flee health |
 | **Developer** | Action tick delay, task watchdog timeout, flee health *(high-risk — see [Developer Menu](Developer-Menu))* |
 
@@ -52,6 +52,33 @@ Every Blockpal screen has a shared **tab bar** at the top to move between the pa
   already-saved key is still never sent back to the menu at all (see *API token
   security* below). The same masking + Show key toggle is on the personal key
   box in **My Settings** (`/ai mymenu`).
+
+## AI provider presets (3.24.0)
+
+Blockpal talks to any **OpenAI-compatible** chat-completions endpoint, so switching
+"which AI you use" is really just swapping the **API URL** and a matching **model**.
+The **AI provider** cycler at the top of the **AI & API** tab does both in one click:
+
+| Provider | Endpoint | Default model | Key |
+|----------|----------|---------------|-----|
+| **HuggingFace** | `router.huggingface.co/v1/chat/completions` | `mistralai/Mistral-7B-Instruct-v0.2` | your HF token |
+| **ChatGPT (OpenAI)** | `api.openai.com/v1/chat/completions` | `gpt-4o-mini` | ships with a public demo key |
+| **Claude (Anthropic)** | `api.anthropic.com/v1/chat/completions` | `claude-3-5-sonnet-20241022` | your Anthropic key |
+| **Gemini (Google)** | `generativelanguage.googleapis.com/v1beta/openai/chat/completions` | `gemini-2.0-flash` | your Google API key |
+| **Grok (xAI)** | `api.x.ai/v1/chat/completions` | `grok-2-latest` | your xAI key |
+
+- Picking a provider fills the **API URL** and **Model** boxes for you. For **ChatGPT**
+  it also reveals and pre-fills a **public demo key** so it isn't blank the first time
+  (that key is probably rate-limited or dead — replace it with your own OpenAI key via
+  **Show key** or `/ai mykey <key>` for real use).
+- Every other provider needs **your own API key** for that service — set it in the
+  token box (press **Show key** first) or with `/ai admin token <key>` / `/ai mykey <key>`.
+- If the API URL matches none of the presets the cycler reads **Custom** — you can still
+  point at any other OpenAI-compatible endpoint (a local Ollama/LM Studio, OpenRouter, …)
+  by editing the URL by hand.
+- **Bedrock / vanilla / no GUI:** `/ai admin provider <name>` where `<name>` is
+  `huggingface`, `chatgpt`, `claude`, `gemini` or `grok` (bare `/ai admin provider`
+  lists them and shows the current one).
 
 ## The free AI fallback (3.17.0)
 

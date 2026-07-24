@@ -12,6 +12,11 @@ for the absolute easiest setup.
 3. **Ollama**, if enabled;
 4. the free keyless service.
 
+> **Want a big cloud provider instead?** ChatGPT, Claude, Gemini and Grok are all
+> OpenAI-compatible too — pick one in one click with the **AI provider** presets on the
+> **AI & API** tab (or `/ai admin provider <name>`). Those use an **API key**, so they sit
+> at priority 1 above. See [Settings → AI provider presets](Settings#ai-provider-presets-3240).
+
 > **In the settings menu (3.22.0):** open `/ai menu` → **AI & API** tab. Under **"Local &
 > easy AI"** you'll find **Use Player2** and **Use local Ollama** toggles, their model/URL
 > boxes, and a live **"▶ Bots will use: …"** line that tells you exactly which provider is
