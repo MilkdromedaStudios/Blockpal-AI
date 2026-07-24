@@ -7,6 +7,9 @@ import com.milkdromeda.blockpal.compat.BedrockSupport;
 import com.milkdromeda.blockpal.config.ModConfig;
 import com.milkdromeda.blockpal.entity.AiAssistantEntity;
 import com.milkdromeda.blockpal.entity.TrustEntry;
+import com.milkdromeda.blockpal.minigame.GameMode;
+import com.milkdromeda.blockpal.minigame.GameSession;
+import com.milkdromeda.blockpal.minigame.MinigameManager;
 import com.milkdromeda.blockpal.network.AdminStatsData;
 import com.milkdromeda.blockpal.network.AdminSyncPayload;
 import com.milkdromeda.blockpal.network.AiNetworking;
@@ -127,6 +130,19 @@ public class AiCommands {
                                 .then(Commands.argument("personality", StringArgumentType.word())
                                         .suggests(PERSONALITY_SUGGEST)
                                         .executes(ctx -> setPersonality(ctx, StringArgumentType.getString(ctx, "personality")))))
+
+                        // ── mini-games: play a game mode with your party and your bot ─
+                        // Chained, Same Health, One Block, Fusion, and Growth (the AI
+                        // village). Server-side, so Java and Bedrock players use it the same.
+                        .then(Commands.literal("minigame")
+                                .executes(AiCommands::minigameList)
+                                .then(Commands.literal("list").executes(AiCommands::minigameList))
+                                .then(Commands.literal("stop").executes(AiCommands::minigameStop))
+                                .then(Commands.literal("start")
+                                        .then(Commands.argument("mode", StringArgumentType.word())
+                                                .suggests(MINIGAME_MODES)
+                                                .executes(ctx -> minigameStart(ctx,
+                                                        StringArgumentType.getString(ctx, "mode"))))))
 
                         // Configuration lives in the in-game panel now — no confusing
                         // per-setting commands. /ai menu (or /ai panel) opens it;
@@ -274,7 +290,8 @@ public class AiCommands {
                 "§f/ai voice §7— hold §fV§7 to TALK to it; share/link voices, pick its voice\n" +
                 "§f/ai <task> §7— tell it what to do (e.g. /ai build a 5x5 floor)\n" +
                 "§f/ai dismiss §7— send it away\n" +
-                "§f/village start §7— play §fGrowth§7: an AI village that grows on its own (also §f/game start growth§7)\n" +
+                "§f/ai minigame [start <mode>|list|stop] §7— play a game mode with your party & bot\n" +
+                "§f/village start §7— play §fGrowth§7: an AI village that grows on its own (also §f/ai minigame start growth§7)\n" +
                 "§6\n" +
                 "§eSettings live in the panel — no confusing setting commands:\n" +
                 "§f/ai panel §7— the unified menu (tabs: Settings · Admin · My Settings)\n" +
@@ -461,6 +478,52 @@ public class AiCommands {
     // ── personality ─────────────────────────────────────────────────────────────
 
     /** Suggests the available personality ids. */
+    // ── mini-games (/ai minigame …) ──────────────────────────────────────────────
+
+    private static final com.mojang.brigadier.suggestion.SuggestionProvider<CommandSourceStack> MINIGAME_MODES =
+            (ctx, builder) -> {
+                for (GameMode m : GameMode.values()) builder.suggest(m.id);
+                return builder.buildFuture();
+            };
+
+    private static int minigameList(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer p = getPlayer(ctx);
+        if (p == null) return 0;
+        StringBuilder sb = new StringBuilder("§6=== Mini-games ===");
+        GameSession current = MinigameManager.sessionOf(p);
+        if (current != null) {
+            sb.append("\n§aYou're playing §f").append(current.mode.display)
+                    .append("§7 — stop with §f/ai minigame stop§7.");
+        }
+        for (GameMode m : GameMode.values()) {
+            sb.append("\n§e").append(m.id).append(" §7— ").append(m.desc);
+        }
+        sb.append("\n§7Start one for your party with §f/ai minigame start <mode>§7 (see §f/party§7).");
+        final String out = sb.toString();
+        p.sendSystemMessage(Component.literal(out));
+        return 1;
+    }
+
+    private static int minigameStart(CommandContext<CommandSourceStack> ctx, String modeId) {
+        ServerPlayer p = getPlayer(ctx);
+        if (p == null) return 0;
+        GameMode mode = GameMode.byId(modeId);
+        if (mode == null) {
+            p.sendSystemMessage(Component.literal(
+                    "§cUnknown mode §f'" + modeId + "'§c. See §f/ai minigame list§c."));
+            return 0;
+        }
+        MinigameManager.start(p, mode);
+        return 1;
+    }
+
+    private static int minigameStop(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer p = getPlayer(ctx);
+        if (p == null) return 0;
+        MinigameManager.stop(p);
+        return 1;
+    }
+
     private static final com.mojang.brigadier.suggestion.SuggestionProvider<CommandSourceStack> PERSONALITY_SUGGEST =
             (ctx, builder) -> {
                 for (Personality p : Personality.values()) builder.suggest(p.id());
@@ -1099,6 +1162,9 @@ public class AiCommands {
         cfg.player2Enabled = on;
         ModConfig.save();
         boolean online = !cfg.resolvePlayer2Key().isBlank();
+        // Local Player2 needs a signed-in app; pre-fetch its login key so the first
+        // request is already authenticated instead of 401-ing once while it warms.
+        if (on && !online) com.milkdromeda.blockpal.ai.HuggingFaceClient.warmPlayer2Local();
         ctx.getSource().sendSuccess(() -> Component.literal(
                 "§a[Blockpal] Player2 " + (on ? "§aENABLED" : "§7disabled")
                         + (on ? " §7— " + (online ? "§aONLINE §7(" + cfg.player2OnlineUrl + ", model §f"

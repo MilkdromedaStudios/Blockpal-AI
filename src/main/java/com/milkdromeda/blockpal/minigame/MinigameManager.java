@@ -97,7 +97,7 @@ public final class MinigameManager {
         }
         for (ServerPlayer p : players) {
             if (BY_PLAYER.containsKey(p.getUUID())) {
-                msg(leader, "§c" + p.getName().getString() + " is already in a game — stop it first (/game stop).");
+                msg(leader, "§c" + p.getName().getString() + " is already in a game — stop it first (/ai minigame stop).");
                 return;
             }
         }
@@ -118,7 +118,7 @@ public final class MinigameManager {
         if (mode.sharedHealth) broadcast(server, session, "§7You share one health pool. Look out for each other.");
     }
 
-    /** {@code /game stop}: the leader ends the whole game; anyone else just leaves it. */
+    /** {@code /ai minigame stop}: the leader ends the whole game; anyone else just leaves it. */
     public static void stop(ServerPlayer player) {
         GameSession s = BY_PLAYER.get(player.getUUID());
         if (s == null) { msg(player, "§7You're not in a game."); return; }

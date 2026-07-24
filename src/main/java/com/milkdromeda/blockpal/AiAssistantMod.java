@@ -2,7 +2,6 @@ package com.milkdromeda.blockpal;
 
 import com.milkdromeda.blockpal.chat.ChatListener;
 import com.milkdromeda.blockpal.command.AiCommands;
-import com.milkdromeda.blockpal.command.GameCommands;
 import com.milkdromeda.blockpal.command.PartyCommands;
 import com.milkdromeda.blockpal.command.VillageCommands;
 import com.milkdromeda.blockpal.config.ModConfig;
@@ -34,7 +33,7 @@ public class AiAssistantMod implements ModInitializer {
         AiNetworking.registerServerReceivers();
         AiCommands.register();
         PartyCommands.register();
-        GameCommands.register();
+        // Mini-games are registered as a subcommand of /ai (/ai minigame …) by AiCommands.
         VillageCommands.register();
         MinigameManager.registerEvents();
         VillageManager.registerEvents();

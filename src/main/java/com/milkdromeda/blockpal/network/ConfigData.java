@@ -137,6 +137,8 @@ public record ConfigData(
         if (notBlank(player2Url)) c.player2OnlineUrl = player2Url.trim();
         if (notBlank(player2Model)) c.player2Model = com.milkdromeda.blockpal.ai.ModelIds.clean(player2Model);
         // player2KeySet is display-only — the key comes from the PLAYER2_KEY env, never the client.
+        // Pre-fetch the local Player2 login key so the first bot request is already authed.
+        if (player2Enabled) com.milkdromeda.blockpal.ai.HuggingFaceClient.warmPlayer2Local();
     }
 
     private static boolean notBlank(String s) {
