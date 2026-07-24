@@ -96,13 +96,19 @@ can do and how it evolved.
     `ollamaModel`, default `llama3.2`) or any keyless local OpenAI-compatible server,
     so **custom local models** run with no key or internet.
     `/ai admin ollama on|off|url|model|models …`.
-  - **Player2 (player2.game)** — `player2Enabled`. **Keyless local**: install the
-    Player2 app (`player2Url`, `localhost:4315`). **Online cloud** when a
+  - **Player2 (player2.game)** — `player2Enabled`. **Local (via the Player2 app)**: install the
+    Player2 app (`player2Url`, `localhost:4315`) and sign in — no key to type. The app's
+    OpenAI-compatible API is still Bearer-authenticated, so the bot performs Player2's
+    **web-login handshake** to get an ephemeral key: `POST localhost:4315/v1/login/web/blockpal`
+    → `{"p2Key":…}`, cached (~5 min TTL, refreshed off-thread) and sent as
+    `Authorization: Bearer` on chat requests (`HuggingFaceClient.player2LocalKey` /
+    `warmPlayer2Local`; enabling Player2 pre-warms it). **Online cloud** when a
     **`PLAYER2_KEY`** is set (`player2OnlineUrl` `https://api.player2.game/v1/chat/
     completions`, `Authorization: Bearer`, default model **`gpt-oss-120b`**). The key
     comes from the **`PLAYER2_KEY` env / `-Dplayer2.key`** (used, never written to disk
     or baked into the jar; a config value is obfuscated at rest). Player2 endpoints also
-    get the `player2-game-key` header. `/ai admin player2 on|off|url …`.
+    get the `player2-game-key` **attribution** header (the game's name, not a secret).
+    `/ai admin player2 on|off|url …`.
   - A keyless **local** endpoint is "usable" via `ApiAuth`'s new `local` flag.
 - **Free keyless fallback (3.17.0)** — when *no* key resolves for a request (no
   shared key, no personal key), the bot automatically uses a **free keyless
@@ -389,8 +395,9 @@ having Blockpal. Code lives under `client/assist/` + two GUI screens.
 | `/ai admin …` | **(ops only)** admin panel — see *Admin menu* below |
 | `/ai admin ollama on\|off\|url\|model\|models …` | **(ops)** use custom LOCAL models (Ollama) |
 | `/ai admin player2 on\|off\|url …` | **(ops)** easiest AI: Player2 (local app, or online w/ `PLAYER2_KEY`) |
+| `/ai minigame start <mode>` / `/ai minigame list` / `/ai minigame stop` | Play a mini-game (Chained, Same Health, One Block, Fusion, Growth) with your party & bot |
 | `/village start\|status\|join <role>\|leave\|surrender\|stop` | **Growth** — an AI village that grows or collapses |
-| `/game start growth` | Same as `/village start` |
+| `/ai minigame start growth` | Same as `/village start` |
 | `/ai <task>` | Give a natural-language task |
 
 **No more setting commands (3.4.0).** The confusing per-setting commands were
@@ -747,30 +754,33 @@ share code or versioning with the Java mod. Source in `bedrock/`, packaged artif
   (`/party`), registered in `AiAssistantMod` along with a `ServerPlayConnectionEvents.
   DISCONNECT` cleanup hook. The minigame modes will start a game on a party.
 
-### Mini-games (3.13.0+)
-- **Play game modes with the bot and your party.** `/game start <mode>` starts a game for
-  the leader's party (or just you); participants are the online party members **and their
-  owned bots**, so the companion really plays. `/game list` shows the modes, `/game stop`
-  ends it (leader) or leaves it (member). Server-side, so Java and Bedrock play together.
+### Mini-games (3.13.0+; command moved to `/ai minigame` in 3.23.0)
+- **Play game modes with the bot and your party.** `/ai minigame start <mode>` starts a game
+  for the leader's party (or just you); participants are the online party members **and their
+  owned bots**, so the companion really plays. `/ai minigame list` shows the modes,
+  `/ai minigame stop` ends it (leader) or leaves it (member). Server-side, so Java and Bedrock
+  play together. *(These were the standalone `/game …` commands before 3.23.0; they're now a
+  subcommand of `/ai`, registered by `AiCommands` — the old top-level `/game` is gone.)*
 - **Four modes** (`GameMode`): **Chained** (participants tethered to the leader — a tug back
   past ~12 blocks, a teleport past ~40), **Same Health** (everyone clamped to the group's
   lowest health each tick; any death ends it for all), **One Block** (a regenerating single
   block on a sky platform, skyblock-style), and **Fusion** (Chained + Same Health at once).
 - **Code:** `minigame/GameMode.java`, `minigame/GameSession.java`, `minigame/MinigameManager.java`
   (tick / `AFTER_DEATH` / `PlayerBlockBreakEvents.AFTER` hooks, registered via
-  `MinigameManager.registerEvents()`), `command/GameCommands.java` (`/game`). Disconnect
-  cleanup shares the party hook in `AiAssistantMod`.
+  `MinigameManager.registerEvents()`); the `/ai minigame` subcommand lives in
+  `command/AiCommands.java` (the old `command/GameCommands.java` was removed in 3.23.0).
+  Disconnect cleanup shares the party hook in `AiAssistantMod`.
 - **Honest limits:** games run **in the current world** (One Block builds a sky platform) —
   the "each game is its own resumeable world" vision (custom dimensions/persistence) is a
   future enhancement. The mechanics compile and follow standard server APIs but need
   in-world play-testing and tuning (leash feel, One Block placement, shared-death timing).
 - **Growth (3.21.0)** is a fifth `GameMode`, but it's a solo AI-village sim rather than a
   party tether game, so `MinigameManager.start` hands `GROWTH` off to `VillageManager` (see
-  below) instead of creating a `GameSession`. Reachable as `/game start growth` **or**
+  below) instead of creating a `GameSession`. Reachable as `/ai minigame start growth` **or**
   `/village start`.
 
 ### Growth — an AI village that lives or dies on its own (3.21.0+)
-- **The pitch (VoxelMind-style):** `/village start` (or `/game start growth`) grows an
+- **The pitch (VoxelMind-style):** `/village start` (or `/ai minigame start growth`) grows an
   **AI-run village** around where you stand. Villagers are Blockpal bots
   (`AiAssistantEntity`), each spawned with a different **role** (builder, farmer, teacher,
   trader, guard, scholar — `VillageRole`), a different **personality**, and — on a local
@@ -812,6 +822,40 @@ share code or versioning with the Java mod. Source in `bedrock/`, packaged artif
 ---
 
 ## Changelog
+
+### 3.23.0
+- **The mini-game command is now `/ai minigame`.** The standalone `/game` command was
+  folded into the `/ai` tree as a subcommand — `/ai minigame start <mode>`,
+  `/ai minigame list`, `/ai minigame stop` (bare `/ai minigame` lists), with the same
+  five modes (Chained, Same Health, One Block, Fusion, Growth). Growth is now
+  `/ai minigame start growth` (or `/village start`). The `minigame` node + handlers live in
+  `command/AiCommands.java` (mirroring the old logic and still calling `MinigameManager`);
+  `command/GameCommands.java` was deleted and its `register()` call dropped from
+  `AiAssistantMod`, so the top-level `/game` no longer exists. In-world strings that named
+  `/game …` (the "already in a game" notice, help text, the Growth alias) now say
+  `/ai minigame …`.
+- **Player2 local AI actually works now (auth handshake).** Player2's local app
+  (`localhost:4315`) exposes an OpenAI-compatible API, but — like the online cloud — its
+  `/chat/completions` is **Bearer-authenticated**; the app just mints the token for you. The
+  mod was POSTing chat completions to the local app with **no `Authorization` header** (only
+  the `player2-game-key` attribution header), so every request came back **401 Unauthorized**
+  — "Player2 not working". Fix: `HuggingFaceClient` now performs the app's documented
+  web-login handshake (`POST localhost:4315/v1/login/web/blockpal` → `{"p2Key":…}`), caches
+  the key (~5 min TTL, refreshed **off the server thread** so it never blocks a tick), and
+  sends it as `Authorization: Bearer` on Player2 requests. `ApiAuth.resolveFor`'s local
+  branch fills in the cached key (still flagged `local`, so a not-yet-warmed app stays
+  "usable" and the cache warms on first use); enabling Player2 (`/ai admin player2 on` or the
+  GUI toggle) pre-warms it via `HuggingFaceClient.warmPlayer2Local()`. A Player2 401/403 now
+  gives a Player2-specific message ("make sure the app is running and you're signed in") via
+  `friendlyHttpError`. Verified the official Player2 API (api.yaml + the elefant-ai Unity SDK)
+  to pin the flow; the `player2-game-key` header is confirmed as **attribution** (the game's
+  name), not auth, so it stays `blockpal`.
+- No config schema change (still v11). *(Toolchain caveat unchanged: Gradle 9.5.1 and the
+  26.2/JDK-25 deps aren't reachable under this environment's egress policy, and the changes
+  touch no new MC/Fabric API surface — they reuse the `HttpClient`/gson patterns already in
+  `HuggingFaceClient` and brigadier structure copied from the removed `GameCommands` — so this
+  push is compile-checked by `build.yml`. The live Player2 login handshake wants a machine
+  running the Player2 app to confirm end-to-end.)*
 
 ### 3.22.0
 - **Ollama & Player2 are now configurable in the Settings GUI.** They existed only as

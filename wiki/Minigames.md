@@ -6,8 +6,9 @@ Minigames turn Blockpal from "an AI companion in your world" into "an AI compani
 more players join, and each one is a self-contained, **resumeable** game you can leave
 and come back to later.
 
-> **Available now (3.13.0).** Start a game with `/game start <mode>` (see *How to play*
-> below). Games currently run **in your current world** — One Block builds a sky platform.
+> **Available now (3.13.0; command is `/ai minigame` as of 3.23.0).** Start a game with
+> `/ai minigame start <mode>` (see *How to play* below). Games currently run **in your
+> current world** — One Block builds a sky platform.
 > The "each game is its own separate, resumeable world" vision (custom dimensions) is a
 > planned enhancement, so for now a game lasts until it's stopped rather than being saved
 > and reloaded later.
@@ -56,14 +57,14 @@ all.
 2. The party leader starts a round:
 
 ```
-/game list            # show the modes
-/game start <mode>    # chained | samehealth | oneblock | fusion
-/game stop            # leader ends it; a member just leaves
+/ai minigame list            # show the modes
+/ai minigame start <mode>    # chained | samehealth | oneblock | fusion | growth
+/ai minigame stop            # leader ends it; a member just leaves
 ```
 
 Everyone in the party — and their bots — is pulled into the game, and Ethan plays
-alongside you. Solo works too: run `/game start` with no party and it's just you and your
-bot.
+alongside you. Solo works too: run `/ai minigame start <mode>` with no party and it's just
+you and your bot.
 
 > Games run in your current world for now. One Block drops you on a fresh sky platform;
 > the other modes play wherever you are. A separate, saved, resumeable world per game is a
@@ -73,7 +74,7 @@ bot.
 
 There's a fifth mode that's different from the co-op games above: **Growth**, an
 **AI-run village** that grows or collapses on its own. Start it with
-`/game start growth` or `/village start`. It has its own commands (`/village
+`/ai minigame start growth` or `/village start`. It has its own commands (`/village
 status`, `/village join <role>`, `/village surrender`, …) and its own page:
 
 - **[Growth — the AI village game](Growth-Village)**

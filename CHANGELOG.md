@@ -4,6 +4,20 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.23.0
+- **Mini-games are now `/ai minigame`.** The old `/game` command moved under `/ai`, so it
+  lives with everything else: `/ai minigame start <mode>`, `/ai minigame list`, and
+  `/ai minigame stop` (just `/ai minigame` lists the modes). Same five modes — **Chained,
+  Same Health, One Block, Fusion,** and **Growth** — and the Growth village is now
+  `/ai minigame start growth` (or `/village start`). The standalone `/game` command is gone.
+- **Player2 local AI actually works now.** If you turned on **Use Player2** with the free
+  Player2 app but bots stayed silent or complained about the AI, this is why: the app needs
+  Blockpal to sign in through it first, and the mod wasn't doing that — so every request was
+  turned away. Now Blockpal does Player2's built-in login for you automatically (nothing to
+  paste), so with the **Player2 app running and signed in**, your companion just works.
+  Player2 problems now tell you what's wrong ("make sure the app is running and you're
+  signed in") instead of a generic error.
+
 ## 3.22.0
 - **Ollama and Player2 are now in the settings menu.** Open `/ai menu` → **AI & API** and
   you'll find a new **"Local & easy AI"** section with **Use Player2** and **Use local

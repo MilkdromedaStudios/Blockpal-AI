@@ -48,8 +48,11 @@ the same way — just set the URL.
 [Player2](https://player2.game) is an OpenAI-compatible AI made for games. It works
 two ways:
 
-- **Local (keyless):** install the free **Player2 app** and it serves AI on
-  `localhost:4315` — no key, no model download.
+- **Local (no key to type):** install the free **Player2 app**, **sign into it**, and
+  it serves AI on `localhost:4315` — no key to paste, no model download. You don't hand
+  Blockpal a token: the app's API is still signed-in-and-authenticated, and Blockpal does
+  Player2's built-in web-login handshake for you to fetch a short-lived key behind the
+  scenes. Just make sure the app is **running and logged in** before you play.
 - **Online (cloud):** set a **`PLAYER2_KEY`** and Blockpal uses Player2's hosted
   API with the strong **`gpt-oss-120b`** model by default.
 
@@ -74,6 +77,18 @@ two ways:
 > Blockpal speaks. Blockpal's online default is Player2's **chat-completions**
 > endpoint (`https://api.player2.game/v1/chat/completions`); use
 > `/ai admin player2 url <url>` if Player2's chat endpoint ever changes.
+
+### "Player2 isn't working"
+
+- **Local:** the Player2 app must be **running and signed in**. If it isn't, Blockpal
+  can't get a login key and the bot reports that Player2 didn't authorise the request —
+  open the app, log in, and try again. (Enabling Player2 pre-fetches the login key, so the
+  first request is already authenticated once the app is up.)
+- **A HuggingFace key wins over Player2.** Resolution order is **key → Player2 → Ollama →
+  free**, so if you (or the server) have an API key set, bots use *that* and skip Player2.
+  Clear the key (`/ai mykey clear`, or the admin token) if you specifically want Player2.
+- **Online:** set a valid **`PLAYER2_KEY`** — the cloud API rejects unauthenticated
+  requests with a 401.
 
 ## Related
 

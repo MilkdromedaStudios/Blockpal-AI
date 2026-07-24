@@ -73,8 +73,13 @@ public class HuggingFaceClient {
                     // Online (cloud) Player2 with the key.
                     return new ApiAuth(p2, cfg.player2Model, cfg.player2OnlineUrl, false, false);
                 }
-                // Local Player2 app — keyless.
-                return new ApiAuth("", cfg.player2Model, cfg.player2Url, false, true);
+                // Local Player2 app. Its /chat/completions still requires a Bearer token
+                // (the whole API is BearerAuth) — the app just mints that token for you
+                // via a one-line web-login handshake. Fetch/cache it so requests carry a
+                // real Authorization header instead of 401-ing. Still flagged local, so a
+                // blank key (app not running yet) stays "usable" and the cache warms on use.
+                String localKey = player2LocalKey(cfg.player2Url);
+                return new ApiAuth(localKey, cfg.player2Model, cfg.player2Url, false, true);
             }
             if (cfg.ollamaEnabled) {
                 return new ApiAuth("", cfg.ollamaModel, cfg.ollamaUrl, false, true);
@@ -481,9 +486,88 @@ public class HuggingFaceClient {
             builder.header("Authorization", "Bearer " + auth.token());
         }
         String url = auth.url() == null ? "" : auth.url().toLowerCase(Locale.ROOT);
-        if (url.contains(":4315") || url.contains("player2")) {
-            builder.header("player2-game-key", "blockpal");
+        if (isPlayer2Url(url)) {
+            // Player2 uses this header for attribution (which game is calling), not auth.
+            builder.header("player2-game-key", PLAYER2_GAME_KEY);
         }
+    }
+
+    // ── Player2 local login ──────────────────────────────────────────────────────
+    // The name Player2 attributes our calls to (any string; identifies the game).
+    private static final String PLAYER2_GAME_KEY = "blockpal";
+    // The ephemeral p2Key the local Player2 app mints for us, cached with a short TTL.
+    private static volatile String p2LocalKey = "";
+    private static volatile long p2LocalKeyAt = 0L;
+    private static volatile boolean p2LocalRefreshing = false;
+    private static final long P2_KEY_TTL_MS = 5 * 60_000L;
+
+    private static boolean isPlayer2Url(String urlLower) {
+        return urlLower.contains(":4315") || urlLower.contains("player2");
+    }
+
+    /**
+     * Returns the cached Player2 local key, kicking off a non-blocking background refresh
+     * (via the app's web-login handshake) when it's missing or stale. Never blocks — this
+     * runs on the server thread while a request is being built. The very first call may
+     * return "" (the request then warms the cache and the next one is authenticated).
+     */
+    static String player2LocalKey(String chatUrl) {
+        long now = System.currentTimeMillis();
+        if (!p2LocalKey.isBlank() && now - p2LocalKeyAt < P2_KEY_TTL_MS) return p2LocalKey;
+        refreshPlayer2LocalKey(chatUrl);
+        return p2LocalKey;
+    }
+
+    /** Fire-and-forget: warm (or refresh) the Player2 local key so the next request is authed. */
+    public static void warmPlayer2Local() {
+        ModConfig cfg = ModConfig.get();
+        if (cfg.player2Enabled && cfg.resolvePlayer2Key().isBlank()) {
+            refreshPlayer2LocalKey(cfg.player2Url);
+        }
+    }
+
+    /**
+     * Asks the local Player2 app for a p2Key: {@code POST http://localhost:4315/v1/login/web/<game>}
+     * → {@code {"p2Key": "..."}}. Asynchronous and guarded so only one refresh is in flight.
+     */
+    private static void refreshPlayer2LocalKey(String chatUrl) {
+        if (p2LocalRefreshing) return;
+        p2LocalRefreshing = true;
+        try {
+            HttpRequest req = HttpRequest.newBuilder(URI.create(player2LoginUrl(chatUrl)))
+                    .timeout(Duration.ofSeconds(5))
+                    .header("Accept", "application/json")
+                    .POST(HttpRequest.BodyPublishers.noBody())
+                    .build();
+            HTTP.sendAsync(req, HttpResponse.BodyHandlers.ofString()).whenComplete((resp, ex) -> {
+                try {
+                    if (ex == null && resp.statusCode() == 200 && resp.body() != null) {
+                        JsonObject o = JsonParser.parseString(resp.body()).getAsJsonObject();
+                        if (o.has("p2Key") && !o.get("p2Key").isJsonNull()) {
+                            String key = o.get("p2Key").getAsString();
+                            if (key != null && !key.isBlank()) {
+                                p2LocalKey = key.trim();
+                                p2LocalKeyAt = System.currentTimeMillis();
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {
+                    // Malformed response — leave the previous key (if any) in place.
+                } finally {
+                    p2LocalRefreshing = false;
+                }
+            });
+        } catch (Exception e) {
+            p2LocalRefreshing = false;
+        }
+    }
+
+    /** Derives {@code <scheme>://<host:port>/v1/login/web/<game>} from the chat-completions URL. */
+    private static String player2LoginUrl(String chatUrl) {
+        String base = (chatUrl == null || chatUrl.isBlank()) ? "http://localhost:4315/v1" : chatUrl;
+        int idx = base.indexOf("/v1/");
+        String root = idx >= 0 ? base.substring(0, idx) : "http://localhost:4315";
+        return root + "/v1/login/web/" + PLAYER2_GAME_KEY;
     }
 
     private JsonObject message(String role, String content) {
@@ -546,9 +630,13 @@ public class HuggingFaceClient {
         return switch (resp.statusCode()) {
             case 400, 404, 422 -> "the AI service rejected the request (" + resp.statusCode() + ")."
                     + said + modelHint(auth);
-            case 401, 403 -> "my API token is missing or invalid." + said
-                    + " An admin can set one with /ai admin token <token>, or set your own with "
-                    + "/ai mykey <token>.";
+            case 401, 403 -> player2Auth(auth)
+                    ? "Player2 didn't authorise the request (" + resp.statusCode() + ")." + said
+                        + " Make sure the Player2 app is running and you're signed into it, then try "
+                        + "again. For Player2's online cloud instead, set a PLAYER2_KEY."
+                    : "my API token is missing or invalid." + said
+                        + " An admin can set one with /ai admin token <token>, or set your own with "
+                        + "/ai mykey <token>.";
             case 429 -> "the AI service is rate-limiting me. Wait a moment and try again.";
             case 503 -> "the model is still loading or unavailable. Try again in a few seconds.";
             default -> {
@@ -560,6 +648,12 @@ public class HuggingFaceClient {
                         + (preview.isBlank() ? "." : ": " + preview);
             }
         };
+    }
+
+    /** True when this request targets a Player2 endpoint (so auth errors get Player2 advice). */
+    private static boolean player2Auth(ApiAuth auth) {
+        return auth != null && auth.url() != null
+                && isPlayer2Url(auth.url().toLowerCase(Locale.ROOT));
     }
 
     /** What to say about the model id when the service rejects a request outright. */

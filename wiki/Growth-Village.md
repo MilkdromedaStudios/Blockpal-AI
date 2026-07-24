@@ -8,8 +8,8 @@ about it — while a fast day-clock decides whether the settlement thrives or di
 Start it with:
 
 ```
-/village start          # grows a village around where you stand
-/game start growth       # exactly the same thing
+/village start                # grows a village around where you stand
+/ai minigame start growth     # exactly the same thing
 ```
 
 ## How it works

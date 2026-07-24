@@ -100,9 +100,9 @@ Play game modes with the bot and your party. See **[Minigames](Minigames)**.
 
 | Command | Description |
 |---------|-------------|
-| `/game list` | Show the modes (and your current game) |
-| `/game start <mode>` | Start a game for your party — `chained`, `samehealth`, `oneblock`, `fusion` |
-| `/game stop` | *(leader)* End the game, or *(member)* leave it |
+| `/ai minigame list` | Show the modes (and your current game) |
+| `/ai minigame start <mode>` | Start a game for your party — `chained`, `samehealth`, `oneblock`, `fusion`, `growth` |
+| `/ai minigame stop` | *(leader)* End the game, or *(member)* leave it |
 
 ## Quick intents (no API token)
 

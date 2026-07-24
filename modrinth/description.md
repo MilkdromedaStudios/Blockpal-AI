@@ -37,7 +37,7 @@ falls back to a free built-in AI**, so it works straight out of the box.
 - **Per-bot management and trust.** Own several companions and set each one up differently. Let specific friends command a chosen bot through a per-bot trust list, while renames, dismissals, and trust changes stay owner-only.
 - **Play from Bedrock.** Friends on iPad, console, or phone can join through a Geyser proxy and play with Ethan — with no mod on the Bedrock device.
 - **One-click hosting.** From the pause menu, or with `/aihost`, a Java player can download and launch a Bedrock-ready server (Minecraft plus Fabric plus the latest Geyser and Floodgate) and share the connect address, so friends on either edition can join.
-- **Parties & mini-games.** `/party` up with friends and `/game start` a mode — Chained, Same Health, One Block, or Fusion — with your bot playing too.
+- **Parties & mini-games.** `/party` up with friends and `/ai minigame start` a mode — Chained, Same Health, One Block, or Fusion — with your bot playing too.
 - **In-game settings and admin panels.** Tabbed screens for settings, admin controls, and your personal preferences — no config-file editing required.
 - **Bring your own key and model.** Per-player API keys and a server-curated model list, so one server owner is not billed for everyone.
 - **Safety rails.** A task watchdog, a server-wide bot cap, command permission limits, and an emergency frame-rate kill switch that pauses bots if performance collapses.
