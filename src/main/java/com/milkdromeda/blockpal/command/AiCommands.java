@@ -191,6 +191,9 @@ public class AiCommands {
                                 .then(Commands.literal("apiurl")
                                         .then(Commands.argument("url", StringArgumentType.greedyString())
                                                 .executes(ctx -> adminSetApiUrl(ctx, StringArgumentType.getString(ctx, "url")))))
+                                // One-click provider presets: swap the endpoint + a matching
+                                // default model for HuggingFace / ChatGPT / Claude / Gemini / Grok.
+                                .then(providerCommand())
                                 .then(Commands.literal("model")
                                         .then(Commands.argument("model", StringArgumentType.greedyString())
                                                 .suggests(ALLOWED_MODELS_SUGGEST)
@@ -252,6 +255,19 @@ public class AiCommands {
                                 .executes(ctx -> doTask(ctx, StringArgumentType.getString(ctx, "task"))))
                 )
         );
+    }
+
+    /**
+     * The {@code /ai admin provider [<name>]} node: bare lists the presets and the
+     * current one, each provider id (huggingface/chatgpt/claude/gemini/grok) switches
+     * the endpoint + default model (and pre-fills a default key when the preset has one).
+     */
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> providerCommand() {
+        var node = Commands.literal("provider").executes(AiCommands::adminProviderShow);
+        for (com.milkdromeda.blockpal.ai.ProviderPreset p : com.milkdromeda.blockpal.ai.ProviderPreset.values()) {
+            node.then(Commands.literal(p.id()).executes(ctx -> adminProvider(ctx, p)));
+        }
+        return node;
     }
 
     /** A literal action command that also accepts (and ignores) trailing text like "me". */
@@ -923,6 +939,7 @@ public class AiCommands {
                 "§f/ai admin reload §7— reload config from disk\n" +
                 "§f/ai admin token <token> §7— set the shared AI API key (no GUI needed)\n" +
                 "§f/ai admin apiurl <url> §7— set the OpenAI-compatible API endpoint\n" +
+                "§f/ai admin provider <name> §7— quick-switch: huggingface|chatgpt|claude|gemini|grok\n" +
                 "§f/ai admin model <id> §7— set the server default model\n" +
                 "§f/ai admin ollama on|off|url|model|models §7— use custom LOCAL models (Ollama)\n" +
                 "§f/ai admin player2 on|off|url §7— easiest AI: Player2 (local app, or online w/ PLAYER2_KEY)\n" +
@@ -1050,6 +1067,48 @@ public class AiCommands {
         ModConfig.save();
         ctx.getSource().sendSuccess(() -> Component.literal(
                 "§a[Blockpal] API URL set to §f" + cfg.apiUrl), false);
+        return 1;
+    }
+
+    private static int adminProvider(CommandContext<CommandSourceStack> ctx,
+                                     com.milkdromeda.blockpal.ai.ProviderPreset p) {
+        ModConfig cfg = ModConfig.get();
+        cfg.apiUrl = p.url();
+        cfg.hfModel = com.milkdromeda.blockpal.ai.ModelIds.clean(p.model());
+        cfg.addAllowedModel(cfg.hfModel);   // keep the preset's model selectable by players
+        boolean setKey = false;
+        if (p.hasDefaultKey()) {
+            cfg.setToken(p.defaultKey());
+            setKey = true;
+        }
+        ModConfig.save();
+        final boolean didKey = setKey;
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§a[Blockpal] Provider set to §f" + p.display() + "§a ✓\n"
+                        + "§7• Endpoint: §f" + p.url() + "\n"
+                        + "§7• Default model: §f" + cfg.hfModel + "\n"
+                        + (didKey
+                            ? "§7• A default API key was pre-filled §7(a public demo key — replace it with your "
+                                + "own via §f/ai admin token <key>§7 or §f/ai mykey <key>§7)."
+                            : "§7• Set the key for this provider with §f/ai admin token <key>§7 (or §f/ai mykey <key>§7).")),
+                false);
+        return 1;
+    }
+
+    private static int adminProviderShow(CommandContext<CommandSourceStack> ctx) {
+        ModConfig cfg = ModConfig.get();
+        com.milkdromeda.blockpal.ai.ProviderPreset current =
+                com.milkdromeda.blockpal.ai.ProviderPreset.fromUrl(cfg.apiUrl);
+        StringBuilder sb = new StringBuilder("§6=== AI providers ===\n");
+        sb.append("§7Current endpoint: §f").append(cfg.apiUrl).append(" §7(")
+                .append(current != null ? "§b" + current.display() : "§eCustom").append("§7)\n");
+        for (com.milkdromeda.blockpal.ai.ProviderPreset p : com.milkdromeda.blockpal.ai.ProviderPreset.values()) {
+            sb.append(p == current ? "§a▶ " : "§7• ").append("§f/ai admin provider ").append(p.id())
+                    .append(" §7— ").append(p.display()).append("\n");
+        }
+        sb.append("§7Switching sets the endpoint + a default model; add that provider's key with "
+                + "§f/ai admin token <key>§7.");
+        ctx.getSource().sendSuccess(() -> Component.literal(sb.toString()), false);
         return 1;
     }
 

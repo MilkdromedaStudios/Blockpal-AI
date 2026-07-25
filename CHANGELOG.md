@@ -4,6 +4,17 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.24.0
+- **Pick your AI in one click — HuggingFace, ChatGPT, Claude, Gemini or Grok.** Open
+  `/ai menu` → **AI & API** and you'll find a new **AI provider** switch at the top. Flip it
+  and Blockpal fills in the right web address and a good starting model for that company — no
+  more hunting down and typing an API URL. **ChatGPT** even comes with a public demo key
+  already filled in (it's probably out of juice, so swap in your own OpenAI key for real use);
+  the others just need you to paste that provider's own key in the token box. Editing the URL
+  yourself is still fine — the switch simply reads **"Custom"** then. Playing on Bedrock or a
+  vanilla client? Use `/ai admin provider chatgpt` (or `huggingface`/`claude`/`gemini`/`grok`);
+  bare `/ai admin provider` lists them and shows which one you're on.
+
 ## 3.23.0
 - **Mini-games are now `/ai minigame`.** The old `/game` command moved under `/ai`, so it
   lives with everything else: `/ai minigame start <mode>`, `/ai minigame list`, and

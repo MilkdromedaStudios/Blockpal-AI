@@ -73,6 +73,10 @@ permission level. See **[Admin Menu](Admin-Menu)** for the full guide.
 | `/ai admin maxbots <0-50>` | Cap bots per server (0 = unlimited) |
 | `/ai admin disable` · `/ai admin enable` | Turn all bots off / on for everyone |
 | `/ai admin reload` | Reload `config.json` from disk |
+| `/ai admin token <key>` | Set the shared AI API key (no GUI needed) |
+| `/ai admin apiurl <url>` | Set the OpenAI-compatible API endpoint |
+| `/ai admin provider [<name>]` | Quick-switch provider: `huggingface`/`chatgpt`/`claude`/`gemini`/`grok` (bare lists them) — see [Settings](Settings#ai-provider-presets-3240) |
+| `/ai admin model <id>` | Set the server default model |
 | `/ai admin requirekey on\|off` | Make players use their own API key — see [Per-Player Keys & Models](Per-Player-Keys-and-Models) |
 | `/ai admin possession on\|off` | Allow / deny possession mode (`/ai possess`) — see [Possession Mode](Possession-Mode) |
 | `/ai admin voice on\|off` | Allow / deny agent voice (push-to-talk + speech) — see [Voice](Voice) |

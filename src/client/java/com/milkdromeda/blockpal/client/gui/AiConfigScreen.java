@@ -92,7 +92,7 @@ public class AiConfigScreen extends Screen {
     private CycleButton<Boolean> listenButton, activeButton, commandsButton, debugButton, sneakButton, allowCustomButton, allowPossessionButton, allowVoiceButton, freeFallbackButton, tokenShowButton;
     private CycleButton<Boolean> ollamaEnabledButton, player2EnabledButton;
     private EditBox ollamaUrlBox, ollamaModelBox, player2UrlBox, player2ModelBox;
-    private CycleButton<String> presetButton, defaultPersonalityButton;
+    private CycleButton<String> presetButton, defaultPersonalityButton, providerButton;
     private OptionSlider tempSlider, maxTokensSlider, followSlider, guardSlider, cmdLevelSlider;
     private OptionSlider actionDelaySlider, maxTaskSlider, fleeSlider;
 
@@ -204,7 +204,7 @@ public class AiConfigScreen extends Screen {
         listenButton = activeButton = commandsButton = debugButton = sneakButton = allowCustomButton = allowPossessionButton = allowVoiceButton = freeFallbackButton = tokenShowButton = null;
         ollamaEnabledButton = player2EnabledButton = null;
         ollamaUrlBox = ollamaModelBox = player2UrlBox = player2ModelBox = null;
-        presetButton = defaultPersonalityButton = null;
+        presetButton = defaultPersonalityButton = providerButton = null;
         tempSlider = maxTokensSlider = followSlider = guardSlider = cmdLevelSlider = null;
         actionDelaySlider = maxTaskSlider = fleeSlider = null;
     }
@@ -299,6 +299,21 @@ public class AiConfigScreen extends Screen {
 
     private void buildAiTab(LinearLayout body) {
         header(body, "Language model & API");
+        // One-click provider presets: pick HuggingFace / ChatGPT / Claude / Gemini /
+        // Grok and the API URL + a matching default model are filled in for you (and
+        // ChatGPT's public demo key is pre-filled). "Custom" = a URL that matches no
+        // preset — chosen automatically when you hand-edit the API URL below.
+        body.addChild(new StringWidget(W, LABEL_H, Component.literal("AI provider"), this.font));
+        providerButton = body.addChild(CycleButton.<String>builder(
+                        s -> Component.literal("Provider: " + s),
+                        com.milkdromeda.blockpal.ai.ProviderPreset.labelForUrl(pApiUrl))
+                .withValues(com.milkdromeda.blockpal.ai.ProviderPreset.displayValues())
+                .create(0, 0, W, FIELD_H, Component.literal("AI provider"),
+                        (btn, val) -> applyProvider(val)));
+        providerButton.setTooltip(Tooltip.create(Component.literal(
+                "Quick-switch which AI you use — fills the API URL and a matching default model below. "
+                        + "ChatGPT / Claude / Gemini / Grok need that provider's own API key; HuggingFace uses yours. "
+                        + "\"Custom\" is any other OpenAI-compatible endpoint — just edit the URL yourself.")));
         modelBox = bodyBox(body, "Model", pModel, 128, "Model id sent to the API (e.g. mistralai/Mistral-7B-Instruct-v0.2).");
         apiUrlBox = bodyBox(body, "API URL", pApiUrl, 256, "Any OpenAI-compatible chat-completions endpoint (HuggingFace, OpenAI, Ollama, LM Studio…).");
         // Seeded from the DRAFT (pToken), not the saved key: pToken only ever holds
@@ -421,6 +436,32 @@ public class AiConfigScreen extends Screen {
         if (actionDelaySlider != null) actionDelaySlider.setCurrent(pActionDelay);
         if (maxTaskSlider != null) maxTaskSlider.setCurrent(pMaxTask);
         if (fleeSlider != null) fleeSlider.setCurrent(pFlee);
+    }
+
+    /**
+     * Applies a provider preset: fills the API URL + a matching default model, and —
+     * when the preset carries one (ChatGPT's public demo key) — pre-fills the API key
+     * into the draft so Save sends it. "Custom" leaves every field as the player set it.
+     */
+    private void applyProvider(String display) {
+        com.milkdromeda.blockpal.ai.ProviderPreset p =
+                com.milkdromeda.blockpal.ai.ProviderPreset.byDisplay(display);
+        if (p == null) return;   // "Custom" — don't touch what the player typed
+        pApiUrl = p.url();
+        pModel = p.model();
+        if (apiUrlBox != null) apiUrlBox.setValue(pApiUrl);
+        if (modelBox != null) modelBox.setValue(pModel);
+        if (p.hasDefaultKey()) {
+            // Reveal + fill the key so it's obviously applied (a Save then persists it).
+            pToken = p.defaultKey();
+            tokenVisible = true;
+            if (tokenBox != null) {
+                tokenBox.setEditable(true);
+                tokenBox.setValue(pToken);
+            }
+            if (tokenShowButton != null) tokenShowButton.setValue(true);
+            if (tokenStatus != null) tokenStatus.setMessage(tokenStatusText());
+        }
     }
 
     private void openSkinsFolder() {
