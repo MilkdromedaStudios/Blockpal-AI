@@ -13,6 +13,7 @@ import com.milkdromeda.blockpal.party.PartyManager;
 import com.milkdromeda.blockpal.possession.PossessionManager;
 import com.milkdromeda.blockpal.voice.VoiceCoordinator;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.minecraft.network.chat.Component;
@@ -41,12 +42,15 @@ public class AiAssistantMod implements ModInitializer {
         VoiceCoordinator.registerEvents();
         ChatListener.register();
         registerFirstRunTutorial();
+        registerMcpServer();
+        CreativeWatch.register();
         // Keep parties/games/possession tidy: drop a player from each when they disconnect.
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             PartyManager.handleDisconnect(handler.player);
             MinigameManager.handleDisconnect(handler.player);
             VillageManager.handleDisconnect(handler.player);
             PossessionManager.handleDisconnect(handler.player);
+            CreativeWatch.handleDisconnect(handler.player);
         });
 
         LOGGER.info("Blockpal mod initialized.");
@@ -64,6 +68,25 @@ public class AiAssistantMod implements ModInitializer {
                         + "environment variable.");
             }
         }
+    }
+
+    /**
+     * Starts and stops the built-in MCP server with the world. It only actually listens
+     * when the AI connection is set to {@code mcp} — see
+     * {@link com.milkdromeda.blockpal.mcp.McpServer#sync}.
+     */
+    private void registerMcpServer() {
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+            com.milkdromeda.blockpal.mcp.McpServer.sync(server);
+            if (ModConfig.get().isMcpConnection()) {
+                LOGGER.info("Blockpal AI connection: MCP — {}. Run /ai mcp in-game for the "
+                        + "setup guide and access token.", com.milkdromeda.blockpal.mcp.McpServer.status());
+            } else {
+                LOGGER.info("Blockpal AI connection: {}", ModConfig.get().connection().display());
+            }
+        });
+        ServerLifecycleEvents.SERVER_STOPPING.register(server ->
+                com.milkdromeda.blockpal.mcp.McpServer.stop());
     }
 
     /**

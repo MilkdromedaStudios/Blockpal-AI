@@ -7,6 +7,8 @@ import com.milkdromeda.blockpal.client.gui.AdminScreen;
 import com.milkdromeda.blockpal.client.gui.AiConfigScreen;
 import com.milkdromeda.blockpal.client.gui.AssistantChatScreen;
 import com.milkdromeda.blockpal.client.gui.BotManagerScreen;
+import com.milkdromeda.blockpal.client.gui.CreativeWarningScreen;
+import com.milkdromeda.blockpal.client.gui.McpGuideScreen;
 import com.milkdromeda.blockpal.client.gui.HostScreen;
 import com.milkdromeda.blockpal.client.gui.MiniChatPanel;
 import com.milkdromeda.blockpal.client.gui.PlayerSettingsScreen;
@@ -87,6 +89,20 @@ public class AiAssistantClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(OpenTutorialPayload.TYPE, (payload, context) ->
                 context.client().execute(() ->
                         context.client().setScreenAndShow(new TutorialScreen())));
+
+        // Server sent our MCP connection details (/ai mcp) — open the setup guide, which
+        // shows the address, the token and the exact config for Claude/ChatGPT/Grok/Gemini.
+        ClientPlayNetworking.registerGlobalReceiver(
+                com.milkdromeda.blockpal.network.McpInfoPayload.TYPE, (payload, context) ->
+                        context.client().execute(() -> context.client().setScreenAndShow(
+                                new McpGuideScreen(payload.running(), payload.endpoint(),
+                                        payload.sseEndpoint(), payload.token(), payload.status()))));
+
+        // We just went creative with a companion out — it walks, and it will be left behind.
+        ClientPlayNetworking.registerGlobalReceiver(
+                com.milkdromeda.blockpal.network.CreativeWarningPayload.TYPE, (payload, context) ->
+                        context.client().execute(() -> context.client().setScreenAndShow(
+                                new CreativeWarningScreen(payload.botName()))));
 
         // Server sent the bot list (via /ai bots or the Bots panel tab) — open/refresh
         // the visual Bots manager, keeping the current selection across refreshes.

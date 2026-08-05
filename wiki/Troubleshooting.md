@@ -4,6 +4,54 @@
 > use the **AI**, **Behavior** and **Developer** tabs. New to the mod? Run
 > **`/ai tutorial`**.
 
+### My AI app can't connect over MCP
+
+- **Is MCP the chosen connection?** `/ai connection` — only one runs at a time, and the
+  MCP listener only starts when it's the one. `/ai connection set mcp`, then
+  `/ai mcp status`.
+- **401 Unauthorized** — the token is missing or wrong. `/ai mcp token`, and send it as
+  `Authorization: Bearer <token>`.
+- **Connection refused** — something else may hold the port: `/ai mcp port 25570`.
+- **ChatGPT / Grok's website / Google AI Studio can't see it.** They run in the cloud, so
+  `localhost` on your PC means *their* machine, not yours. You need a tunnel plus
+  `/ai mcp remote on`. Desktop apps that run on your own machine (Claude Desktop, Gemini
+  CLI) don't need any of that.
+- **Connected but "no companion"** — someone has to `/ai summon` one first; then the AI
+  can `list_bots`.
+
+Full setup for each app: **[MCP server](MCP-Server)**.
+
+### My companion won't teleport to me any more
+
+That's deliberate, as of 3.25.0. Companions **walk** — they never blink to your side,
+however far behind they are, because a thing that teleports to your camera isn't really
+living in the world with you.
+
+If it's a long way off, `/ai come` sends it walking (it'll tell you the distance) and
+`/ai locate` says where it got to. In creative you can out-fly it in seconds, which is
+why you get a one-time warning; `/ai stay` parks it somewhere safe first.
+
+### The bot seems dumber than it used to be
+
+Also deliberate — and reversible. The default brain now *looks* at the world and writes a
+script with a player's controls, rather than being handed coordinates it never saw. It
+misses things a player would miss.
+
+- A **vision-capable model** helps a lot (the picture is the point). With
+  [MCP](MCP-Server) that's whatever app you already use.
+- To go back to the old behaviour: **Settings → Behavior → Thinking style → Classic
+  action plan (JSON)**.
+- If pictures are the problem (cost, or a model with no eyes), turn off **Send pictures
+  to the AI** — it'll work from the written scene instead.
+
+See **[Vision & Code](Vision-and-Code)**.
+
+### It says it can't reach something / keeps failing to mine
+
+The bot has a player's reach (about 4.5 blocks) and a player's mining speed. If it isn't
+holding the right tool it will be slow, and bedrock won't break at all. `/ai look` shows
+you exactly what it can see — often it's simply facing the wrong way.
+
 ### "Can't connect to the AI service"
 
 Open `/ai menu` → **AI** tab and reset **API URL** to the supported HuggingFace router

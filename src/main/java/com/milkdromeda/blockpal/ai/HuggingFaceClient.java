@@ -49,45 +49,42 @@ public class HuggingFaceClient {
         }
 
         /**
-         * Resolves what a bot owned by {@code owner} should talk to, in priority order:
-         * <ol>
-         *   <li>a personal or shared API key → the configured (HuggingFace by default)
-         *       endpoint — a real key always wins;</li>
-         *   <li>otherwise, if the local Player2 app is enabled → its keyless endpoint
-         *       (the lowest-effort real AI: install the app, no key, no model download);</li>
-         *   <li>otherwise, if a local Ollama endpoint is enabled → that keyless local
-         *       server, so custom local models work with no key or internet;</li>
-         *   <li>otherwise the free keyless service, unless ops disabled it — then the
-         *       auth comes back unusable.</li>
-         * </ol>
+         * Resolves what a bot owned by {@code owner} should talk to.
+         *
+         * <p>Since 3.25.0 this is <b>not a fallback chain</b>: the server picks exactly
+         * one {@link AiConnection} and that is the one used. The old "key, else Player2,
+         * else Ollama, else free" cascade let two or three providers be enabled at once
+         * with no way to tell which one actually answered — or which one was being
+         * billed. Now the answer is always the configured connection, and if it isn't
+         * usable the caller is told so instead of being quietly redirected somewhere else.
+         *
+         * <p>{@link AiConnection#MCP} and {@link AiConnection#OFF} resolve to an unusable
+         * auth on purpose: with MCP the thinking happens in an outside AI app that calls
+         * <i>in</i>, so the game never makes model requests of its own.
          */
         public static ApiAuth resolveFor(UUID owner, String ownerName) {
             ModConfig cfg = ModConfig.get();
-            String token = cfg.resolveTokenFor(owner, ownerName);
-            if (!token.isBlank()) {
-                return new ApiAuth(token, cfg.resolveModelFor(owner), cfg.apiUrl, false, false);
-            }
-            if (cfg.player2Enabled) {
-                String p2 = cfg.resolvePlayer2Key();
-                if (!p2.isBlank()) {
-                    // Online (cloud) Player2 with the key.
-                    return new ApiAuth(p2, cfg.player2Model, cfg.player2OnlineUrl, false, false);
+            return switch (cfg.connection()) {
+                case API_KEY -> new ApiAuth(cfg.resolveTokenFor(owner, ownerName),
+                        cfg.resolveModelFor(owner), cfg.apiUrl, false, false);
+                case PLAYER2 -> {
+                    String p2 = cfg.resolvePlayer2Key();
+                    if (!p2.isBlank()) {
+                        // Online (cloud) Player2 with the key.
+                        yield new ApiAuth(p2, cfg.player2Model, cfg.player2OnlineUrl, false, false);
+                    }
+                    // Local Player2 app. Its /chat/completions still requires a Bearer token
+                    // (the whole API is BearerAuth) — the app just mints that token for you
+                    // via a one-line web-login handshake. Fetch/cache it so requests carry a
+                    // real Authorization header instead of 401-ing. Still flagged local, so a
+                    // blank key (app not running yet) stays "usable" and the cache warms on use.
+                    yield new ApiAuth(player2LocalKey(cfg.player2Url), cfg.player2Model,
+                            cfg.player2Url, false, true);
                 }
-                // Local Player2 app. Its /chat/completions still requires a Bearer token
-                // (the whole API is BearerAuth) — the app just mints that token for you
-                // via a one-line web-login handshake. Fetch/cache it so requests carry a
-                // real Authorization header instead of 401-ing. Still flagged local, so a
-                // blank key (app not running yet) stays "usable" and the cache warms on use.
-                String localKey = player2LocalKey(cfg.player2Url);
-                return new ApiAuth(localKey, cfg.player2Model, cfg.player2Url, false, true);
-            }
-            if (cfg.ollamaEnabled) {
-                return new ApiAuth("", cfg.ollamaModel, cfg.ollamaUrl, false, true);
-            }
-            if (cfg.freeAiFallback) {
-                return new ApiAuth("", cfg.freeModel, cfg.freeApiUrl, true, false);
-            }
-            return new ApiAuth("", cfg.resolveModelFor(owner), cfg.apiUrl, false, false);
+                case OLLAMA -> new ApiAuth("", cfg.ollamaModel, cfg.ollamaUrl, false, true);
+                case FREE -> new ApiAuth("", cfg.freeModel, cfg.freeApiUrl, true, false);
+                case MCP, OFF -> new ApiAuth("", cfg.hfModel, cfg.apiUrl, false, false);
+            };
         }
     }
 
@@ -330,6 +327,175 @@ public class HuggingFaceClient {
                 .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body)));
         addProviderHeaders(builder, auth);
         return builder.build();
+    }
+
+    // ── vision + code: the "look at it and write a script" brain ────────────────
+
+    /** What the model sends back when it has looked at the world and decided what to do. */
+    public record CodeReply(String thinking, String say, String code, String error) {
+        public static CodeReply failed(String why) {
+            return new CodeReply("", "", "", why);
+        }
+    }
+
+    private static final String CODER_PROMPT = """
+            You are the mind of a Minecraft character. You are NOT an admin and you have
+            no commands: you see what your eyes see, and you act by pressing the same keys
+            and mouse buttons a player presses.
+
+            You get a picture rendered from your own eyes (low resolution — a white cross
+            marks the middle of your view) and a written description of the same scene.
+            Decide ONE small thing to do next, then write a short script that does it.
+
+            Respond with ONLY this JSON:
+            {
+              "thinking": "<one sentence: what you see and what you'll do>",
+              "say": "<something short to say out loud, or empty>",
+              "code": "<the script>"
+            }
+
+            SCRIPT RULES
+            - You have a player's body. You cannot teleport, fly, see through walls, or
+              create blocks out of nothing. To reach something, walk to it. To break
+              something, be within about 4.5 blocks, aim at it and hold the mouse button.
+            - Keep scripts SHORT (5-20 lines). You will look again straight after, so plan
+              one step, not a whole project.
+            - Prefer goTo(x, y, z) then mineAt(x, y, z) over guessing at raw key presses.
+            - Never invent an action that isn't in the list. Never write prose in "code".
+            - If you can't see anything worth doing, turn to look somewhere else.
+
+            THE ACTIONS YOU HAVE
+            %s
+            """;
+
+    /**
+     * Asks the model to look at the world and write a script for what to do next.
+     *
+     * <p>The picture rides along as an OpenAI-style {@code image_url} part with an inline
+     * {@code data:} URI. Not every provider or model accepts image parts, so a rejection
+     * is retried once as text-only — a model that can't see still gets the written scene
+     * and can still play, just less well.
+     */
+    public CompletableFuture<CodeReply> requestCode(String goal, String scene, String imageDataUri,
+                                                    String journal, String carrying, ApiAuth auth,
+                                                    String personaStyle) {
+        if (auth == null || !auth.usable()) {
+            return CompletableFuture.completedFuture(CodeReply.failed("no AI connection is usable"));
+        }
+        ModConfig cfg = ModConfig.get();
+        HttpRequest request;
+        try {
+            request = buildCodeRequest(cfg, goal, scene, imageDataUri, journal, carrying, auth, personaStyle);
+        } catch (IllegalArgumentException e) {
+            return CompletableFuture.completedFuture(CodeReply.failed("the API URL looks invalid"));
+        }
+        boolean hadImage = imageDataUri != null && !imageDataUri.isBlank();
+        return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                .thenCompose(resp -> {
+                    if (resp.statusCode() == 200) {
+                        return CompletableFuture.completedFuture(parseCode(resp.body()));
+                    }
+                    // A 4xx on a request carrying an image usually means "this model has
+                    // no eyes" — drop the picture and try once more with words only.
+                    if (hadImage && resp.statusCode() >= 400 && resp.statusCode() < 500) {
+                        return requestCode(goal, scene, "", journal, carrying, auth, personaStyle);
+                    }
+                    return CompletableFuture.completedFuture(
+                            CodeReply.failed(friendlyHttpError(resp, auth)));
+                })
+                .exceptionally(ex -> CodeReply.failed(friendlyNetworkError(ex)));
+    }
+
+    private HttpRequest buildCodeRequest(ModConfig cfg, String goal, String scene, String imageDataUri,
+                                         String journal, String carrying, ApiAuth auth,
+                                         String personaStyle) {
+        JsonObject body = new JsonObject();
+        body.addProperty("model", auth.model());
+        body.addProperty("temperature", Math.min(cfg.temperature, 0.8));
+        body.addProperty("max_tokens", Math.max(cfg.maxNewTokens, 700));
+        body.addProperty("stream", false);
+        JsonObject responseFormat = new JsonObject();
+        responseFormat.addProperty("type", "json_object");
+        body.add("response_format", responseFormat);
+
+        StringBuilder system = new StringBuilder(
+                String.format(CODER_PROMPT, com.milkdromeda.blockpal.agent.BotApi.reference()));
+        if (personaStyle != null && !personaStyle.isBlank()) {
+            system.append("\nYour character: ").append(personaStyle.trim())
+                  .append(" Keep that voice in anything you \"say\", but never let it change the JSON "
+                        + "shape or the actions you choose.");
+        }
+
+        String written = "WHAT I WANT TO DO:\n" + goal
+                + "\n\nWHAT I SEE:\n" + scene
+                + "\nI am carrying: " + carrying
+                + "\n\nWHAT JUST HAPPENED:\n" + journal;
+
+        JsonArray messages = new JsonArray();
+        messages.add(message("system", system.toString()));
+
+        JsonObject userMessage = new JsonObject();
+        userMessage.addProperty("role", "user");
+        if (imageDataUri != null && !imageDataUri.isBlank()) {
+            // Multimodal content parts: the written scene, then the picture itself.
+            JsonArray parts = new JsonArray();
+            JsonObject textPart = new JsonObject();
+            textPart.addProperty("type", "text");
+            textPart.addProperty("text", written);
+            parts.add(textPart);
+            JsonObject imagePart = new JsonObject();
+            imagePart.addProperty("type", "image_url");
+            JsonObject url = new JsonObject();
+            url.addProperty("url", imageDataUri);
+            imagePart.add("image_url", url);
+            parts.add(imagePart);
+            userMessage.add("content", parts);
+        } else {
+            userMessage.addProperty("content", written);
+        }
+        messages.add(userMessage);
+        body.add("messages", messages);
+
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(endpoint(cfg, auth)))
+                .header("Content-Type", "application/json")
+                .timeout(Duration.ofSeconds(90))
+                .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body)));
+        addProviderHeaders(builder, auth);
+        return builder.build();
+    }
+
+    private CodeReply parseCode(String rawBody) {
+        try {
+            String content = extractContent(rawBody);
+            if (content == null || content.isBlank()) {
+                return CodeReply.failed("the AI sent back an empty answer");
+            }
+            int start = content.indexOf('{');
+            int end = content.lastIndexOf('}');
+            if (start == -1 || end == -1 || end < start) {
+                return CodeReply.failed("the AI didn't answer in the expected format");
+            }
+            JsonObject o = JsonParser.parseString(content.substring(start, end + 1)).getAsJsonObject();
+            String thinking = o.has("thinking") ? o.get("thinking").getAsString().trim() : "";
+            String say = o.has("say") ? o.get("say").getAsString().trim() : "";
+            String code = o.has("code") ? o.get("code").getAsString() : "";
+            return new CodeReply(thinking, say, stripFences(code), "");
+        } catch (Exception e) {
+            return CodeReply.failed("I couldn't read the AI's answer");
+        }
+    }
+
+    /** Models like wrapping code in ``` fences even inside JSON — take them off. */
+    private static String stripFences(String code) {
+        if (code == null) return "";
+        String c = code.strip();
+        if (c.startsWith("```")) {
+            int firstBreak = c.indexOf('\n');
+            if (firstBreak > 0) c = c.substring(firstBreak + 1);
+            if (c.endsWith("```")) c = c.substring(0, c.length() - 3);
+        }
+        return c.strip();
     }
 
     public CompletableFuture<ActionPlan> requestPlan(String task, String context, ApiAuth auth) {

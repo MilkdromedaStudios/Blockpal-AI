@@ -27,8 +27,8 @@ Every Blockpal screen has a shared **tab bar** at the top to move between the pa
 | Sub-tab | What's here |
 |-----|-------------|
 | **Identity** | Name, skin, **Open skins folder** button, **Default personality** |
-| **Behavior** | Chat listening, active analysis, sneak-to-open-menu, **allow custom personalities**, **allow possession mode**, **allow agent voice**, follow distance, guard radius, [performance preset](Performance-Presets) |
-| **AI & API** | **AI provider preset**, API URL, model, token, **free AI fallback** toggle, temperature, max tokens |
+| **Behavior** | Chat listening, active analysis, sneak-to-open-menu, **allow custom personalities**, **allow possession mode**, **allow agent voice**, **thinking style**, **send pictures to the AI**, **live on its own**, **creative-mode warning**, follow distance, guard radius, [performance preset](Performance-Presets) |
+| **AI & API** | **The one AI connection**, MCP server settings, API provider preset, API URL, model, token, temperature, max tokens, local endpoints |
 | **Combat** | Allow commands, permission level, flee health |
 | **Developer** | Action tick delay, task watchdog timeout, flee health *(high-risk — see [Developer Menu](Developer-Menu))* |
 
@@ -52,6 +52,48 @@ Every Blockpal screen has a shared **tab bar** at the top to move between the pa
   already-saved key is still never sent back to the menu at all (see *API token
   security* below). The same masking + Show key toggle is on the personal key
   box in **My Settings** (`/ai mymenu`).
+
+## One AI connection at a time (3.25.0)
+
+The **AI & API** tab starts with a single **AI connection** picker, and that is the whole
+answer to "what is thinking for my bots":
+
+| Connection | What it means |
+|------------|---------------|
+| **MCP server** | An AI app you already use (Claude, ChatGPT, Grok, Gemini) connects **to your world** and drives the bot. No key stored in the game — see **[MCP server](MCP-Server)** |
+| **My own API key** | An OpenAI-compatible key + model you type in below |
+| **Player2 app** | The free Player2 app, or its cloud with a `PLAYER2_KEY` |
+| **Local Ollama / LM Studio** | Your own model on your own machine — no key, no internet |
+| **Free keyless service** | A small free internet model. Works out of the box, rate-limited |
+| **No AI** | Companions still eat, fight and survive — they just don't think with a model |
+
+**Choosing one turns the others off.** Before 3.25.0 a key, Player2, Ollama and the free
+service could all be "enabled" at once and a hidden priority order decided which answered
+— so nobody could tell which AI was really running, or which one was being billed. Now
+there's one setting and one answer. A live line under the picker names it outright:
+*"▶ Bots will use: …"*.
+
+By command: `/ai connection` shows it, `/ai connection set <mcp|key|player2|ollama|free|off>`
+changes it (ops). Setting a shared key with `/ai admin token` also switches the connection
+to **My own API key**, since that's obviously what you meant.
+
+Existing servers are migrated: whatever your old settings would have resolved to becomes
+your connection, so nothing changes on upgrade.
+
+## How companions think (3.25.0)
+
+On **Settings → Behavior**:
+
+| Setting | Default | Effect |
+|---------|---------|--------|
+| **Thinking style** | Look and write code | The bot looks at the world, gets a picture of what its eyes see, and writes a script that presses its keys. Switch to **Classic action plan (JSON)** for the pre-3.25 planner |
+| **Send pictures to the AI** | on | Off = the written scene only — cheaper, and needed for models that can't see images |
+| **Live on its own** | on | Keep-alive reflexes that need no AI at all: eat, escape water/fire, unstick, walk back to you |
+| **Warn me in creative mode** | on | Companions never teleport, so a flying owner leaves one behind |
+
+Full explanation, the scripting language and the picture settings
+(`visionWidth`/`visionHeight`/`visionRange`, `scriptMaxTicks`):
+**[Vision & Code](Vision-and-Code)**.
 
 ## AI provider presets (3.24.0)
 
@@ -138,6 +180,13 @@ stamp:
 
 So your API key carries across mod updates, and a deleted file just comes back as
 defaults.
+
+**Schema v12 (3.25.0)** added the exclusive `aiConnection`, the MCP server settings
+(`mcpPort`, `mcpAllowRemote`, `mcpRequireToken`, `mcpTokenObf`), the vision/code brain
+(`aiLogicMode`, `visionEnabled`, `visionWidth`, `visionHeight`, `visionRange`,
+`scriptMaxTicks`), `survivalBrain` and `creativeModeWarning`. Upgrading servers keep the
+provider they were already using. `allowBotTeleport` appears in the file as `false` and
+is deliberately not editable — **companions never teleport**.
 
 **Saves are crash-safe (3.17.0).** The config is serialized fully in memory, written
 to a temp file, and atomically moved over `config.json`, so a crash, full disk or

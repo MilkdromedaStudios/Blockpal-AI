@@ -36,19 +36,30 @@ public class FollowOwnerGoal extends Goal {
                 && entity.distanceToSqr(owner) > minDist * minDist;
     }
 
+    /**
+     * Walks after the owner — <b>and only walks</b>.
+     *
+     * <p>This goal used to blink the companion to the owner's feet once it fell more than
+     * {@code maxDist} behind. That is the single most immersion-breaking thing a
+     * companion can do: it means the bot isn't really in the world with you, it's a
+     * marker that follows your camera. Since 3.25.0 there is no teleport anywhere in the
+     * mod's follow path — if it falls behind, it runs, and if it truly can't get there it
+     * says so. A creative-mode owner will out-fly it, which is exactly why players get a
+     * warning when they switch to creative with a companion out.
+     */
     @Override
     public void tick() {
         if (owner == null) return;
         entity.getLookControl().setLookAt(owner, 30f, 30f);
 
-        if (entity.distanceToSqr(owner) > maxDist * maxDist) {
-            entity.setPos(owner.getX(), owner.getY(), owner.getZ());
-        } else if (repathCooldown > 0 && !entity.getNavigation().isDone()) {
+        boolean farBehind = entity.distanceToSqr(owner) > maxDist * maxDist;
+        if (repathCooldown > 0 && !entity.getNavigation().isDone()) {
             repathCooldown--;   // keep walking the current path; don't repath every tick
-        } else {
-            entity.getNavigation().moveTo(owner, speed);
-            repathCooldown = 10;
+            return;
         }
+        // Sprint-equivalent when it has ground to make up, otherwise a normal walk.
+        entity.getNavigation().moveTo(owner, farBehind ? Math.min(speed * 1.3, 1.5) : speed);
+        repathCooldown = farBehind ? 5 : 10;
     }
 
     @Override
