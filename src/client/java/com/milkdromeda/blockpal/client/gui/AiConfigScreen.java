@@ -86,7 +86,7 @@ public class AiConfigScreen extends Screen {
     private CycleButton<String> connectionButton, logicModeButton;
     private CycleButton<Boolean> visionButton, survivalBrainButton, creativeWarnButton,
             mcpRemoteButton, mcpTokenButton;
-    private OptionSlider mcpPortSlider;
+    private EditBox mcpPortBox;
 
     // Local Ollama + Player2 providers (surfaced on the AI & API tab).
     private boolean pOllamaEnabled, pPlayer2Enabled, pPlayer2KeySet;
@@ -227,7 +227,7 @@ public class AiConfigScreen extends Screen {
         connectionButton = logicModeButton = null;
         visionButton = survivalBrainButton = creativeWarnButton = null;
         mcpRemoteButton = mcpTokenButton = null;
-        mcpPortSlider = null;
+        mcpPortBox = null;
         presetButton = defaultPersonalityButton = providerButton = null;
         tempSlider = maxTokensSlider = followSlider = guardSlider = cmdLevelSlider = null;
         actionDelaySlider = maxTaskSlider = fleeSlider = null;
@@ -451,7 +451,9 @@ public class AiConfigScreen extends Screen {
                 : "§e▶ Not listening yet — save these settings, then run §f/ai mcp"), this.font));
         body.addChild(new StringWidget(W, LABEL_H, Component.literal(
                 "§7Your AI app connects to the game; no key is stored here."), this.font));
-        mcpPortSlider = bodySlider(body, "MCP port", 1024, 65535, pMcpPort, true,
+        // A text box, not a slider: dragging across 64,000 values to land on 25569 is
+        // nobody's idea of a good time.
+        mcpPortBox = bodyBox(body, "MCP port", String.valueOf(pMcpPort), 5,
                 "TCP port the MCP server listens on. 25569 by default — change it only if "
                         + "something else already uses that port.");
         mcpTokenButton = bodyToggle(body, "Require access token", pMcpRequireToken,
@@ -460,6 +462,16 @@ public class AiConfigScreen extends Screen {
         mcpRemoteButton = bodyToggle(body, "Allow connections from other machines", pMcpRemote,
                 "OFF (safest) listens on localhost only — all a desktop AI app on this PC needs. "
                         + "Turn ON only for cloud AI (ChatGPT, AI Studio) reaching in through a tunnel.");
+    }
+
+    /** A typed port, or the previous value when it isn't a usable one. */
+    private static int parsePort(String typed, int fallback) {
+        try {
+            int port = Integer.parseInt(typed.trim());
+            return (port >= 1024 && port <= 65535) ? port : fallback;
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
     }
 
     /** Human label for a connection id, and back again — the cycler shows display names. */
@@ -650,7 +662,7 @@ public class AiConfigScreen extends Screen {
         if (creativeWarnButton != null) pCreativeWarning = creativeWarnButton.getValue();
         if (mcpRemoteButton != null) pMcpRemote = mcpRemoteButton.getValue();
         if (mcpTokenButton != null) pMcpRequireToken = mcpTokenButton.getValue();
-        if (mcpPortSlider != null) pMcpPort = (int) Math.round(mcpPortSlider.current());
+        if (mcpPortBox != null) pMcpPort = parsePort(mcpPortBox.getValue(), pMcpPort);
         if (presetButton != null) pPreset = presetButton.getValue();
         if (defaultPersonalityButton != null) pDefaultPersonality = defaultPersonalityButton.getValue();
         if (tempSlider != null) pTemp = tempSlider.current();
