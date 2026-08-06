@@ -87,6 +87,15 @@ public class AiConfigScreen extends Screen {
     private CycleButton<Boolean> visionButton, survivalBrainButton, creativeWarnButton,
             mcpRemoteButton, mcpTokenButton;
     private EditBox mcpPortBox;
+    // Settings that used to be reachable only by hand-editing config.json (3.25.1).
+    private int pVisionWidth = 80, pVisionHeight = 45, pVisionRange = 48, pScriptMaxTicks = 1200;
+    private boolean pPreferSurvival = true, pHumanize = true;
+    private String pFreeApiUrl = "", pFreeModel = "", pPlayer2LocalUrl = "";
+    private int pVillageTarget = 24, pVillageStart = 5;
+    private OptionSlider visionWidthSlider, visionHeightSlider, visionRangeSlider, scriptTicksSlider;
+    private CycleButton<Boolean> preferSurvivalButton, humanizeButton;
+    private EditBox freeApiUrlBox, freeModelBox, player2LocalUrlBox;
+    private OptionSlider villageTargetSlider, villageStartSlider;
 
     // Local Ollama + Player2 providers (surfaced on the AI & API tab).
     private boolean pOllamaEnabled, pPlayer2Enabled, pPlayer2KeySet;
@@ -157,6 +166,17 @@ public class AiConfigScreen extends Screen {
         pMcpRemote = d.mcpAllowRemote();
         pMcpRequireToken = d.mcpRequireToken();
         mcpRunning = d.mcpRunning();
+        pVisionWidth = d.visionWidth();
+        pVisionHeight = d.visionHeight();
+        pVisionRange = d.visionRange();
+        pScriptMaxTicks = d.scriptMaxTicks();
+        pPreferSurvival = d.preferSurvivalActions();
+        pHumanize = d.humanizeActions();
+        pFreeApiUrl = d.freeApiUrl();
+        pFreeModel = d.freeModel();
+        pPlayer2LocalUrl = d.player2LocalUrl();
+        pVillageTarget = d.villageTargetPopulation();
+        pVillageStart = d.villageStartPopulation();
         // Capture the as-loaded state once so dirty-tracking survives tab switches
         // (init() runs on every tab change, so we must NOT recompute it there).
         baseline = buildData();
@@ -228,6 +248,10 @@ public class AiConfigScreen extends Screen {
         visionButton = survivalBrainButton = creativeWarnButton = null;
         mcpRemoteButton = mcpTokenButton = null;
         mcpPortBox = null;
+        visionWidthSlider = visionHeightSlider = visionRangeSlider = scriptTicksSlider = null;
+        preferSurvivalButton = humanizeButton = null;
+        freeApiUrlBox = freeModelBox = player2LocalUrlBox = null;
+        villageTargetSlider = villageStartSlider = null;
         presetButton = defaultPersonalityButton = providerButton = null;
         tempSlider = maxTokensSlider = followSlider = guardSlider = cmdLevelSlider = null;
         actionDelaySlider = maxTaskSlider = fleeSlider = null;
@@ -342,6 +366,34 @@ public class AiConfigScreen extends Screen {
                 "Companions never teleport — they walk. This warns you the first time you go creative with "
                         + "one out, since you can fly away from it in seconds.");
 
+        preferSurvivalButton = bodyToggle(body, "Do things by hand", pPreferSurvival,
+                "Build, mine and gather like a survival player instead of reaching for commands. Off lets "
+                        + "the AI lean on /fill, /setblock and /give for speed.");
+        humanizeButton = bodyToggle(body, "Human-like pauses", pHumanize,
+                "Small randomised reaction delays before picking things up and between steps, so it "
+                        + "doesn't act with inhuman, frame-perfect speed. Off = instant.");
+
+        // ── what the bot's eyes are like ──
+        header(body, "Its eyesight");
+        body.addChild(new StringWidget(W, LABEL_H, Component.literal(
+                "§7Each look costs one ray per pixel — bigger is sharper but slower."), this.font));
+        visionWidthSlider = bodySlider(body, "Picture width", 32, 160, pVisionWidth, true,
+                "Width in pixels of the image rendered from the bot's eyes (default 80).");
+        visionHeightSlider = bodySlider(body, "Picture height", 18, 90, pVisionHeight, true,
+                "Height in pixels of that image (default 45).");
+        visionRangeSlider = bodySlider(body, "How far it can see", 8, 64, pVisionRange, true,
+                "View distance in blocks (default 48). Nothing beyond this is in the picture at all.");
+        scriptTicksSlider = bodySlider(body, "Script time limit (ticks)", 100, 6000, pScriptMaxTicks, true,
+                "How long one AI-written script may run before it's stopped. 20 ticks = 1 second; "
+                        + "1200 (a minute) by default.");
+
+        // ── the Growth village game ──
+        header(body, "Growth village");
+        villageStartSlider = bodySlider(body, "Villagers at the start", 1, 20, pVillageStart, true,
+                "How many AI villagers a fresh /village start begins with.");
+        villageTargetSlider = bodySlider(body, "Population to \"as big as ever\"", 2, 100, pVillageTarget, true,
+                "Once the village peaks at this size you may concede with /village surrender.");
+
         debugButton = bodyToggle(body, "Debug logging", pDebug, "Verbose logging to the game log for troubleshooting.");
     }
 
@@ -441,6 +493,13 @@ public class AiConfigScreen extends Screen {
                 "A model you've pulled, e.g. llama3.2, qwen2.5, phi3, gemma2:2b.");
         ollamaUrlBox = bodyBox(body, "Ollama URL", pOllamaUrl, 256,
                 "Ollama's OpenAI-compatible endpoint (default http://localhost:11434/v1/chat/completions).");
+        player2LocalUrlBox = bodyBox(body, "Player2 local app URL", pPlayer2LocalUrl, 256,
+                "Where the Player2 desktop app listens (default http://localhost:4315/v1/chat/completions). "
+                        + "Used when no PLAYER2_KEY is set.");
+        freeModelBox = bodyBox(body, "Free service model", pFreeModel, 128,
+                "Model name sent to the free keyless service.");
+        freeApiUrlBox = bodyBox(body, "Free service URL", pFreeApiUrl, 256,
+                "The keyless OpenAI-compatible endpoint used by the \"Free keyless service\" connection.");
     }
 
     /** The MCP block: what to connect, where, and how locked down it is. */
@@ -462,6 +521,21 @@ public class AiConfigScreen extends Screen {
         mcpRemoteButton = bodyToggle(body, "Allow connections from other machines", pMcpRemote,
                 "OFF (safest) listens on localhost only — all a desktop AI app on this PC needs. "
                         + "Turn ON only for cloud AI (ChatGPT, AI Studio) reaching in through a tunnel.");
+        body.addChild(new StringWidget(W, LABEL_H, Component.literal(
+                "§7Desktop apps (Claude Desktop, Gemini CLI) need nothing else."), this.font));
+        body.addChild(new StringWidget(W, LABEL_H, Component.literal(
+                "§7Cloud apps (ChatGPT, AI Studio) also need a tunnel."), this.font));
+        // The guide holds the access token, so the server re-checks admin rights before
+        // sending it — this button only asks.
+        Button guide = Button.builder(
+                        Component.literal("Open setup guide  (address + token)"),
+                        b -> ClientPlayNetworking.send(
+                                new com.milkdromeda.blockpal.network.McpInfoRequestPayload()))
+                .bounds(0, 0, W, FIELD_H).build();
+        guide.setTooltip(Tooltip.create(Component.literal(
+                "Step-by-step setup for Claude, ChatGPT, Grok and Gemini, with this world's address "
+                        + "and access token filled in and copy buttons for each. Same as /ai mcp.")));
+        body.addChild(guide);
     }
 
     /** A typed port, or the previous value when it isn't a usable one. */
@@ -663,6 +737,17 @@ public class AiConfigScreen extends Screen {
         if (mcpRemoteButton != null) pMcpRemote = mcpRemoteButton.getValue();
         if (mcpTokenButton != null) pMcpRequireToken = mcpTokenButton.getValue();
         if (mcpPortBox != null) pMcpPort = parsePort(mcpPortBox.getValue(), pMcpPort);
+        if (visionWidthSlider != null) pVisionWidth = (int) Math.round(visionWidthSlider.current());
+        if (visionHeightSlider != null) pVisionHeight = (int) Math.round(visionHeightSlider.current());
+        if (visionRangeSlider != null) pVisionRange = (int) Math.round(visionRangeSlider.current());
+        if (scriptTicksSlider != null) pScriptMaxTicks = (int) Math.round(scriptTicksSlider.current());
+        if (preferSurvivalButton != null) pPreferSurvival = preferSurvivalButton.getValue();
+        if (humanizeButton != null) pHumanize = humanizeButton.getValue();
+        if (freeApiUrlBox != null) pFreeApiUrl = freeApiUrlBox.getValue();
+        if (freeModelBox != null) pFreeModel = freeModelBox.getValue();
+        if (player2LocalUrlBox != null) pPlayer2LocalUrl = player2LocalUrlBox.getValue();
+        if (villageTargetSlider != null) pVillageTarget = (int) Math.round(villageTargetSlider.current());
+        if (villageStartSlider != null) pVillageStart = (int) Math.round(villageStartSlider.current());
         if (presetButton != null) pPreset = presetButton.getValue();
         if (defaultPersonalityButton != null) pDefaultPersonality = defaultPersonalityButton.getValue();
         if (tempSlider != null) pTemp = tempSlider.current();
@@ -685,7 +770,10 @@ public class AiConfigScreen extends Screen {
                 pOllamaEnabled, pOllamaUrl, pOllamaModel,
                 pPlayer2Enabled, pPlayer2Url, pPlayer2Model, pPlayer2KeySet,
                 pConnection, pLogicMode, pVision, pSurvivalBrain, pCreativeWarning,
-                pMcpPort, pMcpRemote, pMcpRequireToken, mcpRunning);
+                pMcpPort, pMcpRemote, pMcpRequireToken, mcpRunning,
+                pVisionWidth, pVisionHeight, pVisionRange, pScriptMaxTicks,
+                pPreferSurvival, pHumanize, pFreeApiUrl, pFreeModel, pPlayer2LocalUrl,
+                pVillageTarget, pVillageStart);
     }
 
     private Component tokenStatusText() {

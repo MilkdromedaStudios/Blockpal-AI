@@ -946,6 +946,30 @@ share code or versioning with the Java mod. Source in `bedrock/`, packaged artif
 
 ## Changelog
 
+### 3.25.1
+- **Every server-side single-value setting is now in the panel.** New `ConfigData` fields
+  (52 total): `visionWidth/Height/Range`, `scriptMaxTicks`, `preferSurvivalActions`,
+  `humanizeActions`, `freeApiUrl`, `freeModel`, `player2LocalUrl` (→ `cfg.player2Url`),
+  `villageTargetPopulation`, `villageStartPopulation`. Rendered on **Behavior** (survival
+  feel, a new *Its eyesight* section, a *Growth village* section) and **AI & API** (the
+  Player2-app and free-service endpoint boxes). `applyTo` clamps to the same ranges
+  `normalize()` enforces, so the panel can't write a value the next load would correct.
+- **"Open setup guide" button** in the panel's MCP section: new `McpInfoRequestPayload`
+  (C→S) whose handler **re-checks `AdminAccess.isAdmin`** before replying with
+  `McpInfoPayload` (it carries the access token — the button being on screen is not the
+  check), then opens `McpGuideScreen`. Same thing `/ai mcp` does, without typing.
+- **Still command-only, deliberately:** the three *list* settings (`allowedModels`,
+  `ownKeyWhitelist`, `ollamaModels`) — they need an add/remove row editor rather than a
+  single control, and `AdminActionPayload` carries no text field. Documented as such in
+  `wiki/Settings.md`.
+- **Wiki:** `MCP-Server.md` gained a *"What you actually need, per app"* section — the
+  local-app vs cloud-app split (why `localhost` is invisible to ChatGPT/Grok/AI Studio),
+  the always-needed checklist, and concrete `ngrok`/`cloudflared` tunnel commands.
+- **Verification:** both source sets compile; the 19 config and 39 live-MCP tests still
+  pass; new **52-field `ConfigData` round-trip test** through the hand-written
+  `StreamCodec` — write/read order drifting apart is invisible at compile time and would
+  show one setting's value in another's box.
+
 ### 3.25.0
 - **MCP server — the easy AI connection.** Blockpal now *hosts* an MCP server so an AI app
   the player already pays for (Claude, ChatGPT, Grok, Gemini) connects to the world and

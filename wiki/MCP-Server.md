@@ -24,7 +24,10 @@ and the exact config to paste, with copy buttons.
 Only **one** AI connection runs at a time (see [Settings](Settings)), so switching to
 MCP turns the others off. That's deliberate — no more guessing which provider answered.
 
-In the panel: **`/ai menu` → AI & API → "AI: MCP server"**.
+**All of this is in the panel too**, if you'd rather not type: `/ai menu` → **AI & API** →
+set **AI** to *MCP server*, and a section appears with the port, the token requirement, the
+remote toggle and an **Open setup guide** button that opens the same per-app instructions
+with your address and token filled in.
 
 ---
 
@@ -48,6 +51,73 @@ Ten tools, shaped like a player's hands and eyes — not an admin console:
 There is no "place block at coordinates" tool and no map dump, because there is no such
 button on a keyboard. See [Vision & Code](Vision-and-Code) for how the loop works and
 what the scripts look like.
+
+---
+
+## What you actually need, per app
+
+This is the part that catches people out, so here it is plainly. **Where your AI app
+runs decides everything.**
+
+| Your AI app | Runs where? | Needs a tunnel? | What you need |
+|---|---|---|---|
+| **Claude Desktop** | your PC | ❌ no | Node.js (for the `mcp-remote` bridge), the address, the token |
+| **Claude Code** (CLI) | your PC | ❌ no | Just the address + token — one command |
+| **Gemini CLI** | your PC | ❌ no | Just the address + token in a config file |
+| **Cursor / VS Code / other local editors** | your PC | ❌ no | Address + token in their MCP settings |
+| **ChatGPT** (chatgpt.com or the desktop app) | OpenAI's cloud | ✅ **yes** | A public **HTTPS** URL, `/ai mcp remote on`, the token, and connector/developer mode on your account |
+| **Grok** (grok.com) | xAI's cloud | ✅ **yes** | Same as ChatGPT |
+| **Google AI Studio** | Google's cloud | ✅ **yes** | Same as ChatGPT |
+
+**Why the difference?** Blockpal listens on *your* machine. An app running on your
+machine can reach `localhost:25569` directly. An app running in someone else's data
+centre cannot — to it, `localhost` means *their* server. It needs a public address that
+points back to your PC, which is what a tunnel provides.
+
+### Always needed, whichever app
+
+1. **The game must be running** — a singleplayer world open, or your dedicated server up.
+   The MCP server lives inside Minecraft.
+2. **MCP must be the chosen connection** — `/ai connection set mcp`. Only one AI
+   connection runs at a time.
+3. **The address** — `http://localhost:25569/mcp` by default. `/ai mcp` shows it.
+4. **The token** — `/ai mcp token`, sent as `Authorization: Bearer <token>`.
+5. **A companion in the world** — `/ai summon`. The AI drives a bot; without one, its
+   tools have nothing to act on.
+
+### Extra, only for cloud apps (ChatGPT, Grok's website, AI Studio)
+
+6. **`/ai mcp remote on`** — otherwise Blockpal refuses connections from anywhere but
+   your own machine.
+7. **A tunnel giving you an HTTPS URL.** Cloud connectors require `https://`, and
+   Blockpal speaks plain HTTP — the tunnel supplies the TLS. Two easy ones:
+
+   ```bash
+   # ngrok
+   ngrok http 25569
+   # → https://something.ngrok-free.app  ... use https://something.ngrok-free.app/mcp
+
+   # Cloudflare Tunnel
+   cloudflared tunnel --url http://localhost:25569
+   # → https://something.trycloudflare.com ... use .../mcp
+   ```
+
+8. **Keep the token requirement ON.** With a tunnel open, your world is reachable by
+   anyone who learns the URL — the token is the only thing standing between them and your
+   companions. Stop the tunnel when you're done, and `/ai mcp newtoken` if you ever pasted
+   the URL somewhere public.
+
+> **Playing on a dedicated server?** Point the tunnel at the *server* machine, not your
+> own PC, and run these commands as an operator. If you're the only one connecting an AI,
+> a desktop app on the server box needs no tunnel at all.
+
+### A note on plans and availability
+
+Connector/MCP support in the cloud apps sits behind plan tiers and developer settings that
+the vendors move around (ChatGPT's is under Settings → Connectors, often gated to paid
+plans and a developer-mode toggle; Grok's and AI Studio's are similar). Blockpal has no
+say in that — if your account can add a custom MCP connector, this works; if it can't,
+use a desktop app instead, which is easier anyway.
 
 ---
 

@@ -43,6 +43,8 @@ public final class AiNetworking {
         PayloadTypeRegistry.serverboundPlay().register(BotActionPayload.TYPE, BotActionPayload.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(PossessionInputPayload.TYPE, PossessionInputPayload.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(VoiceInputPayload.TYPE, VoiceInputPayload.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(
+                McpInfoRequestPayload.TYPE, McpInfoRequestPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(ConfigSyncPayload.TYPE, ConfigSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(AdminSyncPayload.TYPE, AdminSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(PlayerPrefsSyncPayload.TYPE, PlayerPrefsSyncPayload.CODEC);
@@ -210,6 +212,27 @@ public final class AiNetworking {
                 if (modelAdvice != null) {
                     player.sendSystemMessage(Component.literal(
                             "§e[Blockpal] Model warning: §7" + modelAdvice));
+                }
+            });
+        });
+
+        // The Settings panel's "Open setup guide" button. The reply carries the MCP access
+        // token, so admin rights are re-checked here — the button being on screen isn't a
+        // permission check, a modified client could send this at any time.
+        ServerPlayNetworking.registerGlobalReceiver(McpInfoRequestPayload.TYPE, (payload, context) -> {
+            ServerPlayer player = context.player();
+            MinecraftServer server = player.level().getServer();
+            if (server == null) return;
+            server.execute(() -> {
+                if (!AdminAccess.isAdmin(player)) {
+                    player.sendSystemMessage(Component.literal(
+                            "§c[Blockpal] Only operators can see the MCP connection details."));
+                    return;
+                }
+                if (!openMcpGuideFor(player)) {
+                    player.sendSystemMessage(Component.literal(
+                            "§e[Blockpal] Your client can't show that screen — use §f/ai mcp status§e "
+                                    + "and §f/ai mcp token§e instead."));
                 }
             });
         });

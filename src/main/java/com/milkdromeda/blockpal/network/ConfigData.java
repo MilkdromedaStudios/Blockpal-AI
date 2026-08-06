@@ -64,7 +64,19 @@ public record ConfigData(
         int mcpPort,
         boolean mcpAllowRemote,
         boolean mcpRequireToken,
-        boolean mcpRunning      // display-only: is the MCP server actually listening?
+        boolean mcpRunning,     // display-only: is the MCP server actually listening?
+        // ── everything that used to be config-file-only (3.25.1) ──
+        int visionWidth,
+        int visionHeight,
+        int visionRange,
+        int scriptMaxTicks,
+        boolean preferSurvivalActions,
+        boolean humanizeActions,
+        String freeApiUrl,
+        String freeModel,
+        String player2LocalUrl,
+        int villageTargetPopulation,
+        int villageStartPopulation
 ) {
     public static final StreamCodec<FriendlyByteBuf, ConfigData> STREAM_CODEC =
             StreamCodec.of(ConfigData::write, ConfigData::read);
@@ -113,7 +125,18 @@ public record ConfigData(
                 c.mcpPort,
                 c.mcpAllowRemote,
                 c.mcpRequireToken,
-                com.milkdromeda.blockpal.mcp.McpServer.isRunning());
+                com.milkdromeda.blockpal.mcp.McpServer.isRunning(),
+                c.visionWidth,
+                c.visionHeight,
+                c.visionRange,
+                c.scriptMaxTicks,
+                c.preferSurvivalActions,
+                c.humanizeActions,
+                c.freeApiUrl,
+                c.freeModel,
+                c.player2Url,
+                c.villageTargetPopulation,
+                c.villageStartPopulation);
     }
 
     /** Applies this snapshot onto the live config, clamping and keeping blanks. */
@@ -173,6 +196,21 @@ public record ConfigData(
         c.mcpAllowRemote = mcpAllowRemote;
         c.mcpRequireToken = mcpRequireToken;
         // mcpRunning is display-only — the server's real state, not something to set.
+
+        // The rest used to be reachable only by hand-editing config.json. Clamped to the
+        // same ranges ModConfig.normalize() enforces, so the panel can't write a value the
+        // next load would silently correct.
+        c.visionWidth = (int) clamp(visionWidth, 32, 160);
+        c.visionHeight = (int) clamp(visionHeight, 18, 90);
+        c.visionRange = (int) clamp(visionRange, 8, 64);
+        c.scriptMaxTicks = (int) clamp(scriptMaxTicks, 100, 12000);
+        c.preferSurvivalActions = preferSurvivalActions;
+        c.humanizeActions = humanizeActions;
+        if (notBlank(freeApiUrl)) c.freeApiUrl = freeApiUrl.trim();
+        if (notBlank(freeModel)) c.freeModel = com.milkdromeda.blockpal.ai.ModelIds.clean(freeModel);
+        if (notBlank(player2LocalUrl)) c.player2Url = player2LocalUrl.trim();
+        c.villageTargetPopulation = (int) clamp(villageTargetPopulation, 2, 200);
+        c.villageStartPopulation = (int) clamp(villageStartPopulation, 1, 50);
     }
 
     private static boolean notBlank(String s) {
@@ -225,6 +263,17 @@ public record ConfigData(
         buf.writeBoolean(d.mcpAllowRemote);
         buf.writeBoolean(d.mcpRequireToken);
         buf.writeBoolean(d.mcpRunning);
+        buf.writeInt(d.visionWidth);
+        buf.writeInt(d.visionHeight);
+        buf.writeInt(d.visionRange);
+        buf.writeInt(d.scriptMaxTicks);
+        buf.writeBoolean(d.preferSurvivalActions);
+        buf.writeBoolean(d.humanizeActions);
+        buf.writeUtf(d.freeApiUrl == null ? "" : d.freeApiUrl);
+        buf.writeUtf(d.freeModel == null ? "" : d.freeModel);
+        buf.writeUtf(d.player2LocalUrl == null ? "" : d.player2LocalUrl);
+        buf.writeInt(d.villageTargetPopulation);
+        buf.writeInt(d.villageStartPopulation);
     }
 
     private static ConfigData read(FriendlyByteBuf buf) {
@@ -269,6 +318,17 @@ public record ConfigData(
                 buf.readInt(),       // mcpPort
                 buf.readBoolean(),   // mcpAllowRemote
                 buf.readBoolean(),   // mcpRequireToken
-                buf.readBoolean());  // mcpRunning
+                buf.readBoolean(),   // mcpRunning
+                buf.readInt(),       // visionWidth
+                buf.readInt(),       // visionHeight
+                buf.readInt(),       // visionRange
+                buf.readInt(),       // scriptMaxTicks
+                buf.readBoolean(),   // preferSurvivalActions
+                buf.readBoolean(),   // humanizeActions
+                buf.readUtf(),       // freeApiUrl
+                buf.readUtf(),       // freeModel
+                buf.readUtf(),       // player2LocalUrl
+                buf.readInt(),       // villageTargetPopulation
+                buf.readInt());      // villageStartPopulation
     }
 }
