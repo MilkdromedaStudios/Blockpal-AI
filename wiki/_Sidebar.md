@@ -19,6 +19,7 @@
 - [Trust & Per-Bot Management](Trust-and-Per-Bot)
 - [Running Commands](Running-Commands)
 - [AI Actions](AI-Actions)
+- [Vision & Code](Vision-and-Code)
 - [Bedrock (Geyser)](Geyser-Bedrock)
 - [Bedrock Add-On (single-player)](Bedrock-Add-On)
 
@@ -28,6 +29,7 @@
 - [Growth (AI village)](Growth-Village)
 
 **AI providers**
+- [MCP server (Claude/ChatGPT/Grok/Gemini)](MCP-Server)
 - [Local & Player2 AI](Local-AI-Ollama-and-Player2)
 - [Per-Player Keys & Models](Per-Player-Keys-and-Models)
 

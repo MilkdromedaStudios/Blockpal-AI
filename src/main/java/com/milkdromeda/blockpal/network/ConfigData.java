@@ -53,7 +53,18 @@ public record ConfigData(
         boolean player2Enabled,
         String player2Url,
         String player2Model,
-        boolean player2KeySet   // display-only: is a PLAYER2_KEY resolved (→ online)?
+        boolean player2KeySet,  // display-only: is a PLAYER2_KEY resolved (→ online)?
+        // ── the ONE AI connection + the vision/code brain (3.25.0) ──
+        String aiConnection,    // ai/AiConnection id: mcp | key | player2 | ollama | free | off
+        String aiLogicMode,     // "code" (look → write a script) or "plan" (classic JSON planner)
+        boolean visionEnabled,  // render a picture from the bot's eyes for the model
+        boolean survivalBrain,  // keep-alive reflexes even with no AI at all
+        boolean creativeModeWarning,
+        // MCP server (bots driven by an outside AI app)
+        int mcpPort,
+        boolean mcpAllowRemote,
+        boolean mcpRequireToken,
+        boolean mcpRunning      // display-only: is the MCP server actually listening?
 ) {
     public static final StreamCodec<FriendlyByteBuf, ConfigData> STREAM_CODEC =
             StreamCodec.of(ConfigData::write, ConfigData::read);
@@ -93,7 +104,16 @@ public record ConfigData(
                 c.player2Enabled,
                 c.player2OnlineUrl,
                 c.player2Model,
-                !c.resolvePlayer2Key().isBlank());
+                !c.resolvePlayer2Key().isBlank(),
+                c.aiConnection,
+                c.aiLogicMode,
+                c.visionEnabled,
+                c.survivalBrain,
+                c.creativeModeWarning,
+                c.mcpPort,
+                c.mcpAllowRemote,
+                c.mcpRequireToken,
+                com.milkdromeda.blockpal.mcp.McpServer.isRunning());
     }
 
     /** Applies this snapshot onto the live config, clamping and keeping blanks. */
@@ -127,18 +147,32 @@ public record ConfigData(
         }
         c.allowCustomPersonality = allowCustomPersonality;
         c.allowPossession = allowPossession;
-        c.freeAiFallback = freeAiFallback;
         c.allowVoice = allowVoice;
-        // Local Ollama + Player2 providers.
-        c.ollamaEnabled = ollamaEnabled;
+        // Endpoints/models for the providers, whichever one is chosen below.
         if (notBlank(ollamaUrl)) c.ollamaUrl = ollamaUrl.trim();
         if (notBlank(ollamaModel)) c.ollamaModel = com.milkdromeda.blockpal.ai.ModelIds.clean(ollamaModel);
-        c.player2Enabled = player2Enabled;
         if (notBlank(player2Url)) c.player2OnlineUrl = player2Url.trim();
         if (notBlank(player2Model)) c.player2Model = com.milkdromeda.blockpal.ai.ModelIds.clean(player2Model);
         // player2KeySet is display-only — the key comes from the PLAYER2_KEY env, never the client.
-        // Pre-fetch the local Player2 login key so the first bot request is already authed.
-        if (player2Enabled) com.milkdromeda.blockpal.ai.HuggingFaceClient.warmPlayer2Local();
+
+        // The ONE AI connection. This drives freeAiFallback/ollamaEnabled/player2Enabled
+        // rather than the panel setting each of them, so two providers can never be on.
+        com.milkdromeda.blockpal.ai.AiConnection chosen =
+                com.milkdromeda.blockpal.ai.AiConnection.byId(aiConnection);
+        if (chosen != null) c.setConnection(chosen);
+        if (c.player2Enabled) com.milkdromeda.blockpal.ai.HuggingFaceClient.warmPlayer2Local();
+
+        // How a bot thinks, and what keeps it alive when nothing is thinking.
+        c.aiLogicMode = "plan".equalsIgnoreCase(aiLogicMode) ? "plan" : "code";
+        c.visionEnabled = visionEnabled;
+        c.survivalBrain = survivalBrain;
+        c.creativeModeWarning = creativeModeWarning;
+
+        // MCP server. A port change is applied by the caller re-syncing the server.
+        c.mcpPort = (int) clamp(mcpPort, 1024, 65535);
+        c.mcpAllowRemote = mcpAllowRemote;
+        c.mcpRequireToken = mcpRequireToken;
+        // mcpRunning is display-only — the server's real state, not something to set.
     }
 
     private static boolean notBlank(String s) {
@@ -182,6 +216,15 @@ public record ConfigData(
         buf.writeUtf(d.player2Url == null ? "" : d.player2Url);
         buf.writeUtf(d.player2Model == null ? "" : d.player2Model);
         buf.writeBoolean(d.player2KeySet);
+        buf.writeUtf(d.aiConnection == null ? "free" : d.aiConnection);
+        buf.writeUtf(d.aiLogicMode == null ? "code" : d.aiLogicMode);
+        buf.writeBoolean(d.visionEnabled);
+        buf.writeBoolean(d.survivalBrain);
+        buf.writeBoolean(d.creativeModeWarning);
+        buf.writeInt(d.mcpPort);
+        buf.writeBoolean(d.mcpAllowRemote);
+        buf.writeBoolean(d.mcpRequireToken);
+        buf.writeBoolean(d.mcpRunning);
     }
 
     private static ConfigData read(FriendlyByteBuf buf) {
@@ -217,6 +260,15 @@ public record ConfigData(
                 buf.readBoolean(),   // player2Enabled
                 buf.readUtf(),       // player2Url
                 buf.readUtf(),       // player2Model
-                buf.readBoolean());  // player2KeySet
+                buf.readBoolean(),   // player2KeySet
+                buf.readUtf(),       // aiConnection
+                buf.readUtf(),       // aiLogicMode
+                buf.readBoolean(),   // visionEnabled
+                buf.readBoolean(),   // survivalBrain
+                buf.readBoolean(),   // creativeModeWarning
+                buf.readInt(),       // mcpPort
+                buf.readBoolean(),   // mcpAllowRemote
+                buf.readBoolean(),   // mcpRequireToken
+                buf.readBoolean());  // mcpRunning
     }
 }

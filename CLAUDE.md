@@ -85,6 +85,105 @@ can do and how it evolved.
   picker (writes `defaultPersonality`). Config schema → v6 (upgrading installs default
   `allowCustomPersonality` true).
 
+### The AI connection — exactly one (3.25.0)
+- `ai/AiConnection` is an enum of the **mutually exclusive** ways a server gets its
+  intelligence: **MCP** (an outside AI app drives), **API_KEY**, **PLAYER2**, **OLLAMA**,
+  **FREE**, **OFF**. Stored as `aiConnection`; `ModConfig.setConnection()` writes it and
+  forces the legacy flags (`player2Enabled`/`ollamaEnabled`/`freeAiFallback`) to match, and
+  `normalize()` re-applies that on every load so a hand-edited file can't enable two.
+- **`HuggingFaceClient.ApiAuth.resolveFor` is no longer a fallback chain** — it switches on
+  the connection. MCP/OFF resolve to an unusable auth on purpose (with MCP the thinking
+  happens in the outside app, so the game never makes model requests of its own), and
+  `aiAvailable()`/`aiAvailableFor()` follow the same switch.
+- Commands: `/ai connection` (show), `/ai connection set <mcp|key|player2|ollama|free|off>`
+  (ops). `/ai admin ollama on` / `player2 on` now just switch the connection (off → free);
+  `/ai admin token` switches to `key`, since setting a key obviously means using it.
+  Panel: a single **AI connection** cycler at the top of **Settings → AI & API**, with a
+  live "▶ Bots will use: …" line. Migration (v12) derives the connection from whatever the
+  old priority order would have chosen.
+
+### MCP server — connect Claude / ChatGPT / Grok / Gemini (3.25.0)
+- **The mod hosts an MCP server** (`mcp/McpServer`, JDK `com.sun.net.httpserver`) so an AI
+  app the player already pays for connects *to the world* and drives the bot. No key in the
+  game. Runs only when `aiConnection == mcp`; started/stopped from `ServerLifecycleEvents`
+  and re-synced on any settings save (`McpServer.sync`).
+- **Both transports:** Streamable HTTP (`POST /mcp`, JSON-RPC 2.0, incl. batches) and the
+  legacy HTTP+SSE pair (`GET /sse` → `endpoint` event → `POST /messages?sessionId=…`, with
+  responses pushed back over the stream and a 20 s keep-alive). `initialize`, `ping`,
+  `tools/list`, `tools/call`, `notifications/*` (202), plus empty `resources/list` and
+  `prompts/list` so strict clients don't error. Protocol version `2025-06-18`.
+- **Safety:** binds loopback unless `mcpAllowRemote`; `Authorization: Bearer <token>`
+  required by default (`?token=` accepted for clients that can't set headers); token is
+  generated on first use, stored obfuscated (`mcpTokenObf`), never logged;
+  `/ai mcp newtoken` rotates it instantly.
+- **Tools** (`mcp/McpTools`, all marshalled onto the server thread): `list_bots`,
+  `select_bot`, `look` (image + text), `observe`, `api_reference`, `run_code` (waits up to
+  45 s for the script and returns its log), `script_status`, `stop`, `say`, `inventory`.
+  Deliberately no set-block/teleport/world-dump tool.
+- **UI:** `/ai mcp` opens `client/gui/McpGuideScreen` (tabs: What is this · Claude ·
+  ChatGPT · Grok · Gemini) carrying the address/token via `McpInfoPayload`, with Copy
+  address / Copy token / Copy config buttons; Bedrock/vanilla get `/ai mcp status|token`.
+  Ops-only. Text tree: `/ai mcp status|start|stop|token|newtoken|port <n>|remote on|off`.
+- Wiki: `wiki/MCP-Server.md`.
+
+### How a companion thinks — vision + code (3.25.0)
+- **The default brain is now look → think → write a script → press the buttons**
+  (`agent/BotBrain`), replacing "ask for a JSON action list and execute it". `aiLogicMode`
+  (`code` default, `plan` for the classic planner) switches between them.
+- **Vision** (`vision/BotVision`): casts one ray per pixel from the bot's eye position
+  (80×45 at 48 blocks by default, clamped 32–160 × 18–90 / 8–64) over ~90° FOV, paints
+  block map colours shaded by face + distance fog, sky/cave for misses, projects nearby
+  entities as coloured markers, and stamps a crosshair. Also emits the same scene in words.
+  PNG written by a hand-rolled encoder (`vision/Png`, `Deflater`+`CRC32` — no AWT, so it
+  works headless). Rate-limited per bot (`MIN_CAPTURE_INTERVAL_MS`), cached on the entity.
+  Camera basis verified against `Vec3.directionFromRotation`.
+- **The script language** (`agent/AgentScript`): variables, `if/else`, `repeat`, `while`,
+  `break`/`continue`, comments, arithmetic/comparison/logic. **Compiled to a flat op list
+  with jumps**, not walked as a tree — that's what lets `ScriptRunner` suspend on a
+  program counter across ticks. Bounded: 4000 ops, 16 nesting levels, 400 ops/tick,
+  `scriptMaxTicks` (1200) total. Arity is checked at **compile** time so the model gets one
+  clear error instead of failing mid-run.
+- **The API** (`agent/BotApi`): senses (`blockAt`, `find`, `findEntity`, `count`, `health`,
+  `lookingAt`, …), instant controls (`say`, `select`, `sneak`, `drop`, `eat`), held actions
+  returning a `Task` the runner parks on (`walk`, `goTo`, `mine`, `mineAt`, `useAt`,
+  `place`, `collect`, `attack`, `followOwner`), and **containers**. `BotApi.reference()` is
+  the single source of truth for both the planner prompt and the MCP `api_reference` tool.
+- **The controls** (`agent/BotInput`): movement drives the mob's own `zza`/`xxa` (so walls,
+  falls and water all apply); look turns at ≤22°/tick; **hold left-click** accumulates real
+  break progress from block hardness × held-tool speed (vanilla's /30 ÷ /100 formula) with
+  `destroyBlockProgress` cracks, then `destroyBlock(…, true, bot)` for real drops and tool
+  damage; **right-click** places the held block against the aimed face (orienting AXIS /
+  HORIZONTAL_FACING / FACING like a player's placement), flips levers/buttons/doors/
+  trapdoors/gates, or eats. **It never attacks players.**
+- **Containers:** `openContainer/take/put/takeAll/putAll/containerList/closeContainer` via
+  `HopperBlockEntity.getContainerAt` (so double chests are one 54-slot container), reach-
+  checked, with the chest lid `blockEvent` + open/close sounds. `put` respects
+  `canPlaceItem`, so furnace fuel and inputs land in the right slots without the script
+  knowing anything about slot numbers.
+- **`HuggingFaceClient.requestCode`** sends the picture as an OpenAI-style `image_url`
+  content part with an inline `data:` URI and asks for `{"thinking","say","code"}` JSON; a
+  4xx on an image-bearing request retries once **text-only**, so a model with no eyes still
+  plays. ``` fences inside the JSON string are stripped.
+- Player-facing: `/ai look` (read the scene), `/ai code <script>` / `/ai code stop`.
+  Wiki: `wiki/Vision-and-Code.md`.
+
+### Living in the world — no teleport, and self-sufficiency (3.25.0)
+- **A companion never teleports.** The `setPos` jump in `FollowOwnerGoal` and the one in
+  `comeTo` are gone; it walks (a little faster when it's fallen behind) and says so if it
+  can't find a path. `allowBotTeleport` exists in the config as a permanently-`false`
+  marker of the rule.
+- **Creative warning:** `CreativeWatch` (a 1 s server tick check) notices a player entering
+  creative/spectator with a bot out and sends `CreativeWarningPayload` →
+  `client/gui/CreativeWarningScreen` (chat fallback on Bedrock/vanilla), once per switch.
+  Gate: `creativeModeWarning`.
+- **Survival brain** (`agent/SurvivalBrain`, `survivalBrain` config): no-API reflexes that
+  run whatever the connection is — eat when hurt, swim up when drowning, run out of fire,
+  hop when wedged, walk back to a distant owner. This is what "it lives on its own" means.
+- Entity plumbing: `brain()`, `look()`, `resolveAuth()`, `setManualControl()` (disables the
+  goal system's MOVE/LOOK/JUMP control flags so goals can't fight a script),
+  `prepareForScript()`, `describeCarrying()`, `holdItemMatching()`, `consumeBestFood()`,
+  `consumeHeld()`.
+
 ### AI / LLM planning
 - Connects to any **OpenAI-compatible** API (HuggingFace, Ollama, OpenAI,
   LM Studio, etc.) via `apiUrl` + `hfToken`.
@@ -386,6 +485,11 @@ having Blockpal. Code lives under `client/assist/` + two GUI screens.
 | `/ai stop` | Cancel current task |
 | `/ai possess` | Hand your character to your companion (opens the console) |
 | `/ai possess <instruction>` / `/ai possess stop` | Steer possession by text / end it |
+| `/ai connection [set <id>]` | The ONE AI connection: `mcp`/`key`/`player2`/`ollama`/`free`/`off` |
+| `/ai mcp` | **(ops)** Setup guide: connect Claude / ChatGPT / Grok / Gemini to your world |
+| `/ai mcp status\|start\|stop\|token\|newtoken\|port <n>\|remote on\|off` | **(ops)** MCP server controls |
+| `/ai look` | Read what the nearby companion can actually see (its own eyes) |
+| `/ai code <script>` / `/ai code stop` | Hand it a script in the language its AI writes |
 | `/ai resume` / `/ai enable` | Re-enable after the FPS kill switch tripped |
 | `/ai locate` / `/ai where` | Find assistant |
 | `/ai name <name>` | Rename |
@@ -528,7 +632,10 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   writes a temp file and atomically moves it over `config.json` (never a
   half-written file), keeps the previous good file as `config.json.prev`, retries
   once on a transient IO failure, and is `synchronized`.
-- Full list of settings: `hfToken`/`hfTokenObf`, `hfModel`, `apiUrl`,
+- Full list of settings: `aiConnection`, `mcpPort`, `mcpAllowRemote`, `mcpRequireToken`,
+  `mcpTokenObf`, `aiLogicMode`, `visionEnabled`, `visionWidth`, `visionHeight`,
+  `visionRange`, `scriptMaxTicks`, `survivalBrain`, `creativeModeWarning`,
+  `allowBotTeleport` (always false), `hfToken`/`hfTokenObf`, `hfModel`, `apiUrl`,
   `freeAiFallback`, `freeApiUrl`, `freeModel`,
   `ollamaEnabled`, `ollamaUrl`, `ollamaModel`, `ollamaModels`,
   `player2Enabled`, `player2Url`, `player2OnlineUrl`, `player2Model`, `player2KeyObf`,
@@ -838,6 +945,65 @@ share code or versioning with the Java mod. Source in `bedrock/`, packaged artif
 ---
 
 ## Changelog
+
+### 3.25.0
+- **MCP server — the easy AI connection.** Blockpal now *hosts* an MCP server so an AI app
+  the player already pays for (Claude, ChatGPT, Grok, Gemini) connects to the world and
+  drives the bot, with no key stored in-game. `mcp/McpServer` (JDK `HttpServer`) serves both
+  the current **Streamable HTTP** transport (`POST /mcp`, JSON-RPC 2.0 incl. batches) and
+  the legacy **HTTP+SSE** pair (`GET /sse` → endpoint event → `POST /messages?sessionId=…`,
+  responses pushed back over the stream, 20 s keep-alives), answering `initialize`, `ping`,
+  `tools/list`, `tools/call`, notifications and empty `resources/list`/`prompts/list`.
+  Loopback-only unless `mcpAllowRemote`; `Authorization: Bearer` required by default with a
+  token generated on first use and stored obfuscated (`mcpTokenObf`). `mcp/McpTools` exposes
+  ten player-shaped tools (`look` returns a real image + text, `run_code`, `observe`,
+  `api_reference`, …) all marshalled onto the server thread. In-game guide:
+  `client/gui/McpGuideScreen` via `/ai mcp` (tabs per app, copy buttons), text tree
+  `/ai mcp status|start|stop|token|newtoken|port|remote`.
+- **Exactly one AI connection.** New `ai/AiConnection` enum + `aiConnection` config;
+  `setConnection()` turns every other provider off and `normalize()` re-enforces it.
+  `ApiAuth.resolveFor` switches on it instead of cascading, and `aiAvailable()` follows.
+  `/ai connection [set <id>]`, a single cycler in the panel, and `/ai admin ollama|player2
+  on` / `/ai admin token` now just switch the connection. Migration keeps whatever the old
+  priority order would have picked.
+- **New brain: look → write code → press the buttons.** `vision/BotVision` renders the
+  bot's actual field of view (ray per pixel, ~90°, map colours shaded by face + fog, entity
+  markers, crosshair) to a PNG via a hand-rolled encoder (`vision/Png`) plus a written
+  scene; `HuggingFaceClient.requestCode` sends it as an `image_url` part and asks for
+  `{thinking, say, code}`; `agent/AgentScript` compiles the reply to a flat op list with
+  jumps; `agent/ScriptRunner` executes it across ticks under strict budgets;
+  `agent/BotApi` is the whole vocabulary; `agent/BotInput` turns it into movement keys and
+  mouse buttons with real break progress, reach limits and no player-attacking.
+  `agent/BotBrain` runs the loop. `aiLogicMode` switches back to the classic JSON planner.
+- **Containers.** `openContainer/take/put/takeAll/putAll/containerList/closeContainer` over
+  `HopperBlockEntity.getContainerAt` (double chests included), reach-checked, with lid
+  animation and sounds; `put` respects `canPlaceItem` so furnace fuel/input slots work.
+- **No teleport, ever.** Removed the `setPos` jumps from `FollowOwnerGoal` and `comeTo`;
+  bots walk and say so when they can't path. `CreativeWatch` + `CreativeWarningScreen` warn
+  a player once per switch into creative that their walking companion will be left behind.
+  `agent/SurvivalBrain` keeps a bot alive with no API at all (eat, drown, fire, stuck,
+  catch up).
+- **Config schema → v12** (`aiConnection`, `mcp*`, `aiLogicMode`, `vision*`,
+  `scriptMaxTicks`, `survivalBrain`, `creativeModeWarning`, `allowBotTeleport`). New Java
+  files were `git add -f`'d per the `*.java` ignore rule.
+- **Verification (this session actually ran things).** The 3.20.0 javac recipe works and
+  was used throughout: MC 26.2 `client.jar` + `libraries[]` from piston, the fabric-api fat
+  jar's nested modules, Fabric Loader from maven.fabricmc.net, `org.jetbrains:annotations`
+  from Maven Central, and **JDK 25.0.2 from `download.java.net`** (26.2 classes are class
+  file v69, so JDK 21 can't read them — the URL is on `https://jdk.java.net/archive/`).
+  Both source sets compile clean. Beyond compiling: **23 script/PNG tests** (real scripts a
+  model would write, every refusal path, loop/jump patching, and a byte-validated PNG whose
+  pixels round-trip); **39 MCP tests against the running server over real HTTP** (handshake,
+  tool schemas, auth incl. 401s and `?token=`, batches, `GET /mcp` → 405, the full SSE
+  session including a pushed response, token rotation invalidating the old token); **19
+  config tests** (v11→v12 migration for each old provider layout, exclusivity against a
+  hand-edited file, MCP token obfuscated-at-rest round-trip, garbage values clamped); and
+  **47 camera tests** against `Vec3.directionFromRotation` (a mirrored basis would have made
+  every left/right the AI is told wrong). Two real bugs came out of this: arity was only
+  checked at runtime, and `api_reference` needed a server it doesn't use. Both fixed.
+  *Still wants a real machine:* the in-world feel — mining speed, walking pathfinding,
+  how well a given model plays from a low-resolution picture — and a live end-to-end
+  connection from each of the four AI apps (each needs that vendor's own account).
 
 ### 3.24.0
 - **One-click AI provider presets — HuggingFace / ChatGPT / Claude / Gemini / Grok.**
@@ -1954,7 +2120,7 @@ merge to `main`, not when a PR is opened (so a PR you later close has no side ef
 ## Layout
 
 ```
-src/main/java        # common mod: entity, AI planner, commands, chat, networking
+src/main/java        # common mod: entity, AI brain (agent/, vision/, mcp/), commands, chat, networking
 src/client/java      # client-only: rendering and the settings GUI
 src/main/resources   # fabric.mod.json, lang files, skins, assets
 builds/              # tested, ready-to-use jars (full version history, no deleting old builds.)

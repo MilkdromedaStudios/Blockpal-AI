@@ -97,6 +97,17 @@ public class AiAssistantEntity extends PathfinderMob {
     // model so they "think differently". Null = resolve normally from the owner.
     private com.milkdromeda.blockpal.ai.HuggingFaceClient.ApiAuth aiOverride;
     private final AiTaskManager taskManager;
+    /**
+     * The look → think → write code → press buttons brain (3.25.0). It owns the bot's
+     * virtual keyboard and mouse, and runs the keep-alive reflexes even when no model is
+     * connected at all, which is what lets a companion live on its own.
+     */
+    private final com.milkdromeda.blockpal.agent.BotBrain brain;
+    /** Most recent rendered view, reused briefly so repeated looks don't re-render. */
+    private com.milkdromeda.blockpal.vision.BotVision.Snapshot lastLook;
+    private long lastLookAt;
+    /** True while the brain is holding the controls, so vanilla goals stand down. */
+    private boolean manualControl;
     private BuildGoal buildGoal;
     private int idleMessageTimer = 0;
     /** Tick the current task started, used by the watchdog to stop runaway loops. */
@@ -124,6 +135,7 @@ public class AiAssistantEntity extends PathfinderMob {
     public AiAssistantEntity(EntityType<? extends AiAssistantEntity> type, Level level) {
         super(type, level);
         this.taskManager = new AiTaskManager(this);
+        this.brain = new com.milkdromeda.blockpal.agent.BotBrain(this);
         // Ensure a visible nametag from the moment the entity exists.
         setAssistantName(this.assistantName);
         // A helper should never despawn when the player wanders off.
@@ -222,12 +234,20 @@ public class AiAssistantEntity extends PathfinderMob {
 
         if (level() instanceof ServerLevel serverLevel) {
             manageGear(serverLevel);
+            // Look → think → write code → press the buttons. Also runs the no-API
+            // survival reflexes, so this happens whatever the AI connection is.
+            brain.tick(serverLevel);
         }
+
+        // While a script (or a keep-alive reflex) has the controls, nothing else gets a
+        // say this tick — the bot is busy being driven.
+        if (brain.isDriving()) return;
 
         idleMessageTimer++;
 
-        // Autonomous self-direction: always running — immediately re-plan when idle.
-        if (autonomousMode && mode != Mode.EXECUTING && ModConfig.get().aiAvailable()) {
+        // Autonomous self-direction with the CLASSIC JSON planner. In "code" mode the
+        // brain above does the thinking instead, so this must not also fire.
+        if (planMode() && autonomousMode && mode != Mode.EXECUTING && ModConfig.get().aiAvailable()) {
             if (--autoThinkTimer <= 0) {
                 autoThinkTimer = 60; // safety gap in case the API is slow; resets properly below
                 startSurvivalLoop();
@@ -238,7 +258,7 @@ public class AiAssistantEntity extends PathfinderMob {
         // every mode, so the assistant stays responsive even mid-plan.
 
         // Watchdog: if stuck too long, silently re-plan instead of going idle.
-        if (mode == Mode.EXECUTING) {
+        if (planMode() && mode == Mode.EXECUTING) {
             int limitTicks = ModConfig.get().maxTaskSeconds * 20;
             if (limitTicks > 0 && tickCount - taskStartTick > limitTicks) {
                 taskManager.clearPlan();
@@ -262,10 +282,30 @@ public class AiAssistantEntity extends PathfinderMob {
     }
 
     public void giveTask(String task, ServerPlayer issuer) {
-        if (!ModConfig.get().aiAvailableFor(ownerUuid, getOwnerName())) {
+        ModConfig cfg = ModConfig.get();
+        if (cfg.isMcpConnection()) {
+            // The intelligence lives in an outside AI app that calls in over MCP. Note the
+            // instruction so that app can read it with observe(), and say so plainly.
+            brain.setGoal(task);
+            if (issuer != null) {
+                issuer.sendSystemMessage(Component.literal(
+                        assistantName + ": \"Noted — I'll do that when my AI checks in. "
+                                + "(This server is set to the MCP connection: connect Claude, ChatGPT, "
+                                + "Grok or Gemini with /ai mcp.)\""));
+            }
+            return;
+        }
+        if (!cfg.aiAvailableFor(ownerUuid, getOwnerName())) {
             issuer.sendSystemMessage(Component.literal(
                     assistantName + ": \"I can't do that without an API key. An admin can set one with "
                             + "/ai admin token <token>, or you can use your own with /ai mykey <token>.\""));
+            return;
+        }
+        if (!planMode()) {
+            // Vision + code brain: the instruction becomes the goal it looks at the world
+            // and writes a script for. No JSON plan is requested at all.
+            brain.setGoal(task);
+            autonomousMode = true;
             return;
         }
         pendingTask = task;
@@ -277,7 +317,7 @@ public class AiAssistantEntity extends PathfinderMob {
 
     public void finishTask() {
         pendingTask = null;
-        if (autonomousMode && ModConfig.get().aiAvailable()) {
+        if (planMode() && autonomousMode && ModConfig.get().aiAvailable()) {
             // Jump straight into the next survival task with no gap.
             startSurvivalLoop();
         } else {
@@ -333,22 +373,31 @@ public class AiAssistantEntity extends PathfinderMob {
 
     // ---- Quick (no-API) behaviours used by commands and chat ----
 
-    /** Calls the assistant to the player; teleports if it's far away so it always arrives. */
+    /**
+     * Calls the assistant over. It <b>walks</b> — a companion never teleports, however
+     * far away it is, because a thing that blinks to your side isn't living in the world
+     * with you. If it's a long way off it says so and sets out; if it can't find a path
+     * at all it tells you rather than cheating its way there.
+     */
     public void comeTo(Player player) {
         taskManager.clearPlan();
+        brain.stopScript();
         mode = Mode.FOLLOWING;
-        if (distanceToSqr(player) > 16 * 16) {
-            // Same approach FollowOwnerGoal uses when the owner gets too far.
-            setPos(player.getX() + 1.0, player.getY(), player.getZ());
-            getNavigation().stop();
-        } else {
-            getNavigation().moveTo(player, 1.2);
+        boolean pathed = getNavigation().moveTo(player, 1.2);
+        double distance = Math.sqrt(distanceToSqr(player));
+        if (!pathed) {
+            broadcastMessage("I can't find a way to you from here — I'm "
+                    + (int) distance + " blocks away. Come a bit closer?");
+            return;
         }
-        broadcastMessage(personality.come());
+        broadcastMessage(distance > 48
+                ? personality.come() + " (I'm " + (int) distance + " blocks off — walking, give me a minute.)"
+                : personality.come());
     }
 
     public void followPlayer() {
         taskManager.clearPlan();
+        brain.stop();
         mode = Mode.FOLLOWING;
         autonomousMode = false;
         broadcastMessage(personality.follow());
@@ -357,6 +406,7 @@ public class AiAssistantEntity extends PathfinderMob {
     /** Stops moving and guards the current spot (still defends against hostiles). */
     public void stayHere() {
         taskManager.clearPlan();
+        brain.stop();
         getNavigation().stop();
         mode = Mode.GUARDING;
         autonomousMode = false;
@@ -365,6 +415,7 @@ public class AiAssistantEntity extends PathfinderMob {
 
     public void stopTask() {
         taskManager.clearPlan();
+        brain.stop();
         getNavigation().stop();
         mode = Mode.FOLLOWING;
         autonomousMode = false;
@@ -406,6 +457,140 @@ public class AiAssistantEntity extends PathfinderMob {
         // autoThinkTimer is only used when mode falls back out of EXECUTING;
         // set it long so we don't hammer the API if the plan arrives instantly.
         autoThinkTimer = MIN_PLAN_INTERVAL;
+    }
+
+    // ── The vision + code brain (3.25.0) ────────────────────────────────────────
+
+    /** This bot's look → think → code → act brain (and its virtual keyboard/mouse). */
+    public com.milkdromeda.blockpal.agent.BotBrain brain() {
+        return brain;
+    }
+
+    /** True when the server is running the classic JSON action planner instead. */
+    public boolean planMode() {
+        return "plan".equalsIgnoreCase(ModConfig.get().aiLogicMode);
+    }
+
+    /**
+     * Renders what this bot can see. Rate-limited, because a look costs one ray cast per
+     * pixel on the server thread — repeated calls inside the same second reuse the last
+     * picture rather than re-rendering the world.
+     */
+    public com.milkdromeda.blockpal.vision.BotVision.Snapshot look() {
+        long now = System.currentTimeMillis();
+        if (lastLook != null
+                && now - lastLookAt < com.milkdromeda.blockpal.vision.BotVision.MIN_CAPTURE_INTERVAL_MS) {
+            return lastLook;
+        }
+        lastLook = com.milkdromeda.blockpal.vision.BotVision.capture(this);
+        lastLookAt = now;
+        return lastLook;
+    }
+
+    /** The model/endpoint this bot's own thinking should use (per-bot override wins). */
+    public com.milkdromeda.blockpal.ai.HuggingFaceClient.ApiAuth resolveAuth() {
+        if (aiOverride != null && aiOverride.usable()) return aiOverride;
+        return com.milkdromeda.blockpal.ai.HuggingFaceClient.ApiAuth.resolveFor(ownerUuid, getOwnerName());
+    }
+
+    /**
+     * Hands the controls to (or back from) the brain. While manual control is on, the
+     * vanilla goal system is not allowed to steer, look or jump — otherwise a stroll goal
+     * would fight the script for the same body.
+     */
+    public void setManualControl(boolean manual) {
+        if (manualControl == manual) return;
+        manualControl = manual;
+        if (manual) {
+            getNavigation().stop();
+            goalSelector.disableControlFlag(Goal.Flag.MOVE);
+            goalSelector.disableControlFlag(Goal.Flag.LOOK);
+            goalSelector.disableControlFlag(Goal.Flag.JUMP);
+        } else {
+            goalSelector.enableControlFlag(Goal.Flag.MOVE);
+            goalSelector.enableControlFlag(Goal.Flag.LOOK);
+            goalSelector.enableControlFlag(Goal.Flag.JUMP);
+            setZza(0);
+            setXxa(0);
+        }
+    }
+
+    public boolean isManuallyControlled() {
+        return manualControl;
+    }
+
+    /** Clears whatever the bot was doing so an incoming script starts from a clean slate. */
+    public void prepareForScript() {
+        taskManager.clearPlan();
+        pendingTask = null;
+        mode = Mode.IDLE;
+        getNavigation().stop();
+    }
+
+    /** A compact "what am I carrying" line for prompts and MCP observations. */
+    public String describeCarrying() {
+        StringBuilder sb = new StringBuilder();
+        ItemStack held = getItemBySlot(EquipmentSlot.MAINHAND);
+        sb.append("in hand: ").append(held.isEmpty() ? "nothing"
+                : held.getCount() + "× " + com.milkdromeda.blockpal.agent.BotApi.itemName(held));
+        StringBuilder pack = new StringBuilder();
+        for (int i = 0; i < inventory.getContainerSize(); i++) {
+            ItemStack s = inventory.getItem(i);
+            if (s.isEmpty()) continue;
+            if (pack.length() > 0) pack.append(", ");
+            pack.append(s.getCount()).append("× ")
+                .append(com.milkdromeda.blockpal.agent.BotApi.itemName(s));
+        }
+        sb.append("; backpack: ").append(pack.length() == 0 ? "empty" : pack);
+        return sb.toString();
+    }
+
+    /**
+     * Puts a carried item in the bot's hand, swapping out whatever was there — the
+     * equivalent of scrolling the hotbar. Matching is loose ("pickaxe" finds an iron
+     * pickaxe), because that is how the AI refers to things.
+     *
+     * @return true if something matching is now held
+     */
+    public boolean holdItemMatching(String query) {
+        ItemStack held = getItemBySlot(EquipmentSlot.MAINHAND);
+        if (!held.isEmpty() && com.milkdromeda.blockpal.agent.BotApi.matches(held, query)) return true;
+        for (int i = 0; i < inventory.getContainerSize(); i++) {
+            ItemStack s = inventory.getItem(i);
+            if (s.isEmpty() || !com.milkdromeda.blockpal.agent.BotApi.matches(s, query)) continue;
+            ItemStack chosen = s.copy();
+            inventory.setItem(i, ItemStack.EMPTY);
+            setItemSlot(EquipmentSlot.MAINHAND, chosen);
+            setGuaranteedDrop(EquipmentSlot.MAINHAND);
+            if (!held.isEmpty()) {
+                ItemStack overflow = inventory.addItem(held);
+                if (!overflow.isEmpty() && level() instanceof ServerLevel sl) spawnAtLocation(sl, overflow);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /** Eats the best safe food it carries. @return true if it ate something. */
+    public boolean consumeBestFood(ServerLevel level) {
+        int slot = bestEdibleFood();
+        if (slot < 0) return false;
+        eat(level, slot);
+        return true;
+    }
+
+    /** Eats/drinks what's in the bot's hand (used by the right-click driver). */
+    public boolean consumeHeld(ServerLevel level) {
+        ItemStack held = getItemBySlot(EquipmentSlot.MAINHAND);
+        if (held.isEmpty() || ItemSorter.isHarmfulToEat(held)) return false;
+        ItemStack one = held.copyWithCount(1);
+        FoodProperties food = one.get(DataComponents.FOOD);
+        if (food == null) return false;
+        heal(Math.max(1.0f, food.nutrition() * 0.6f + 1.0f));
+        applyConsumeEffects(level, one);
+        held.shrink(1);
+        swing(InteractionHand.MAIN_HAND);
+        return true;
     }
 
     /** True if the given player is allowed to give this assistant orders. */

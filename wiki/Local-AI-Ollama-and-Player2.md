@@ -5,23 +5,34 @@ any OpenAI-compatible) key. As of **3.21.0** there are two more ways to power yo
 companion that need **no HuggingFace key** — great for running your own models, or
 for the absolute easiest setup.
 
-**Priority order** when picking what to talk to:
+> **Changed in 3.25.0 — there is no priority order any more.** A server picks **one** AI
+> connection and that's the one that runs: MCP, your own API key, Player2, Ollama, the
+> free service, or none. Turning Player2 or Ollama on switches the others off. See
+> [Settings → One AI connection at a time](Settings#one-ai-connection-at-a-time-3250).
+>
+> ```
+> /ai connection                      # what's running now
+> /ai connection set ollama           # switch (ops)
+> ```
+>
+> Upgrading servers keep whichever provider the old priority order would have chosen, so
+> nothing changes when you update.
 
-1. a personal or shared **API key** (always wins);
-2. **Player2**, if enabled;
-3. **Ollama**, if enabled;
-4. the free keyless service.
+> **Easier than either of these:** if you already pay for Claude, ChatGPT, Grok or Gemini,
+> connect it straight to your world with the **[MCP server](MCP-Server)** — no key in the
+> game, no model to download.
 
 > **Want a big cloud provider instead?** ChatGPT, Claude, Gemini and Grok are all
 > OpenAI-compatible too — pick one in one click with the **AI provider** presets on the
 > **AI & API** tab (or `/ai admin provider <name>`). Those use an **API key**, so they sit
 > at priority 1 above. See [Settings → AI provider presets](Settings#ai-provider-presets-3240).
 
-> **In the settings menu (3.22.0):** open `/ai menu` → **AI & API** tab. Under **"Local &
-> easy AI"** you'll find **Use Player2** and **Use local Ollama** toggles, their model/URL
-> boxes, and a live **"▶ Bots will use: …"** line that tells you exactly which provider is
-> active for your current settings. The `/ai admin …` text commands below still work (and
-> are the way to configure on Bedrock/vanilla clients with no GUI).
+> **In the settings menu:** open `/ai menu` → **AI & API** tab. The **AI connection**
+> picker at the top chooses which one runs; the endpoint and model boxes for Player2 and
+> Ollama sit further down under **"Local & easy AI endpoints"**, and a live
+> **"▶ Bots will use: …"** line names exactly what will answer. The `/ai admin …` text
+> commands below still work (and are the way to configure on Bedrock/vanilla clients with
+> no GUI) — `/ai admin ollama on` now simply switches the connection to Ollama.
 
 ## Ollama — run your own custom local models
 

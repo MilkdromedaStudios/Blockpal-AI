@@ -1,7 +1,13 @@
 # AI Actions
 
-When you give a natural-language task, the language model returns a structured JSON
-plan of 5–15 steps. Each step is one of these **16 action types**:
+> **This is the classic planner.** Since **3.25.0** the default way a companion thinks is
+> to *look* at the world and *write a script* — see **[Vision & Code](Vision-and-Code)**.
+> The JSON planner below is still available: **Settings → Behavior → Thinking style →
+> "Classic action plan (JSON)"**. It is faster and more precise, but it can act on things
+> the bot never actually saw, which is exactly why it is no longer the default.
+
+When you give a natural-language task in this mode, the language model returns a
+structured JSON plan of 5–15 steps. Each step is one of these **16 action types**:
 
 | Action | What it does |
 |--------|--------------|

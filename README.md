@@ -4,15 +4,24 @@
 
 Blockpal drops a player-like character named Ethan into your world. Give it a goal in
 plain language — in chat, with a command, or just by speaking into your microphone — and
-it plans the steps through a large language model and then carries them out: building,
-mining, gathering, fighting, and running commands. It defends itself on reflex, manages
-its own gear, talks back in its own voice (out loud, if you like), and is configured
-entirely from in-game screens. It works in singleplayer and multiplayer, and your
-Bedrock-edition friends can play with it too.
+it goes and does it: building, mining, gathering, fighting, using chests. It defends
+itself on reflex, manages its own gear, talks back in its own voice (out loud, if you
+like), and is configured entirely from in-game screens. It works in singleplayer and
+multiplayer, and your Bedrock-edition friends can play with it too.
 
-Blockpal connects to any OpenAI-compatible API (Hugging Face, OpenAI, Ollama, LM Studio,
-and others), so you choose the model and supply the key — and with no key at all it
-falls back to a free built-in AI, so it works straight out of the box.
+**The easiest way to give it a brain: connect the AI you already pay for.** Blockpal runs
+an MCP server, so Claude, ChatGPT, Grok or Gemini can connect straight to your world —
+no API key stored in the game. Run `/ai mcp` in game and it shows you the address, your
+token and the exact config to paste. It also still speaks to any OpenAI-compatible API
+directly (Hugging Face, OpenAI, Ollama, LM Studio), runs on a local model with no internet
+at all, or works with no key whatsoever on a free built-in AI.
+
+**It plays like a player, not like an admin.** Ethan looks at the world — it gets an
+actual rendered picture of what its eyes can see — decides what to do, and writes a short
+script that presses its own movement keys and mouse buttons. It mines at the speed its
+tool allows, reaches about as far as you do, opens chests it's standing next to, and
+never teleports. That makes it a little dumber than a bot that conjures blocks into place.
+That's the point.
 
 [![Modrinth version](https://img.shields.io/modrinth/v/blockpal-ai?style=for-the-badge&logo=modrinth&label=Modrinth&color=00AF5C)](https://modrinth.com/mod/blockpal-ai)
 [![Modrinth downloads](https://img.shields.io/modrinth/dt/blockpal-ai?style=for-the-badge&logo=modrinth&label=Downloads&color=5da545)](https://modrinth.com/mod/blockpal-ai)
@@ -27,7 +36,13 @@ falls back to a free built-in AI, so it works straight out of the box.
 
 ![What Ethan can do](media/features.png)
 
-- **Natural-language task planning.** Tell it what you want — "build a 5x5 floor", "clear these trees", "guard this spot" — and it turns that into a multi-step plan it actually performs.
+- **Connect your own AI over MCP.** Point Claude, ChatGPT, Grok or Gemini at your world and let it drive the companion — no key stored in the game, and you watch it think in the app's own window. `/ai mcp` shows the address, the token and a per-app setup guide.
+- **One AI connection, never two.** Pick exactly one — MCP, your own key, Player2, a local Ollama, the free service, or none. No more guessing which provider answered, or which one is being billed.
+- **It looks, then writes code.** The companion sees a picture rendered from its own eyes, decides, and writes a little script that presses its keys and mouse buttons. Everything it manages, a player could have managed.
+- **It uses chests.** Chests, double chests, barrels, shulker boxes, hoppers and furnaces — opened within arm's reach, a stack at a time, with ore and fuel going into the right furnace slots by themselves.
+- **It never teleports.** Companions walk, swim and climb after you like something that actually lives in the world. (You get a warning the first time you go creative, since you can out-fly one in seconds.)
+- **It lives on its own.** With no AI connected at all it still eats when hurt, swims up when drowning, gets out of fires, unsticks itself, and makes its own way back to you.
+- **Natural-language task planning.** Tell it what you want — "build a 5x5 floor", "clear these trees", "guard this spot" — and it goes and does it.
 - **Talks back.** It listens to chat and replies in the first person. Common orders like come, follow, stay, and stop are handled instantly with no API call.
 - **Voice.** Hold **V** and speak to your companion — Whisper large-v3-turbo transcribes you, and only your own bot hears it. It answers out loud with a text-to-speech voice you can pick per bot; share its voice with friends, and shared ("linked") agents take turns speaking so they never interrupt each other.
 - **Personalities.** Choose how it talks and acts — friendly, cheerful, grumpy, stoic, heroic, or shy — or write your own custom personality, which the AI checks to keep family-friendly.
@@ -44,15 +59,16 @@ falls back to a free built-in AI, so it works straight out of the box.
 
 - Minecraft (Java Edition) 26.2
 - Fabric Loader 0.19.3 or newer, plus Fabric API
-- An OpenAI-compatible API key for the AI features (a free Hugging Face token works)
+- An AI to think with — any one of: an AI app you already have (Claude, ChatGPT, Grok, Gemini) connected over MCP, an OpenAI-compatible API key (a free Hugging Face token works), a local Ollama, or the free built-in service
 
 ## Getting started
 
 1. Download the latest Blockpal jar and put it in your mods folder, next to Fabric API.
 2. Launch Minecraft on the matching Fabric version.
 3. In game, run /ai summon to meet Ethan.
-4. Give it an AI key with /ai mykey followed by your token, or, as a server admin, set a shared key in the settings panel.
+4. Give it a brain. Easiest: run /ai connection set mcp then /ai mcp, and follow the guide to point Claude, ChatGPT, Grok or Gemini at your world. Or set an API key with /ai mykey followed by your token.
 5. Try a task, for example /ai build a 5x5 floor, or just type "Ethan, follow me" in chat.
+6. Curious what it can see? /ai look reads out its actual field of view.
 
 Full setup and configuration details are in the wiki, linked below.
 
@@ -91,6 +107,9 @@ Details in the wiki's Voice page, linked below.
 A few to start with; the full list is in the wiki.
 
 - `/ai summon [name]` — spawn a companion
+- `/ai mcp` — connect Claude, ChatGPT, Grok or Gemini to your world
+- `/ai connection` — see (or switch) the one AI connection in use
+- `/ai look` — read what your companion can actually see
 - `/ai come`, `/ai follow`, `/ai stay`, `/ai stop` — basic orders
 - `/ai <task>` — give a natural-language task
 - `/ai voice` — voice status; hold **V** to talk to it; `/ai voice share <player>` to share
@@ -104,6 +123,8 @@ A few to start with; the full list is in the wiki.
 
 Full documentation lives in the wiki:
 
+- MCP server (connect Claude/ChatGPT/Grok/Gemini): https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/MCP-Server
+- Vision and Code (how it thinks): https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Vision-and-Code
 - Installation: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Installation
 - Getting Started: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Getting-Started
 - Commands: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Commands

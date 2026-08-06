@@ -27,7 +27,7 @@ public class ModConfig {
      * default instead of silently inheriting Java's zero/false. A file with no
      * version at all reads back as {@code 0} and is migrated from there.
      */
-    public static final int CURRENT_CONFIG_VERSION = 11;
+    public static final int CURRENT_CONFIG_VERSION = 12;
 
     // Settings (including the API key) live in their own folder under the game's
     // config directory. That directory is untouched when you replace the mod jar,
@@ -285,6 +285,80 @@ public class ModConfig {
     public transient String player2Key = "";
     private transient boolean player2KeyFromEnv = false;
 
+    // ---- THE AI CONNECTION (exactly one) ----------------------------------------
+
+    // Which single way this server gets its intelligence: "mcp", "key", "player2",
+    // "ollama", "free" or "off" (see ai/AiConnection). Blockpal deliberately allows
+    // only ONE at a time — the old "try a key, then Player2, then Ollama, then the
+    // free service" chain meant two or three could be on at once with nobody able to
+    // tell which one was really answering (or being billed). Changing this through
+    // setConnection() switches the matching legacy flags below and turns the rest off.
+    public String aiConnection = AI_CONNECTION_DEFAULT;
+
+    private static final String AI_CONNECTION_DEFAULT = "free";
+
+    // ---- MCP server (connect Claude / ChatGPT / Grok / Gemini to your world) ------
+
+    // TCP port the built-in MCP server listens on when aiConnection is "mcp".
+    public int mcpPort = 25569;
+
+    // When false (the default) the MCP server binds to loopback only, so nothing
+    // outside this machine can reach it. Turn on ONLY if the AI app runs elsewhere
+    // (and then keep the token — see below).
+    public boolean mcpAllowRemote = false;
+
+    // MCP clients must send "Authorization: Bearer <token>". Kept on by default; the
+    // token is generated the first time the server starts and is shown in-game via
+    // /ai mcp (and the setup guide screen), never logged.
+    public boolean mcpRequireToken = true;
+
+    // The MCP bearer token, obfuscated at rest exactly like the API key.
+    public String mcpTokenObf = "";
+    /** Live, in-memory MCP token (deobfuscated); never written as plaintext. */
+    public transient String mcpToken = "";
+
+    // ---- Vision + code (how a bot thinks) ---------------------------------------
+
+    // "code"  — the bot LOOKS at the world (a rendered picture from its own eyes),
+    //           decides, and WRITES A SCRIPT that presses its keys and mouse buttons.
+    //           Dumber than a cheat, but everything it does, a player could do.
+    // "plan"  — the classic JSON action planner (MOVE_TO/PLACE_BLOCK/...).
+    public String aiLogicMode = "code";
+
+    // Render a picture from the bot's eyes and send it to the model. Turn off to send
+    // only the text description of the scene (much cheaper, and works with models that
+    // can't see images).
+    public boolean visionEnabled = true;
+
+    // Size of that picture, in pixels. Bigger = the model sees more detail but the
+    // server does more ray casting per look. Clamped to 32..192 / 18..108.
+    public int visionWidth = 80;
+    public int visionHeight = 45;
+
+    // How far the bot can see, in blocks (clamped 8..64).
+    public int visionRange = 48;
+
+    // Hard cap on how long one AI-written script may run before it is stopped, in
+    // ticks (20 = 1 s). Stops a runaway loop from owning the bot forever.
+    public int scriptMaxTicks = 1200;
+
+    // ---- Living on its own -------------------------------------------------------
+
+    // A bot NEVER teleports — not to its owner, not when it falls behind. It walks,
+    // swims and climbs like a player. This flag exists so the no-teleport rule is
+    // visible in the config file; it is intentionally not editable from the panel.
+    public final boolean allowBotTeleport = false;
+
+    // Warn a player (with a screen on a Java client, chat elsewhere) the first time
+    // they go creative while they have a bot out — a flying owner leaves a walking
+    // companion behind, and it will no longer blink to catch up.
+    public boolean creativeModeWarning = true;
+
+    // The built-in survival brain: even with no AI at all (connection "off", MCP idle,
+    // or the model unreachable) a bot eats when hungry, drinks/heals, avoids drowning
+    // and fire, fights back and retreats. This is what "it lives on its own" means.
+    public boolean survivalBrain = true;
+
     // ---- Behaviour tuning (survival feel) ----
 
     // When true, the planner is told to do things BY HAND like a survival player and to
@@ -335,6 +409,7 @@ public class ModConfig {
                     instance = loaded;
                     instance.deobfuscateToken();   // hfTokenObf -> live hfToken (must run before save)
                     instance.deobfuscatePlayer2Key();
+                    instance.deobfuscateMcpToken();
                     instance.migrate();
                     instance.normalize();
                     instance.applyEnvToken();      // env/property override (never persisted)
@@ -375,6 +450,8 @@ public class ModConfig {
         // Persist the Player2 key obfuscated too, and never an env-provided one.
         String p2plain = instance.player2Key == null ? "" : instance.player2Key;
         instance.player2KeyObf = obfuscate(instance.player2KeyFromEnv ? "" : p2plain);
+        // Same treatment for the MCP access token: obfuscated on disk, never plaintext.
+        instance.mcpTokenObf = obfuscate(instance.mcpToken == null ? "" : instance.mcpToken);
         String json;
         try {
             json = GSON.toJson(instance);
@@ -513,6 +590,30 @@ public class ModConfig {
             preferSurvivalActions = true;
             humanizeActions = true;
         }
+        if (configVersion < 12) {
+            // v12 makes the AI connection EXCLUSIVE (ai/AiConnection) and adds the MCP
+            // server, the vision+code brain and the survival brain. Derive the single
+            // connection from whatever the old stacked flags said, in the same priority
+            // order the old fallback chain used, so an upgrading server keeps talking to
+            // the provider it was already using.
+            aiConnection = (hfToken != null && !hfToken.isBlank()) ? "key"
+                    : player2Enabled ? "player2"
+                    : ollamaEnabled ? "ollama"
+                    : freeAiFallback ? "free"
+                    : "off";
+            // New booleans deserialize to false in an old file — restore their intended
+            // shipping defaults rather than silently disabling features.
+            visionEnabled = true;
+            creativeModeWarning = true;
+            survivalBrain = true;
+            mcpRequireToken = true;
+            aiLogicMode = "code";
+            mcpPort = 25569;
+            visionWidth = 80;
+            visionHeight = 45;
+            visionRange = 48;
+            scriptMaxTicks = 1200;
+        }
         configVersion = CURRENT_CONFIG_VERSION;
     }
 
@@ -535,6 +636,19 @@ public class ModConfig {
         if (player2Model == null || player2Model.isBlank()) player2Model = "gpt-oss-120b";
         if (player2Key == null) player2Key = "";
         if (player2KeyObf == null) player2KeyObf = "";
+        // Exactly one AI connection, always — a hand-edited file can't sneak a second on.
+        if (com.milkdromeda.blockpal.ai.AiConnection.byId(aiConnection) == null) {
+            aiConnection = AI_CONNECTION_DEFAULT;
+        }
+        applyConnectionExclusivity();
+        if (mcpToken == null) mcpToken = "";
+        if (mcpTokenObf == null) mcpTokenObf = "";
+        if (mcpPort < 1024 || mcpPort > 65535) mcpPort = 25569;
+        if (!"plan".equalsIgnoreCase(aiLogicMode)) aiLogicMode = "code";
+        visionWidth = (int) Math.max(32, Math.min(160, visionWidth == 0 ? 80 : visionWidth));
+        visionHeight = (int) Math.max(18, Math.min(90, visionHeight == 0 ? 45 : visionHeight));
+        visionRange = (int) Math.max(8, Math.min(64, visionRange == 0 ? 48 : visionRange));
+        if (scriptMaxTicks < 100 || scriptMaxTicks > 12000) scriptMaxTicks = 1200;
         if (villageTargetPopulation < 2) villageTargetPopulation = 24;
         if (villageStartPopulation < 1) villageStartPopulation = 5;
         if (defaultName == null || defaultName.isBlank()) defaultName = "Ethan";
@@ -596,6 +710,14 @@ public class ModConfig {
         }
     }
 
+    /** Recovers the live MCP token from its obfuscated on-disk form (if needed). */
+    private void deobfuscateMcpToken() {
+        if (mcpToken == null) mcpToken = "";
+        if (mcpToken.isBlank() && mcpTokenObf != null && !mcpTokenObf.isBlank()) {
+            mcpToken = deobfuscate(mcpTokenObf);
+        }
+    }
+
     /** Recovers the live Player2 key from its obfuscated on-disk form (if needed). */
     private void deobfuscatePlayer2Key() {
         if (player2Key == null) player2Key = "";
@@ -645,13 +767,88 @@ public class ModConfig {
         return hfToken != null && !hfToken.isBlank();
     }
 
+    // ---- The one AI connection (see ai/AiConnection) -----------------------------
+
+    /** The single connection this server uses. Never null. */
+    public com.milkdromeda.blockpal.ai.AiConnection connection() {
+        com.milkdromeda.blockpal.ai.AiConnection c =
+                com.milkdromeda.blockpal.ai.AiConnection.byId(aiConnection);
+        return c == null ? com.milkdromeda.blockpal.ai.AiConnection.FREE : c;
+    }
+
+    /**
+     * Switches the AI connection, <b>turning every other one off</b>. This is the whole
+     * point of the setting: with the old stacked flags a server could have a key, Player2
+     * and Ollama all "enabled" and no way to tell which one answered. Exactly one wins.
+     */
+    public void setConnection(com.milkdromeda.blockpal.ai.AiConnection connection) {
+        com.milkdromeda.blockpal.ai.AiConnection target =
+                connection == null ? com.milkdromeda.blockpal.ai.AiConnection.FREE : connection;
+        aiConnection = target.id();
+        applyConnectionExclusivity();
+    }
+
+    /**
+     * Forces the legacy per-provider flags to agree with {@link #aiConnection}, so old
+     * code paths (and a hand-edited config file) can never re-enable a second provider
+     * behind the setting's back.
+     */
+    public void applyConnectionExclusivity() {
+        com.milkdromeda.blockpal.ai.AiConnection c = connection();
+        player2Enabled = c == com.milkdromeda.blockpal.ai.AiConnection.PLAYER2;
+        ollamaEnabled = c == com.milkdromeda.blockpal.ai.AiConnection.OLLAMA;
+        freeAiFallback = c == com.milkdromeda.blockpal.ai.AiConnection.FREE;
+    }
+
+    /** True when this server's AI is the built-in MCP server (an outside app drives). */
+    public boolean isMcpConnection() {
+        return connection() == com.milkdromeda.blockpal.ai.AiConnection.MCP;
+    }
+
+    // ---- MCP access token --------------------------------------------------------
+
+    /** The live MCP bearer token (may be blank until {@link #ensureMcpToken()} runs). */
+    public String mcpToken() {
+        return mcpToken == null ? "" : mcpToken;
+    }
+
+    /** Generates a token the first time one is needed, and saves it obfuscated. */
+    public synchronized String ensureMcpToken() {
+        if (mcpToken == null || mcpToken.isBlank()) {
+            mcpToken = newMcpToken();
+            save();
+        }
+        return mcpToken;
+    }
+
+    /** Rolls a fresh token, immediately invalidating whatever was handed out before. */
+    public synchronized String regenerateMcpToken() {
+        mcpToken = newMcpToken();
+        save();
+        return mcpToken;
+    }
+
+    private static String newMcpToken() {
+        // 160 bits of randomness, URL-safe so it can be pasted into a JSON config or a
+        // query string without escaping.
+        byte[] bytes = new byte[20];
+        new java.security.SecureRandom().nextBytes(bytes);
+        return "bp_" + Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
     /**
      * True when SOME language model is reachable server-wide: a shared key is set,
      * or the free keyless fallback is enabled. Gates the "can the AI run at all"
      * checks — {@link #hasApiToken()} stays strictly "is a key set" for display.
      */
     public boolean aiAvailable() {
-        return hasApiToken() || player2Enabled || ollamaEnabled || freeAiFallback;
+        return switch (connection()) {
+            case API_KEY -> hasApiToken();
+            case PLAYER2, OLLAMA, FREE -> true;
+            // MCP puts the intelligence in an outside app, and "off" means none at all:
+            // in both cases nothing in-game should try to plan with a model.
+            case MCP, OFF -> false;
+        };
     }
 
     /**
@@ -660,8 +857,11 @@ public class ModConfig {
      * server is enabled, or the free fallback is enabled.
      */
     public boolean aiAvailableFor(UUID owner, String ownerName) {
-        return !resolveTokenFor(owner, ownerName).isBlank()
-                || player2Enabled || ollamaEnabled || freeAiFallback;
+        return switch (connection()) {
+            case API_KEY -> !resolveTokenFor(owner, ownerName).isBlank();
+            case PLAYER2, OLLAMA, FREE -> true;
+            case MCP, OFF -> false;
+        };
     }
 
     // ---- Local Ollama model pool (used by the Growth village game) ----

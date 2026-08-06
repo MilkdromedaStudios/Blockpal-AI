@@ -2,6 +2,7 @@ package com.milkdromeda.blockpal.command;
 
 import com.milkdromeda.blockpal.ModEntities;
 import com.milkdromeda.blockpal.admin.AdminAccess;
+import com.milkdromeda.blockpal.ai.AiConnection;
 import com.milkdromeda.blockpal.ai.Personality;
 import com.milkdromeda.blockpal.compat.BedrockSupport;
 import com.milkdromeda.blockpal.config.ModConfig;
@@ -67,6 +68,20 @@ public class AiCommands {
                                 .then(Commands.literal("stop").executes(AiCommands::possessStop))
                                 .then(Commands.argument("instruction", StringArgumentType.greedyString())
                                         .executes(ctx -> possessDo(ctx, StringArgumentType.getString(ctx, "instruction")))))
+
+                        // ── the ONE AI connection, and the MCP setup guide ──────────
+                        .then(Commands.literal("connection")
+                                .executes(AiCommands::connectionShow)
+                                .then(connectionArgs()))
+                        .then(mcpCommand())
+
+                        // Look through the bot's eyes / hand it a script yourself.
+                        .then(Commands.literal("look").executes(AiCommands::lookThroughEyes))
+                        .then(Commands.literal("code")
+                                .executes(AiCommands::codeHelp)
+                                .then(Commands.literal("stop").executes(AiCommands::codeStop))
+                                .then(Commands.argument("script", StringArgumentType.greedyString())
+                                        .executes(ctx -> runCode(ctx, StringArgumentType.getString(ctx, "script")))))
 
                         .then(Commands.literal("resume").executes(AiCommands::resume))
                         .then(Commands.literal("enable").executes(AiCommands::resume))
@@ -296,6 +311,8 @@ public class AiCommands {
                 "§f/ai summon [name] §7— bring a new assistant into the world\n" +
                 "§f/ai come §7· §ffollow §7· §fstay §7· §fstop §7— basic orders\n" +
                 "§f/ai possess §7— let it drive YOUR character (a console to type instructions)\n" +
+                "§f/ai look §7— read what it can see right now (its own eyes, not the map)\n" +
+                "§f/ai code <script> §7— hand it a script in the language its AI writes\n" +
                 "§f/ai locate §7— find where it is\n" +
                 "§f/ai inventory §7— see what it's carrying and wearing\n" +
                 "§f/ai skin <name> §7— give it a skin (built-in, or your own PNG; see /aiskins)\n" +
@@ -311,6 +328,8 @@ public class AiCommands {
                 "§6\n" +
                 "§eSettings live in the panel — no confusing setting commands:\n" +
                 "§f/ai panel §7— the unified menu (tabs: Settings · Admin · My Settings)\n" +
+                "§f/ai connection §7— which ONE AI this server uses (only one at a time)\n" +
+                "§f/ai mcp §7— connect Claude, ChatGPT, Grok or Gemini to this world\n" +
                 "§f/ai mykey <token>§7 · §f/ai model <id>§7 · §f/ai mymenu §7— your own API key & model\n" +
                 "§f/ai tutorial §7— a quick walkthrough of how to use Blockpal\n" +
                 "§f/ai admin §7— (ops) admin panel & global controls"
@@ -1053,10 +1072,16 @@ public class AiCommands {
     private static int adminSetToken(CommandContext<CommandSourceStack> ctx, String token) {
         ModConfig cfg = ModConfig.get();
         cfg.setToken(token);
+        // Setting a key means you want the key used. Without this the key would just sit
+        // there while some other connection kept answering — the confusion the exclusive
+        // connection setting exists to end.
+        boolean switched = cfg.connection() != AiConnection.API_KEY;
+        if (switched) cfg.setConnection(AiConnection.API_KEY);
         ModConfig.save();
         ctx.getSource().sendSuccess(() -> Component.literal(
-                "§a[Blockpal] Shared API token set ✓ §7(stored obfuscated, never shown to players).\n"
-                        + "§7Heads-up: typing a token in chat can expose it — on a server you control, "
+                "§a[Blockpal] Shared API token set ✓ §7(stored obfuscated, never shown to players)."
+                        + (switched ? "\n§7AI connection switched to §fMy own API key§7 (only one runs at a time)." : "")
+                        + "\n§7Heads-up: typing a token in chat can expose it — on a server you control, "
                         + "prefer the §fBLOCKPAL_API_TOKEN§7 env var (it's never written to disk)."), false);
         return 1;
     }
@@ -1143,15 +1168,13 @@ public class AiCommands {
 
     // ── local Ollama (custom local models) ──────────────────────────────────────
 
+    /**
+     * Turning a provider on now <b>switches the whole connection to it</b> and turns the
+     * others off — there is exactly one, always. ("off" falls back to the free service
+     * rather than leaving the server with no AI by accident.)
+     */
     private static int adminOllama(CommandContext<CommandSourceStack> ctx, boolean on) {
-        ModConfig cfg = ModConfig.get();
-        cfg.ollamaEnabled = on;
-        ModConfig.save();
-        ctx.getSource().sendSuccess(() -> Component.literal(
-                "§a[Blockpal] Local Ollama " + (on ? "§aENABLED" : "§7disabled")
-                        + (on ? " §7— using §f" + cfg.ollamaUrl + "§7 (model §f" + cfg.ollamaModel
-                                + "§7). A real API key still wins." : ".")), false);
-        return 1;
+        return setConnection(ctx, on ? AiConnection.OLLAMA : AiConnection.FREE);
     }
 
     private static int adminOllamaUrl(CommandContext<CommandSourceStack> ctx, String url) {
@@ -1216,21 +1239,9 @@ public class AiCommands {
 
     // ── Player2 (player2.game) — easiest keyless AI, local or online ─────────────
 
+    /** Same exclusivity rule as {@link #adminOllama}: turning Player2 on turns the rest off. */
     private static int adminPlayer2(CommandContext<CommandSourceStack> ctx, boolean on) {
-        ModConfig cfg = ModConfig.get();
-        cfg.player2Enabled = on;
-        ModConfig.save();
-        boolean online = !cfg.resolvePlayer2Key().isBlank();
-        // Local Player2 needs a signed-in app; pre-fetch its login key so the first
-        // request is already authenticated instead of 401-ing once while it warms.
-        if (on && !online) com.milkdromeda.blockpal.ai.HuggingFaceClient.warmPlayer2Local();
-        ctx.getSource().sendSuccess(() -> Component.literal(
-                "§a[Blockpal] Player2 " + (on ? "§aENABLED" : "§7disabled")
-                        + (on ? " §7— " + (online ? "§aONLINE §7(" + cfg.player2OnlineUrl + ", model §f"
-                                    + cfg.player2Model + "§7)"
-                                : "§eLOCAL §7(install the Player2 app for " + cfg.player2Url
-                                    + "; set PLAYER2_KEY for online)") : ".")), false);
-        return 1;
+        return setConnection(ctx, on ? AiConnection.PLAYER2 : AiConnection.FREE);
     }
 
     private static int adminPlayer2Url(CommandContext<CommandSourceStack> ctx, String url) {
@@ -1514,6 +1525,248 @@ public class AiCommands {
 
     private static ServerPlayer getPlayer(CommandContext<CommandSourceStack> ctx) {
         try { return ctx.getSource().getPlayerOrException(); } catch (Exception e) { return null; }
+    }
+
+    // ── the ONE AI connection ───────────────────────────────────────────────────
+
+    /** One literal per {@link AiConnection}, so the picker tab-completes. */
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> connectionArgs() {
+        var node = Commands.literal("set");
+        for (AiConnection c : AiConnection.values()) {
+            node.then(Commands.literal(c.id()).executes(ctx -> setConnection(ctx, c)));
+        }
+        return node;
+    }
+
+    private static int connectionShow(CommandContext<CommandSourceStack> ctx) {
+        ModConfig cfg = ModConfig.get();
+        AiConnection current = cfg.connection();
+        StringBuilder sb = new StringBuilder("§6=== How this server's bots think ===");
+        sb.append("\n§7Only §fone§7 connection can be on at a time — that's deliberate, so it's "
+                + "always clear which AI is answering (and which one is being billed).");
+        for (AiConnection c : AiConnection.values()) {
+            sb.append("\n").append(c == current ? "§a▶ " : "§8  ").append("§f").append(c.id())
+              .append(" §7— ").append(c.display());
+            if (c == current) sb.append(" §a(active)");
+        }
+        sb.append("\n§7").append(current.blurb());
+        if (current == AiConnection.MCP) {
+            sb.append("\n§7MCP server: ").append(com.milkdromeda.blockpal.mcp.McpServer.status())
+              .append(" §7— run §f/ai mcp§7 for setup instructions.");
+        } else if (current == AiConnection.API_KEY && !cfg.hasApiToken()) {
+            sb.append("\n§cNo API key is set yet — §f/ai admin token <token>§c.");
+        }
+        sb.append("\n§7Change it: §f/ai connection set <").append(AiConnection.idList()).append(">");
+        ctx.getSource().sendSuccess(() -> Component.literal(sb.toString()), false);
+        return 1;
+    }
+
+    private static int setConnection(CommandContext<CommandSourceStack> ctx, AiConnection connection) {
+        if (!requireAdmin(ctx)) return 0;
+        ModConfig cfg = ModConfig.get();
+        AiConnection previous = cfg.connection();
+        cfg.setConnection(connection);
+        ModConfig.save();
+
+        MinecraftServer server = ctx.getSource().getServer();
+        if (server != null) com.milkdromeda.blockpal.mcp.McpServer.sync(server);
+        if (connection == AiConnection.PLAYER2) {
+            com.milkdromeda.blockpal.ai.HuggingFaceClient.warmPlayer2Local();
+        }
+
+        StringBuilder sb = new StringBuilder("§a[Blockpal] AI connection: §f" + connection.display());
+        if (previous != connection) {
+            sb.append(" §7(").append(previous.display()).append(" turned off — only one at a time)");
+        }
+        sb.append("\n§7").append(connection.blurb());
+        switch (connection) {
+            case MCP -> sb.append("\n§7").append(com.milkdromeda.blockpal.mcp.McpServer.status())
+                    .append(" §7— run §f/ai mcp§7 to connect Claude, ChatGPT, Grok or Gemini.");
+            case API_KEY -> {
+                if (!cfg.hasApiToken()) sb.append("\n§cNo key set yet: §f/ai admin token <token>");
+            }
+            case OLLAMA -> sb.append("\n§7Endpoint: §f").append(cfg.ollamaUrl)
+                    .append(" §7model §f").append(cfg.ollamaModel);
+            case OFF -> sb.append("\n§7Companions still eat, fight and survive on their own — "
+                    + "they just won't plan or chat with a model.");
+            default -> { /* nothing extra to say */ }
+        }
+        ctx.getSource().sendSuccess(() -> Component.literal(sb.toString()), false);
+        return 1;
+    }
+
+    // ── MCP server (connect Claude / ChatGPT / Grok / Gemini) ───────────────────
+
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> mcpCommand() {
+        return Commands.literal("mcp")
+                .executes(AiCommands::mcpGuide)
+                .then(Commands.literal("status").executes(AiCommands::mcpStatus))
+                .then(Commands.literal("start").executes(ctx -> mcpRunning(ctx, true)))
+                .then(Commands.literal("stop").executes(ctx -> mcpRunning(ctx, false)))
+                .then(Commands.literal("token").executes(AiCommands::mcpToken))
+                .then(Commands.literal("newtoken").executes(AiCommands::mcpNewToken))
+                .then(Commands.literal("port")
+                        .then(Commands.argument("port", IntegerArgumentType.integer(1024, 65535))
+                                .executes(ctx -> mcpPort(ctx, IntegerArgumentType.getInteger(ctx, "port")))))
+                .then(Commands.literal("remote")
+                        .then(Commands.literal("on").executes(ctx -> mcpRemote(ctx, true)))
+                        .then(Commands.literal("off").executes(ctx -> mcpRemote(ctx, false))));
+    }
+
+    /** Opens the visual setup guide, or prints the same thing for Bedrock/vanilla clients. */
+    private static int mcpGuide(CommandContext<CommandSourceStack> ctx) {
+        if (!requireAdmin(ctx)) return 0;
+        ServerPlayer player = ctx.getSource().getPlayer();
+        if (player == null) return mcpStatus(ctx);
+        if (AiNetworking.openMcpGuideFor(player)) return 1;
+        player.sendSystemMessage(noGuiHint(player, "§f/ai mcp status§e and §f/ai mcp token"));
+        return mcpStatus(ctx);
+    }
+
+    private static int mcpStatus(CommandContext<CommandSourceStack> ctx) {
+        if (!requireAdmin(ctx)) return 0;
+        ModConfig cfg = ModConfig.get();
+        StringBuilder sb = new StringBuilder("§6=== Blockpal MCP server ===");
+        sb.append("\n§7State: ").append(com.milkdromeda.blockpal.mcp.McpServer.isRunning()
+                ? "§arunning" : "§7not running").append(" §8(").append(
+                        com.milkdromeda.blockpal.mcp.McpServer.status()).append("§8)");
+        if (!cfg.isMcpConnection()) {
+            sb.append("\n§eThe AI connection is §f").append(cfg.connection().display())
+              .append("§e — switch with §f/ai connection set mcp§e to use it.");
+        }
+        sb.append("\n§7Address: §f").append(com.milkdromeda.blockpal.mcp.McpServer.endpoint());
+        sb.append("\n§7Older clients (SSE): §f").append(com.milkdromeda.blockpal.mcp.McpServer.sseEndpoint());
+        sb.append("\n§7Reachable from: ").append(cfg.mcpAllowRemote
+                ? "§eany machine that can reach this one" : "§athis machine only");
+        sb.append("\n§7Token required: ").append(cfg.mcpRequireToken ? "§ayes" : "§cno");
+        sb.append("\n§7See it with §f/ai mcp token§7 · roll a new one with §f/ai mcp newtoken");
+        sb.append("\n§7Port: §f").append(cfg.mcpPort).append(" §7(§f/ai mcp port <n>§7)");
+        ctx.getSource().sendSuccess(() -> Component.literal(sb.toString()), false);
+        return 1;
+    }
+
+    private static int mcpToken(CommandContext<CommandSourceStack> ctx) {
+        if (!requireAdmin(ctx)) return 0;
+        String token = ModConfig.get().ensureMcpToken();
+        // Deliberately sendSuccess(…, false): never broadcast a credential to other ops.
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§6MCP access token:\n§f" + token
+                        + "\n§7Send it as §fAuthorization: Bearer <token>§7. Anyone with this token "
+                        + "can drive your companions — don't paste it in chat or on stream."), false);
+        return 1;
+    }
+
+    private static int mcpNewToken(CommandContext<CommandSourceStack> ctx) {
+        if (!requireAdmin(ctx)) return 0;
+        String token = ModConfig.get().regenerateMcpToken();
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§a[Blockpal] New MCP token — the old one stopped working just now:\n§f" + token), false);
+        return 1;
+    }
+
+    private static int mcpRunning(CommandContext<CommandSourceStack> ctx, boolean start) {
+        if (!requireAdmin(ctx)) return 0;
+        MinecraftServer server = ctx.getSource().getServer();
+        if (start) {
+            if (server != null) com.milkdromeda.blockpal.mcp.McpServer.start(server);
+        } else {
+            com.milkdromeda.blockpal.mcp.McpServer.stop();
+        }
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§a[Blockpal] MCP server: §f" + com.milkdromeda.blockpal.mcp.McpServer.status()), false);
+        return 1;
+    }
+
+    private static int mcpPort(CommandContext<CommandSourceStack> ctx, int port) {
+        if (!requireAdmin(ctx)) return 0;
+        ModConfig cfg = ModConfig.get();
+        cfg.mcpPort = port;
+        ModConfig.save();
+        MinecraftServer server = ctx.getSource().getServer();
+        if (server != null) com.milkdromeda.blockpal.mcp.McpServer.sync(server);
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§a[Blockpal] MCP port §f" + port + "§a — " + com.milkdromeda.blockpal.mcp.McpServer.status()), false);
+        return 1;
+    }
+
+    private static int mcpRemote(CommandContext<CommandSourceStack> ctx, boolean on) {
+        if (!requireAdmin(ctx)) return 0;
+        ModConfig cfg = ModConfig.get();
+        cfg.mcpAllowRemote = on;
+        ModConfig.save();
+        MinecraftServer server = ctx.getSource().getServer();
+        if (server != null) com.milkdromeda.blockpal.mcp.McpServer.sync(server);
+        ctx.getSource().sendSuccess(() -> Component.literal(on
+                ? "§e[Blockpal] MCP now listens on §fall network interfaces§e — needed for cloud AI "
+                        + "apps (ChatGPT, AI Studio) reaching in through a tunnel. Keep the token on."
+                : "§a[Blockpal] MCP now listens on §flocalhost only§a — safest, and all a desktop "
+                        + "AI app on this machine needs."), false);
+        return 1;
+    }
+
+    // ── look / code (the vision + script brain, by hand) ────────────────────────
+
+    private static int lookThroughEyes(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = ctx.getSource().getPlayer();
+        if (player == null) return 0;
+        AiAssistantEntity ai = AiAssistantEntity.findFor(player, 32);
+        if (ai == null) return noAi(player);
+        if (!ensureCanCommand(player, ai)) return 0;
+        player.sendSystemMessage(Component.literal(
+                "§6=== What " + ai.getAssistantName() + " can see ===\n§f" + ai.look().description()));
+        return 1;
+    }
+
+    private static int codeHelp(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = ctx.getSource().getPlayer();
+        if (player == null) return 0;
+        player.sendSystemMessage(Component.literal(
+                "§6=== /ai code ===\n"
+                        + "§7Hand your companion a script in the same little language its AI writes.\n"
+                        + "§7It presses the bot's keys and mouse — no teleporting, no conjuring blocks.\n"
+                        + "§fExample: §a/ai code lookAt(100,64,20) goTo(100,64,22) mine()\n"
+                        + "§fStop it: §a/ai code stop\n"
+                        + "§7Full action list: §f/ai mcp§7 → the AI reads it with api_reference()."));
+        return 1;
+    }
+
+    private static int codeStop(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = ctx.getSource().getPlayer();
+        if (player == null) return 0;
+        AiAssistantEntity ai = AiAssistantEntity.findFor(player, 32);
+        if (ai == null) return noAi(player);
+        if (!ensureCanCommand(player, ai)) return 0;
+        ai.brain().stop();
+        player.sendSystemMessage(Component.literal("§a[Blockpal] " + ai.getAssistantName()
+                + " let go of the controls."));
+        return 1;
+    }
+
+    private static int runCode(CommandContext<CommandSourceStack> ctx, String script) {
+        ServerPlayer player = ctx.getSource().getPlayer();
+        if (player == null) return 0;
+        AiAssistantEntity ai = AiAssistantEntity.findFor(player, 32);
+        if (ai == null) return noAi(player);
+        if (!ensureCanCommand(player, ai)) return 0;
+        ai.prepareForScript();
+        String error = ai.brain().runScript(script);
+        if (!error.isEmpty()) {
+            player.sendSystemMessage(Component.literal("§c[Blockpal] " + error));
+            return 0;
+        }
+        player.sendSystemMessage(Component.literal("§a[Blockpal] " + ai.getAssistantName()
+                + " is running your script. §7Watch it, or stop it with §f/ai code stop§7."));
+        return 1;
+    }
+
+    /** Server-wide settings are admin-only; says so plainly rather than failing silently. */
+    private static boolean requireAdmin(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = ctx.getSource().getPlayer();
+        if (player == null) return true;          // console/command block: already privileged
+        if (AdminAccess.isAdmin(player)) return true;
+        player.sendSystemMessage(Component.literal(
+                "§cThat's a server setting — you need to be an operator to change it."));
+        return false;
     }
 
     /**

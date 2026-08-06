@@ -50,6 +50,48 @@ public final class AiNetworking {
         PayloadTypeRegistry.clientboundPlay().register(BotListSyncPayload.TYPE, BotListSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(PossessionSyncPayload.TYPE, PossessionSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(VoiceSpeakPayload.TYPE, VoiceSpeakPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(McpInfoPayload.TYPE, McpInfoPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(
+                CreativeWarningPayload.TYPE, CreativeWarningPayload.CODEC);
+    }
+
+    /**
+     * Opens the MCP setup guide on a player's client, carrying the connection details and
+     * access token for their own AI app.
+     *
+     * <p>Admin-gated by the caller: the token lets whoever holds it drive bots in this
+     * world, so it goes only to players allowed to configure the server.
+     *
+     * @return false when the client can't show the screen (Bedrock/vanilla) — the caller
+     *         should print the text version instead
+     */
+    public static boolean openMcpGuideFor(ServerPlayer player) {
+        if (!ServerPlayNetworking.canSend(player, McpInfoPayload.TYPE)) return false;
+        ModConfig cfg = ModConfig.get();
+        ServerPlayNetworking.send(player, new McpInfoPayload(
+                com.milkdromeda.blockpal.mcp.McpServer.isRunning(),
+                com.milkdromeda.blockpal.mcp.McpServer.endpoint(),
+                com.milkdromeda.blockpal.mcp.McpServer.sseEndpoint(),
+                cfg.mcpRequireToken ? cfg.ensureMcpToken() : "",
+                com.milkdromeda.blockpal.mcp.McpServer.status()));
+        return true;
+    }
+
+    /**
+     * Warns a player that their companion walks and they're now flying.
+     *
+     * @return false when the client can't show the screen, so the caller falls back to chat
+     */
+    public static boolean openCreativeWarningFor(ServerPlayer player) {
+        if (!ServerPlayNetworking.canSend(player, CreativeWarningPayload.TYPE)) return false;
+        MinecraftServer server = player.level().getServer();
+        String name = "Your companion";
+        if (server != null) {
+            var owned = AiAssistantEntity.ownedBy(server, player.getUUID());
+            if (!owned.isEmpty()) name = owned.get(0).getAssistantName();
+        }
+        ServerPlayNetworking.send(player, new CreativeWarningPayload(name));
+        return true;
     }
 
     /** Sends the current config to a player so their client opens the settings menu. */
@@ -141,6 +183,15 @@ public final class AiNetworking {
                     return;
                 }
                 payload.data().applyTo(ModConfig.get());
+                // The AI connection (and the MCP port/bind) may have just changed — start,
+                // stop or rebind the MCP server so the panel's choice takes effect now
+                // rather than at the next restart.
+                com.milkdromeda.blockpal.mcp.McpServer.sync(server);
+                if (ModConfig.get().isMcpConnection()) {
+                    player.sendSystemMessage(Component.literal(
+                            "§b[Blockpal] MCP: §f" + com.milkdromeda.blockpal.mcp.McpServer.status()
+                                    + " §7— run §f/ai mcp§7 for the setup guide and your token."));
+                }
                 // Never fail silently: say where the settings landed on disk (launchers
                 // like Lunar use a different game folder than vanilla's .minecraft, so
                 // players hunting for config/blockpal/ need the real path), and surface

@@ -77,6 +77,17 @@ public class AiConfigScreen extends Screen {
     private boolean pAllowPossession;
     private boolean pAllowVoice;
     private boolean pFreeFallback;
+    // The ONE AI connection + the vision/code brain (3.25.0).
+    private String pConnection = "free";
+    private String pLogicMode = "code";
+    private boolean pVision = true, pSurvivalBrain = true, pCreativeWarning = true;
+    private int pMcpPort = 25569;
+    private boolean pMcpRemote, pMcpRequireToken = true, mcpRunning;
+    private CycleButton<String> connectionButton, logicModeButton;
+    private CycleButton<Boolean> visionButton, survivalBrainButton, creativeWarnButton,
+            mcpRemoteButton, mcpTokenButton;
+    private EditBox mcpPortBox;
+
     // Local Ollama + Player2 providers (surfaced on the AI & API tab).
     private boolean pOllamaEnabled, pPlayer2Enabled, pPlayer2KeySet;
     private String pOllamaUrl, pOllamaModel, pPlayer2Url, pPlayer2Model;
@@ -137,6 +148,15 @@ public class AiConfigScreen extends Screen {
         pPlayer2Url = d.player2Url();
         pPlayer2Model = d.player2Model();
         pPlayer2KeySet = d.player2KeySet();
+        pConnection = d.aiConnection();
+        pLogicMode = d.aiLogicMode();
+        pVision = d.visionEnabled();
+        pSurvivalBrain = d.survivalBrain();
+        pCreativeWarning = d.creativeModeWarning();
+        pMcpPort = d.mcpPort();
+        pMcpRemote = d.mcpAllowRemote();
+        pMcpRequireToken = d.mcpRequireToken();
+        mcpRunning = d.mcpRunning();
         // Capture the as-loaded state once so dirty-tracking survives tab switches
         // (init() runs on every tab change, so we must NOT recompute it there).
         baseline = buildData();
@@ -204,6 +224,10 @@ public class AiConfigScreen extends Screen {
         listenButton = activeButton = commandsButton = debugButton = sneakButton = allowCustomButton = allowPossessionButton = allowVoiceButton = freeFallbackButton = tokenShowButton = null;
         ollamaEnabledButton = player2EnabledButton = null;
         ollamaUrlBox = ollamaModelBox = player2UrlBox = player2ModelBox = null;
+        connectionButton = logicModeButton = null;
+        visionButton = survivalBrainButton = creativeWarnButton = null;
+        mcpRemoteButton = mcpTokenButton = null;
+        mcpPortBox = null;
         presetButton = defaultPersonalityButton = providerButton = null;
         tempSlider = maxTokensSlider = followSlider = guardSlider = cmdLevelSlider = null;
         actionDelaySlider = maxTaskSlider = fleeSlider = null;
@@ -294,10 +318,63 @@ public class AiConfigScreen extends Screen {
         allowCustomButton = bodyToggle(body, "Allow custom personalities", pAllowCustom, "Let players give their bot a free-text personality (AI-checked to be family-friendly). Off = built-ins only.");
         allowPossessionButton = bodyToggle(body, "Allow possession mode", pAllowPossession, "Let players hand their own character to their nearby companion (/ai possess), which then drives them from typed instructions.");
         allowVoiceButton = bodyToggle(body, "Allow agent voice", pAllowVoice, "Let companions speak out loud (privately, to their owner and shared players) and accept push-to-talk voice input.");
+
+        // ── how a companion thinks and stays alive ──
+        header(body, "How companions think");
+        logicModeButton = body.addChild(CycleButton.<String>builder(
+                        Component::literal,
+                        "code".equalsIgnoreCase(pLogicMode) ? LOGIC_CODE : LOGIC_PLAN)
+                .withValues(java.util.List.of(LOGIC_CODE, LOGIC_PLAN))
+                .create(0, 0, W, FIELD_H, Component.literal("Thinking style"),
+                        (btn, val) -> pLogicMode = val.startsWith("Look") ? "code" : "plan"));
+        logicModeButton.setTooltip(Tooltip.create(Component.literal(
+                "\"Look and write code\" renders what the bot can see, sends the picture to the AI, and "
+                        + "runs the little script it writes — everything it does, a player could do. "
+                        + "\"Classic action plan\" is the older JSON planner: faster and more precise, but it "
+                        + "can act on things the bot never actually saw.")));
+        visionButton = bodyToggle(body, "Send pictures to the AI", pVision,
+                "Render a small image from the bot's eyes and send it with each thought. Off = the written "
+                        + "description only — cheaper, and needed for models that can't see images.");
+        survivalBrainButton = bodyToggle(body, "Live on its own", pSurvivalBrain,
+                "Keep-alive reflexes that need no AI at all: eat when hurt, swim up when drowning, get out "
+                        + "of fires, unstick itself, and walk back to you when left behind.");
+        creativeWarnButton = bodyToggle(body, "Warn me in creative mode", pCreativeWarning,
+                "Companions never teleport — they walk. This warns you the first time you go creative with "
+                        + "one out, since you can fly away from it in seconds.");
+
         debugButton = bodyToggle(body, "Debug logging", pDebug, "Verbose logging to the game log for troubleshooting.");
     }
 
+    /** Labels for the thinking-style cycler (the value is mapped back to code/plan). */
+    private static final String LOGIC_CODE = "Look at the world and write code";
+    private static final String LOGIC_PLAN = "Classic action plan (JSON)";
+
     private void buildAiTab(LinearLayout body) {
+        // ── the ONE connection ──
+        // Blockpal used to let a key, Player2, Ollama and the free service all be
+        // "enabled" at once, resolved by a hidden priority order. Nobody could tell which
+        // one was answering. Now it's a single picker, and choosing one turns the rest off.
+        header(body, "How this server's bots think");
+        body.addChild(new StringWidget(W, LABEL_H, Component.literal(
+                "§7Exactly one connection runs at a time."), this.font));
+        connectionButton = body.addChild(CycleButton.<String>builder(
+                        s -> Component.literal("AI: " + s),
+                        connectionLabelOf(pConnection))
+                .withValues(com.milkdromeda.blockpal.ai.AiConnection.displayValues())
+                .create(0, 0, W, FIELD_H, Component.literal("AI connection"),
+                        (btn, val) -> { pConnection = connectionIdOf(val); rebuildWidgets(); }));
+        connectionButton.setTooltip(Tooltip.create(Component.literal(
+                "Which single AI drives your companions. \"MCP server\" is the easiest: point Claude, "
+                        + "ChatGPT, Grok or Gemini at your world with /ai mcp — no key stored in the game. "
+                        + "Picking one here switches the others off.")));
+        body.addChild(new StringWidget(W, LABEL_H, connectionBlurb(), this.font));
+
+        com.milkdromeda.blockpal.ai.AiConnection chosen =
+                com.milkdromeda.blockpal.ai.AiConnection.byId(pConnection);
+        if (chosen == null) chosen = com.milkdromeda.blockpal.ai.AiConnection.FREE;
+
+        if (chosen == com.milkdromeda.blockpal.ai.AiConnection.MCP) buildMcpSection(body);
+
         header(body, "Language model & API");
         // One-click provider presets: pick HuggingFace / ChatGPT / Claude / Gemini /
         // Grok and the API URL + a matching default model are filled in for you (and
@@ -347,46 +424,95 @@ public class AiConfigScreen extends Screen {
         tokenShowButton.setTooltip(Tooltip.create(Component.literal(
                 "Reveal and edit the key above (masked and read-only by default, like a password field). "
                         + "Only affects what's currently typed here — an already-saved key is never sent to this menu.")));
-        freeFallbackButton = bodyToggle(body, "Free AI fallback (no key)", pFreeFallback,
-                "With no API key set anywhere, bots use a free built-in AI service so they work out of the box. "
-                        + "A HuggingFace (or other) key always takes over the moment it's set. "
-                        + "Turn off to strictly require a key.");
         tempSlider = bodySlider(body, "Temperature", 0.0, 2.0, pTemp, false, "Creativity of the model — lower is more focused, higher is more varied.");
         maxTokensSlider = bodySlider(body, "Max tokens", 32, 2048, pMaxTokens, true, "Upper bound on the length of each plan the model returns.");
 
-        // ── Local & easy AI providers (no HuggingFace key needed) ──
-        header(body, "Local & easy AI (no key needed)");
+        // ── endpoints for the local/easy providers ──
+        // These are plain settings now, not switches: whether they're USED is decided by
+        // the one connection picker at the top of this tab.
+        header(body, "Local & easy AI endpoints");
         body.addChild(new StringWidget(W, LABEL_H, activeProviderText(), this.font));
 
-        // Player2 — the easiest: install the app (local), or set PLAYER2_KEY (online, gpt-oss-120b).
-        player2EnabledButton = bodyToggle(body, "Use Player2 (player2.game)", pPlayer2Enabled,
-                "Easiest real AI: install the free Player2 app (local, keyless), or set a PLAYER2_KEY "
-                        + "env var for the online cloud (gpt-oss-120b). Used when no HuggingFace key is set.");
         player2ModelBox = bodyBox(body, "Player2 model", pPlayer2Model, 128,
                 "Model sent to Player2 online (default gpt-oss-120b). Ignored for the local app.");
         player2UrlBox = bodyBox(body, "Player2 online URL", pPlayer2Url, 256,
                 "Player2 cloud chat-completions endpoint (used when PLAYER2_KEY is set).");
-
-        // Ollama — run your own custom local models.
-        ollamaEnabledButton = bodyToggle(body, "Use local Ollama", pOllamaEnabled,
-                "Run your own CUSTOM local models via Ollama (or any keyless local OpenAI server). "
-                        + "No key, no internet. Used when no HuggingFace key and Player2 is off.");
         ollamaModelBox = bodyBox(body, "Ollama model", pOllamaModel, 128,
                 "A model you've pulled, e.g. llama3.2, qwen2.5, phi3, gemma2:2b.");
         ollamaUrlBox = bodyBox(body, "Ollama URL", pOllamaUrl, 256,
                 "Ollama's OpenAI-compatible endpoint (default http://localhost:11434/v1/chat/completions).");
     }
 
-    /** A one-line hint of which provider the bots will actually use, given the current draft. */
+    /** The MCP block: what to connect, where, and how locked down it is. */
+    private void buildMcpSection(LinearLayout body) {
+        header(body, "MCP server");
+        body.addChild(new StringWidget(W, LABEL_H, Component.literal(mcpRunning
+                ? "§a▶ Listening — run §f/ai mcp§a in chat for the setup guide + token"
+                : "§e▶ Not listening yet — save these settings, then run §f/ai mcp"), this.font));
+        body.addChild(new StringWidget(W, LABEL_H, Component.literal(
+                "§7Your AI app connects to the game; no key is stored here."), this.font));
+        // A text box, not a slider: dragging across 64,000 values to land on 25569 is
+        // nobody's idea of a good time.
+        mcpPortBox = bodyBox(body, "MCP port", String.valueOf(pMcpPort), 5,
+                "TCP port the MCP server listens on. 25569 by default — change it only if "
+                        + "something else already uses that port.");
+        mcpTokenButton = bodyToggle(body, "Require access token", pMcpRequireToken,
+                "Clients must send Authorization: Bearer <token>. Leave ON — the token is what "
+                        + "stops anyone else driving your companions. See it with /ai mcp token.");
+        mcpRemoteButton = bodyToggle(body, "Allow connections from other machines", pMcpRemote,
+                "OFF (safest) listens on localhost only — all a desktop AI app on this PC needs. "
+                        + "Turn ON only for cloud AI (ChatGPT, AI Studio) reaching in through a tunnel.");
+    }
+
+    /** A typed port, or the previous value when it isn't a usable one. */
+    private static int parsePort(String typed, int fallback) {
+        try {
+            int port = Integer.parseInt(typed.trim());
+            return (port >= 1024 && port <= 65535) ? port : fallback;
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+
+    /** Human label for a connection id, and back again — the cycler shows display names. */
+    private static String connectionLabelOf(String id) {
+        com.milkdromeda.blockpal.ai.AiConnection c = com.milkdromeda.blockpal.ai.AiConnection.byId(id);
+        return (c == null ? com.milkdromeda.blockpal.ai.AiConnection.FREE : c).display();
+    }
+
+    private static String connectionIdOf(String display) {
+        com.milkdromeda.blockpal.ai.AiConnection c =
+                com.milkdromeda.blockpal.ai.AiConnection.byDisplay(display);
+        return (c == null ? com.milkdromeda.blockpal.ai.AiConnection.FREE : c).id();
+    }
+
+    private Component connectionBlurb() {
+        com.milkdromeda.blockpal.ai.AiConnection c =
+                com.milkdromeda.blockpal.ai.AiConnection.byId(pConnection);
+        if (c == null) c = com.milkdromeda.blockpal.ai.AiConnection.FREE;
+        return Component.literal("§7" + c.blurb());
+    }
+
+    /** One line naming exactly what will answer, given the chosen connection. */
     private Component activeProviderText() {
-        String who; String color;
-        if (tokenSet || !pToken.isBlank()) { who = "your HuggingFace/API key"; color = "§a"; }
-        else if (pPlayer2Enabled) { who = pPlayer2KeySet ? "Player2 (online · gpt-oss-120b)" : "Player2 (local app)"; color = "§b"; }
-        else if (pOllamaEnabled) { who = "Ollama (" + (pOllamaModel == null || pOllamaModel.isBlank() ? "local" : pOllamaModel) + ")"; color = "§b"; }
-        else if (pFreeFallback) { who = "the free built-in AI"; color = "§b"; }
-        else { who = "nothing — no key, no provider (AI can't run)"; color = "§c"; }
-        return Component.literal(color + "▶ Bots will use: " + who
-                + "  §7(priority: key › Player2 › Ollama › free)");
+        com.milkdromeda.blockpal.ai.AiConnection c =
+                com.milkdromeda.blockpal.ai.AiConnection.byId(pConnection);
+        if (c == null) c = com.milkdromeda.blockpal.ai.AiConnection.FREE;
+        String who; String color = "§b";
+        switch (c) {
+            case API_KEY -> {
+                boolean have = tokenSet || !pToken.isBlank();
+                who = have ? "your API key (" + (pModel == null || pModel.isBlank() ? "default model" : pModel) + ")"
+                        : "nothing yet — the connection is \"my own API key\" but no key is set";
+                color = have ? "§a" : "§c";
+            }
+            case PLAYER2 -> who = pPlayer2KeySet ? "Player2 (online · " + pPlayer2Model + ")" : "Player2 (local app)";
+            case OLLAMA -> who = "Ollama (" + (pOllamaModel == null || pOllamaModel.isBlank() ? "local" : pOllamaModel) + ")";
+            case FREE -> who = "the free built-in AI";
+            case MCP -> who = "whatever AI app you connect over MCP (/ai mcp)";
+            default -> { who = "no AI — bots still survive on their own"; color = "§7"; }
+        }
+        return Component.literal(color + "▶ Bots will use: " + who);
     }
 
     private void buildCombatTab(LinearLayout body) {
@@ -529,6 +655,14 @@ public class AiConfigScreen extends Screen {
         if (player2EnabledButton != null) pPlayer2Enabled = player2EnabledButton.getValue();
         if (player2UrlBox != null) pPlayer2Url = player2UrlBox.getValue();
         if (player2ModelBox != null) pPlayer2Model = player2ModelBox.getValue();
+        if (connectionButton != null) pConnection = connectionIdOf(connectionButton.getValue());
+        if (logicModeButton != null) pLogicMode = logicModeButton.getValue().startsWith("Look") ? "code" : "plan";
+        if (visionButton != null) pVision = visionButton.getValue();
+        if (survivalBrainButton != null) pSurvivalBrain = survivalBrainButton.getValue();
+        if (creativeWarnButton != null) pCreativeWarning = creativeWarnButton.getValue();
+        if (mcpRemoteButton != null) pMcpRemote = mcpRemoteButton.getValue();
+        if (mcpTokenButton != null) pMcpRequireToken = mcpTokenButton.getValue();
+        if (mcpPortBox != null) pMcpPort = parsePort(mcpPortBox.getValue(), pMcpPort);
         if (presetButton != null) pPreset = presetButton.getValue();
         if (defaultPersonalityButton != null) pDefaultPersonality = defaultPersonalityButton.getValue();
         if (tempSlider != null) pTemp = tempSlider.current();
@@ -549,7 +683,9 @@ public class AiConfigScreen extends Screen {
                 pActionDelay, pMaxTask, pFlee, pPreset, pSneakMenu,
                 pDefaultPersonality, pAllowCustom, pAllowPossession, pFreeFallback, pAllowVoice,
                 pOllamaEnabled, pOllamaUrl, pOllamaModel,
-                pPlayer2Enabled, pPlayer2Url, pPlayer2Model, pPlayer2KeySet);
+                pPlayer2Enabled, pPlayer2Url, pPlayer2Model, pPlayer2KeySet,
+                pConnection, pLogicMode, pVision, pSurvivalBrain, pCreativeWarning,
+                pMcpPort, pMcpRemote, pMcpRequireToken, mcpRunning);
     }
 
     private Component tokenStatusText() {
@@ -559,9 +695,14 @@ public class AiConfigScreen extends Screen {
         if (tokenSet) {
             return Component.literal("§a✔ API key saved — hidden here for privacy; blank keeps it");
         }
-        return Component.literal(pFreeFallback
-                ? "§b⚡ No key set — bots run on the free built-in AI; add a key for better quality"
-                : "§cNo key set and the free fallback is OFF — the AI can't run");
+        com.milkdromeda.blockpal.ai.AiConnection c =
+                com.milkdromeda.blockpal.ai.AiConnection.byId(pConnection);
+        if (c == com.milkdromeda.blockpal.ai.AiConnection.API_KEY) {
+            return Component.literal("§cNo key set — this server's AI connection is \"my own API key\", "
+                    + "so nothing can think until you add one");
+        }
+        return Component.literal("§7No key set — not needed: this server's AI connection is §f"
+                + connectionLabelOf(pConnection));
     }
 
     private void sendCurrent() {

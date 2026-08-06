@@ -17,6 +17,11 @@ All commands are under `/ai`. Type `/ai help` in-game for the live list.
 | `/ai possess` | Let your companion drive **your** character — opens a console to type instructions — see [Possession Mode](Possession-Mode) |
 | `/ai possess <instruction>` | Steer possession by text (also works on Bedrock/vanilla) |
 | `/ai possess stop` | End possession, hand control back |
+| `/ai connection` | Show which **one** AI connection this server uses |
+| `/ai connection set <id>` | *(ops)* Switch it — `mcp`, `key`, `player2`, `ollama`, `free`, `off` |
+| `/ai mcp` | *(ops)* Connect Claude / ChatGPT / Grok / Gemini to your world — see [MCP server](MCP-Server) |
+| `/ai look` | Read what your companion can see right now (its own eyes, not the map) |
+| `/ai code <script>` · `/ai code stop` | Hand it a script in the language its AI writes — see [Vision & Code](Vision-and-Code) |
 | `/ai resume` · `/ai enable` | Re-enable after the FPS kill-switch tripped |
 | `/ai locate` · `/ai where` | Distance, direction and coords |
 | `/ai name <name>` | Rename it |
@@ -41,6 +46,7 @@ All commands are under `/ai`. Type `/ai help` in-game for the live list.
 | `/aivoice [on\|off\|stop\|key <code>\|voice <id>\|test <text>]` | *(client)* Your voice settings: hear the agent or not, rebind push-to-talk, default voice — see [Voice](Voice) |
 | `/aihost` · `/aihost status\|stop` | *(client, Java only)* Host a Bedrock-capable server — see [Bedrock (Geyser)](Geyser-Bedrock) |
 | `/ai admin …` | *(ops only)* Admin panel — see below |
+| `/ai mcp status\|token\|newtoken\|port <n>\|remote on\|off\|start\|stop` | *(ops)* MCP server details and controls |
 | `/ai <task>` | Give a natural-language task |
 
 > **No setting commands (3.4.0).** The old `/ai settings`, `/ai token`, `/ai listen`,

@@ -4,6 +4,46 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.25.0
+- **Connect the AI you already pay for — Blockpal now runs an MCP server.** This is the
+  easiest way to give your companion a brain, and it's the headline of this release. Run
+  `/ai connection set mcp` and then **`/ai mcp`**: an in-game guide opens with your world's
+  address, your access token, and the exact config to paste for **Claude**, **ChatGPT**,
+  **Grok** or **Gemini**, with copy buttons for each. Your AI app connects *to your world*,
+  looks through your companion's eyes and drives it — no API key stored in the game, no
+  second subscription. (Desktop apps like Claude Desktop and the Gemini CLI reach it
+  straight away; cloud apps like ChatGPT and AI Studio need a tunnel plus `/ai mcp remote
+  on`, and the guide says so.) The server is localhost-only and token-protected by default.
+- **One AI connection at a time — no more guessing.** A key, Player2, Ollama and the free
+  service could all be "on" at once, with a hidden priority order deciding which actually
+  answered. Now there's a single **AI connection** picker at the top of **Settings → AI &
+  API** (or `/ai connection set <mcp|key|player2|ollama|free|off>`), and choosing one turns
+  the others off. A live line tells you outright what will answer. Upgrading servers keep
+  whichever provider they were already using.
+- **Your companion looks at the world and writes code.** The way it thinks has been
+  rebuilt. It now gets a **picture rendered from its own eyes** — a real view, about 90°,
+  nothing behind it and nothing through walls — decides what to do, and writes a short
+  script that presses its own movement keys and mouse buttons. It mines at the speed its
+  tool allows (with the cracks showing), reaches about as far as you do, and can only place
+  blocks it's actually carrying. It is **a bit dumber** than the old planner that was handed
+  coordinates. That's the trade, and it's deliberate: everything it manages now, a player
+  could have managed. Prefer the old behaviour? **Settings → Behavior → Thinking style →
+  Classic action plan (JSON)**.
+- **It uses chests — and furnaces, barrels, shulkers and hoppers.** Standing within reach,
+  it opens the container (lid animation and click included), takes and stores stacks, and
+  drops ore and fuel into the right furnace slots by itself.
+- **It never teleports.** Companions used to blink to your side when they fell behind. They
+  don't any more — they walk, swim and climb like something actually living in the world.
+  `/ai come` sends it walking and tells you how far it has to go. Because a flying player
+  can out-run that in seconds, you get a **one-time warning screen** the first time you
+  enter creative with a companion out.
+- **It lives on its own.** With no AI connected at all — MCP idle, connection set to "off",
+  or the service down — it still eats when hurt, swims up when it's drowning, runs out of
+  fire, hops when it's wedged, and makes its own way back to you.
+- **New commands.** `/ai look` reads out what your companion can actually see right now.
+  `/ai code <script>` hands it a script in the same little language its AI writes (and
+  `/ai code stop` takes the controls back). `/ai connection` and `/ai mcp …` are above.
+
 ## 3.24.0
 - **Pick your AI in one click — HuggingFace, ChatGPT, Claude, Gemini or Grok.** Open
   `/ai menu` → **AI & API** and you'll find a new **AI provider** switch at the top. Flip it

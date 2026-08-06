@@ -19,10 +19,24 @@ and configures itself from a real in-game settings screen.
 
 ## What it can do
 
+- **Connect the AI you already pay for** — Blockpal runs an **[MCP server](MCP-Server)**,
+  so Claude, ChatGPT, Grok or Gemini can connect straight to your world and drive the
+  companion. No API key stored in the game. It's the easiest way to give it a brain.
+- **It looks, then writes code** — the companion sees a picture rendered from its *own
+  eyes*, decides, and writes a little script that presses its movement keys and mouse
+  buttons. Slower and clumsier than magic on purpose: everything it does, a player could
+  do. See **[Vision & Code](Vision-and-Code)**.
+- **It uses chests** — opens chests, barrels, shulkers and furnaces within arm's reach,
+  takes and stores stacks, loads ore and fuel into the right furnace slots.
+- **It never teleports** — companions walk, swim and climb after you like something that
+  actually lives in the world. (You'll get a warning the first time you go creative.)
+- **It lives on its own** — with no AI connected at all it still eats when hurt, swims up
+  when drowning, gets out of fires and makes its own way back to you.
 - **Named companion** — spawns as **Ethan** with a live nametag; rename any time.
 - **Reads the room** — *active analysis* runs chat through an LLM so "*can you clear
   these trees?*" just works, no command words needed.
-- **AI-planned tasks** — natural-language requests become structured step-by-step plans.
+- **AI-planned tasks** — natural-language requests become something it goes and does
+  (the classic JSON planner is still available as a setting).
 - **Instant quick-commands** — come / follow / stay / stop / where are you, no token needed.
 - **Always reacting** — combat and retreat run on an instant reflex layer in every
   mode, with no API call; planning is fully async.
