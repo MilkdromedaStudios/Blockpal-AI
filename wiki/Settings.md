@@ -27,8 +27,8 @@ Every Blockpal screen has a shared **tab bar** at the top to move between the pa
 | Sub-tab | What's here |
 |-----|-------------|
 | **Identity** | Name, skin, **Open skins folder** button, **Default personality** |
-| **Behavior** | Chat listening, active analysis, sneak-to-open-menu, **allow custom personalities**, **allow possession mode**, **allow agent voice**, **thinking style**, **send pictures to the AI**, **live on its own**, **creative-mode warning**, follow distance, guard radius, [performance preset](Performance-Presets) |
-| **AI & API** | **The one AI connection**, MCP server settings, API provider preset, API URL, model, token, temperature, max tokens, local endpoints |
+| **Behavior** | Chat listening, active analysis, sneak-to-open-menu, **allow custom personalities**, **allow possession mode**, **allow agent voice**, **thinking style**, **send pictures to the AI**, **live on its own**, **creative-mode warning**, **do things by hand**, **human-like pauses**, **eyesight** (picture size + view distance + script time limit), **Growth village** sizes, follow distance, guard radius, [performance preset](Performance-Presets) |
+| **AI & API** | **The one AI connection**, MCP server settings + **Open setup guide** button, API provider preset, API URL, model, token, temperature, max tokens, and the endpoints for Ollama, the Player2 app and the free service |
 | **Combat** | Allow commands, permission level, flee health |
 | **Developer** | Action tick delay, task watchdog timeout, flee health *(high-risk — see [Developer Menu](Developer-Menu))* |
 
@@ -91,9 +91,24 @@ On **Settings → Behavior**:
 | **Live on its own** | on | Keep-alive reflexes that need no AI at all: eat, escape water/fire, unstick, walk back to you |
 | **Warn me in creative mode** | on | Companions never teleport, so a flying owner leaves one behind |
 
-Full explanation, the scripting language and the picture settings
-(`visionWidth`/`visionHeight`/`visionRange`, `scriptMaxTicks`):
-**[Vision & Code](Vision-and-Code)**.
+And under **Its eyesight** on the same tab: **picture width**, **picture height**, **how
+far it can see**, and the **script time limit**. Bigger pictures are sharper but cost one
+ray cast per pixel each time the bot looks, so the sliders are capped at sensible values.
+
+Full explanation and the scripting language: **[Vision & Code](Vision-and-Code)**.
+
+### Everything is in the panel now (3.25.1)
+
+Settings that previously existed only in `config.json` or behind an `/ai admin` command
+have visual controls: the vision size and range, the script time limit, **do things by
+hand** and **human-like pauses**, the Growth village population numbers, and the endpoint
+boxes for the Player2 app and the free keyless service. The `/ai admin …` text commands
+still work and remain the way to configure from a Bedrock or vanilla client with no GUI.
+
+The three *list* settings — the allowed-model list, the bring-your-own-key exemption
+list, and the Ollama model pool — are still managed with commands
+(`/ai admin models|keylist|ollama models add|remove|list`), since they're add/remove
+lists rather than single values.
 
 ## AI provider presets (3.24.0)
 

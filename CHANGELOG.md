@@ -4,6 +4,28 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.25.1
+- **Everything is in the settings menu now.** A pile of options that could only be reached
+  by hand-editing `config.json` (or not at all) have proper controls in `/ai menu`:
+  - **AI & API** — an **Open setup guide** button next to the MCP settings, so connecting
+    Claude/ChatGPT/Grok/Gemini is a click rather than remembering `/ai mcp`. Also the
+    endpoint boxes for the **Player2 app** and the **free keyless service**, which
+    previously existed only in the config file.
+  - **Behavior → Its eyesight** — **picture width**, **picture height**, **how far it can
+    see** and the **script time limit**. These decide how much your companion can make out
+    and how long one of its plans may run.
+  - **Behavior** — **Do things by hand** (build and mine like a survival player instead of
+    reaching for commands) and **Human-like pauses** (small reaction delays so it doesn't
+    act at inhuman speed).
+  - **Behavior → Growth village** — how many villagers a game starts with, and the
+    population that counts as "as big as ever".
+- **Wiki: what each AI app actually needs.** The [MCP server](MCP-Server) page now spells
+  out the thing that trips everyone up — apps that run on **your PC** (Claude Desktop,
+  Claude Code, Gemini CLI, Cursor) need nothing but the address and token, while apps that
+  run in **the cloud** (ChatGPT, grok.com, Google AI Studio) can't see `localhost` at all
+  and need `/ai mcp remote on` plus an HTTPS tunnel, with copy-paste `ngrok` and
+  `cloudflared` commands to set one up.
+
 ## 3.25.0
 - **Connect the AI you already pay for — Blockpal now runs an MCP server.** This is the
   easiest way to give your companion a brain, and it's the headline of this release. Run
