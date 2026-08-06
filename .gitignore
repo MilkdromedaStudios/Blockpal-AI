@@ -1,6 +1,9 @@
 # Gradle
 .gradle/
 build/
+# Minecraft writes its own run logs here (a headless bootstrap in a test will create
+# them too) — they are never part of the mod.
+logs/
 
 # IDE
 .idea/
