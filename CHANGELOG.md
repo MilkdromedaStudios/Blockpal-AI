@@ -4,6 +4,30 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.25.2
+- **The MCP server now hosts itself at `http://localhost:8000/blockpal`.** Set the AI
+  connection to MCP and that address is live the moment your world loads — nothing to
+  launch, nothing to keep open in another window. (The old `/mcp` path still works, so an
+  AI app you already set up keeps running. If you were on the old default port, you're
+  moved to 8000 automatically; a port you picked yourself is left alone.)
+- **Bedrock add-on 1.0.1 — the commands actually work now.** In 1.0.0 *nothing* responded,
+  and here is why: reading chat needs an API Minecraft only ships behind the "Beta APIs"
+  experiment. The add-on called it without checking, which threw while the pack was
+  loading and took the **entire** add-on down with it — no `!ai`, no `/scriptevent`, no
+  right-click, nothing, and no error message anywhere.
+  - Every entry point now registers independently, so one unavailable API costs that one
+    feature and nothing else.
+  - **`/blockpal:ai <command>`** is a real slash command on current versions, with
+    **`/scriptevent blockpal:ai <command>`** always available as the fallback.
+  - `!ai` in chat still works, but only with Beta APIs on — and the add-on now *says* so
+    at world load instead of failing silently.
+- **The Bedrock build refuses to package a broken pack.** Minecraft says nothing when an
+  add-on is malformed, so `bedrock/build.py` now validates first: JSON, manifests and
+  UUIDs, script syntax, every import and imported name, every entity event the scripts
+  trigger, and every texture. It then runs the add-on against a stubbed Minecraft and
+  drives the real commands — summon, follow, guard, rename, re-skin, build a floor — in
+  three different world configurations. Any failure and no `.mcaddon` is written.
+
 ## 3.25.1
 - **Everything is in the settings menu now.** A pile of options that could only be reached
   by hand-editing `config.json` (or not at all) have proper controls in `/ai menu`:

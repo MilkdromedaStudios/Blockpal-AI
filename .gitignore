@@ -51,3 +51,7 @@ blockpal-token*
 # staged accidentally. If a Java file must be added to version control, review it
 # for secret-handling risks first and force-add it deliberately.
 *.java
+
+# Python bytecode from the Bedrock build/validate scripts
+__pycache__/
+*.pyc

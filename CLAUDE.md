@@ -946,6 +946,50 @@ share code or versioning with the Java mod. Source in `bedrock/`, packaged artif
 
 ## Changelog
 
+### 3.25.2
+- **MCP auto-hosts on `http://localhost:8000/blockpal`.** `McpServer.PATH` is the
+  advertised path (`/mcp` kept as an alias context so existing client configs keep
+  working); default `mcpPort` 25569 → **8000**. It already started itself from
+  `ServerLifecycleEvents.SERVER_STARTED` + `McpServer.sync` whenever
+  `aiConnection == mcp`; the wording in the guide/root page/panel now says so plainly.
+  Config schema → **v13**, migrating a `mcpPort` still on the old default 25569 to 8000
+  and leaving a hand-picked port alone.
+- **Bedrock add-on 1.0.1 — fixed the bug that made every command dead.** Root cause,
+  verified against Microsoft's API reference: `world.beforeEvents.chatSend` and
+  `world.afterEvents.chatSend` are **experimental-only** (both sit inside
+  `moniker range="minecraft-bedrock-experimental"` blocks). `chat.setup()`'s else-branch
+  called `world.afterEvents.chatSend.subscribe(...)` unguarded, so on a normal world it
+  threw a TypeError at *module scope* — killing the whole script module, hence no `!ai`,
+  no `/scriptevent`, no right-click, no spawn claiming, and no error in game.
+  - New `scripts/entry.js`: every entry point registers through `safe(label, fn)`, in
+    reliability order — `/scriptevent` first (always stable), then a real
+    **`/blockpal:ai`** custom command (feature-detected via `system.beforeEvents.startup`
+    + `customCommandRegistry`, which is stable API), then chat (experimental, may be
+    absent), then interact/spawn/join. `report()` logs what came up and `howToUse()`
+    tells the player.
+  - `main.js` wraps `chat.setup()`/`tasks.setup()` in the same guard, so nothing at module
+    scope can take the pack down again.
+- **The Bedrock build is gated (`bedrock/validate.py`, run by `build.py`).** 133 checks:
+  JSON parses, manifest schema + UUID uniqueness + script entry exists + BP→RP dependency,
+  `node --check` on every script, every relative import resolves **and every named import
+  is actually exported** (a missing export is a hard ESM load failure = whole pack dead),
+  every `triggerEvent(...)`/skin event exists in the entity's `events`, every event's
+  component groups exist, and every texture/geometry the RP names is present. Exits
+  non-zero; `build.py` writes nothing on failure (`--skip-checks` to override).
+- **Behaviour harness (`bedrock/tests/`).** A stubbed `@minecraft/server` (mutable block
+  world, entities, dynamic properties, signals) + a Node module-resolution hook load the
+  **real, unmodified** scripts and drive them: summon, follow/stay/guard, where, bots,
+  name, skin, personality, inv, say, a build task that must actually change blocks, stop,
+  a nonsense request, `/blockpal:ai`, chat addressing, right-click toggle and stranger
+  refusal. `run.sh` runs three worlds — **stable APIs only** (38), **Beta APIs on** (40),
+  **no custom commands** (36). Confirmed the harness reproduces the 1.0.0 crash exactly
+  (`TypeError … at chat.js:205 → main.js:10`) when run against the old scripts.
+- **Verification:** Java sources compile; 42 live-MCP (incl. `/blockpal` + `/mcp` alias),
+  21 config (incl. the v13 port migration, and that a hand-picked port is untouched),
+  52-field ConfigData round-trip, 23 script/PNG, 47 camera. *Still unverified:* the add-on
+  running inside a real Bedrock client — that needs a device, and is the gap the harness
+  narrows but cannot close.
+
 ### 3.25.1
 - **Every server-side single-value setting is now in the panel.** New `ConfigData` fields
   (52 total): `visionWidth/Height/Range`, `scriptMaxTicks`, `preferSurvivalActions`,

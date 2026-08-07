@@ -81,7 +81,7 @@ public class AiConfigScreen extends Screen {
     private String pConnection = "free";
     private String pLogicMode = "code";
     private boolean pVision = true, pSurvivalBrain = true, pCreativeWarning = true;
-    private int pMcpPort = 25569;
+    private int pMcpPort = 8000;
     private boolean pMcpRemote, pMcpRequireToken = true, mcpRunning;
     private CycleButton<String> connectionButton, logicModeButton;
     private CycleButton<Boolean> visionButton, survivalBrainButton, creativeWarnButton,
@@ -510,10 +510,10 @@ public class AiConfigScreen extends Screen {
                 : "§e▶ Not listening yet — save these settings, then run §f/ai mcp"), this.font));
         body.addChild(new StringWidget(W, LABEL_H, Component.literal(
                 "§7Your AI app connects to the game; no key is stored here."), this.font));
-        // A text box, not a slider: dragging across 64,000 values to land on 25569 is
+        // A text box, not a slider: dragging across 64,000 values to land on 8000 is
         // nobody's idea of a good time.
         mcpPortBox = bodyBox(body, "MCP port", String.valueOf(pMcpPort), 5,
-                "TCP port the MCP server listens on. 25569 by default — change it only if "
+                "TCP port the MCP server listens on. 8000 by default (the address is then http://localhost:8000/blockpal) — change it only if "
                         + "something else already uses that port.");
         mcpTokenButton = bodyToggle(body, "Require access token", pMcpRequireToken,
                 "Clients must send Authorization: Bearer <token>. Leave ON — the token is what "

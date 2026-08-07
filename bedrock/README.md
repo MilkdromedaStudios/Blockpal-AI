@@ -70,3 +70,35 @@ Skins use the classic 64×64 player-skin layout — replace any PNG in
 rebuild to customize.
 
 Full docs: [`wiki/Bedrock-Add-On.md`](../wiki/Bedrock-Add-On.md).
+
+## Commands
+
+**Use `/blockpal:ai <command>`** on current Minecraft versions, or
+**`/scriptevent blockpal:ai <command>`** on older ones. Cheats must be on, as for any
+command.
+
+```
+/blockpal:ai help          /blockpal:ai summon [name]
+/blockpal:ai come | follow | stay | guard | stop | where
+/blockpal:ai name <name>   /blockpal:ai skin <default|robot|ember|void>
+/blockpal:ai personality <friendly|cheerful|grumpy|stoic|heroic|shy>
+/blockpal:ai bots | inv | say <text>
+/blockpal:ai build a 5x5 floor of stone      (and other plain-language tasks)
+```
+
+Right-clicking a companion still toggles follow/stay, and the spawn egg claims it to
+whoever is nearest.
+
+### About typing `!ai` in chat
+
+`!ai …` works **only if the world has "Beta APIs" switched on**. That isn't a choice
+Blockpal makes: reading chat needs `world.beforeEvents.chatSend`, which Mojang ships as an
+experimental-only API. Without the toggle there is no way for any add-on to see chat.
+
+The add-on tells you which entry points came up when the world loads, so you never have to
+guess — check the content log, or just read the hint the first time you spawn.
+
+> **This was broken in 1.0.0.** The pack called that chat API without checking it existed,
+> which threw during load and took the *whole* add-on down — no commands of any kind
+> worked. Fixed in 1.0.1: every entry point registers independently, and `/scriptevent`
+> (which is always available) is registered first.

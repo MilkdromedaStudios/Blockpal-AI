@@ -2,22 +2,38 @@
   "format_version": 2,
   "header": {
     "name": "Blockpal Companion [BP]",
-    "description": "Blockpal for Bedrock — an AI companion (Ethan) for single-player worlds. Chat commands, follow/stay/guard, offline task planner.",
+    "description": "Blockpal for Bedrock \u2014 an AI companion (Ethan) for single-player worlds. Chat commands, follow/stay/guard, offline task planner.",
     "uuid": "815efcbb-4aa0-464e-b582-a2256217c93c",
-    "version": [1, 0, 0],
-    "min_engine_version": [1, 21, 60]
+    "version": [
+      1,
+      0,
+      1
+    ],
+    "min_engine_version": [
+      1,
+      21,
+      60
+    ]
   },
   "modules": [
     {
       "type": "data",
       "uuid": "66cac3a9-e015-4c96-ad9a-2d8fc6301bc8",
-      "version": [1, 0, 0]
+      "version": [
+        1,
+        0,
+        1
+      ]
     },
     {
       "type": "script",
       "language": "javascript",
       "uuid": "2b6e8dec-58fb-427f-a3b6-0514e92d817c",
-      "version": [1, 0, 0],
+      "version": [
+        1,
+        0,
+        1
+      ],
       "entry": "scripts/main.js"
     }
   ],
@@ -28,7 +44,11 @@
     },
     {
       "uuid": "74c531ae-90a0-402c-8a67-6a33957d36a5",
-      "version": [1, 0, 0]
+      "version": [
+        1,
+        0,
+        1
+      ]
     }
   ]
 }
