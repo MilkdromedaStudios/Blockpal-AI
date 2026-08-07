@@ -8,6 +8,7 @@ import {
 import { PERSONALITY_IDS } from "./personality.js";
 import { plan } from "./planner.js";
 import { startTask, cancelTask, hasTask } from "./tasks.js";
+import * as entry from "./entry.js";
 
 const SKINS = {
   default: "blockpal:skin_default",
@@ -189,67 +190,58 @@ function handleChatMessage(player, message) {
 
 const lastInteract = new Map(); // entityId -> tick
 
-export function setup() {
-  // Cancelable chat needs beforeEvents.chatSend; fall back to afterEvents
-  // (commands then stay visible in chat — harmless in single-player).
-  const before = world.beforeEvents && world.beforeEvents.chatSend;
-  if (before && typeof before.subscribe === "function") {
-    before.subscribe((ev) => {
-      const { sender, message } = ev;
-      const lower = message.trim().toLowerCase();
-      const prefix = CONFIG.commandPrefix.toLowerCase();
-      if (lower === prefix || lower.startsWith(prefix + " ")) ev.cancel = true;
-      system.run(() => handleChatMessage(sender, message));
-    });
-  } else {
-    world.afterEvents.chatSend.subscribe((ev) => {
-      const { sender, message } = ev;
-      system.run(() => handleChatMessage(sender, message));
-    });
+/** Does this chat line belong to us (so it can be hidden from public chat)? */
+function claimsMessage(message) {
+  const lower = String(message || "").trim().toLowerCase();
+  const prefix = CONFIG.commandPrefix.toLowerCase();
+  return lower === prefix || lower.startsWith(prefix + " ");
+}
+
+function onInteract(ev) {
+  const bot = ev.target;
+  if (!bot || bot.typeId !== TYPE_ID || !isValid(bot)) return;
+  const last = lastInteract.get(bot.id) || -100;
+  if (system.currentTick - last < 10) return;
+  lastInteract.set(bot.id, system.currentTick);
+  const player = ev.player;
+  const owner = ownerIdOf(bot);
+  if (!owner) {
+    claim(bot, player);
+    speak(bot, "greet", { owner: player.name });
+    return;
   }
+  if (owner !== player.id) { speak(bot, "refuse"); return; }
+  if (hasTask(bot)) return; // don't yank it off a job with a misclick
+  const next = (bot.getDynamicProperty("blockpal:mode") || "follow") === "follow" ? "stay" : "follow";
+  setMode(bot, next);
+}
 
-  // /scriptevent blockpal:ai <command> — alternative entry point.
+function onPlayerSpawn(ev) {
+  if (!ev.initialSpawn) return;
+  const player = ev.player;
   try {
-    system.afterEvents.scriptEventReceive.subscribe((ev) => {
-      if (ev.id !== "blockpal:ai") return;
-      const player = ev.sourceEntity;
-      if (!player || player.typeId !== "minecraft:player") return;
-      handleCommand(player, ev.message || "");
-    });
+    if (player.getDynamicProperty("blockpal:hinted")) return;
+    player.setDynamicProperty("blockpal:hinted", true);
+    info(player, `§bBlockpal§7 is active — ${entry.howToUse()}`);
   } catch { }
+}
 
-  // Right-click: claim an unowned companion, else toggle follow/stay.
-  try {
-    world.afterEvents.playerInteractWithEntity.subscribe((ev) => {
-      const bot = ev.target;
-      if (!bot || bot.typeId !== TYPE_ID || !isValid(bot)) return;
-      const last = lastInteract.get(bot.id) || -100;
-      if (system.currentTick - last < 10) return;
-      lastInteract.set(bot.id, system.currentTick);
-      const player = ev.player;
-      const owner = ownerIdOf(bot);
-      if (!owner) {
-        claim(bot, player);
-        speak(bot, "greet", { owner: player.name });
-        return;
-      }
-      if (owner !== player.id) { speak(bot, "refuse"); return; }
-      if (hasTask(bot)) return; // don't yank it off a job with a misclick
-      const next = (bot.getDynamicProperty("blockpal:mode") || "follow") === "follow" ? "stay" : "follow";
-      setMode(bot, next);
-    });
-  } catch { }
+/**
+ * Wires up every way a player can reach the companion. Each registration is
+ * isolated (see entry.js): one unavailable API must never stop the rest — that
+ * is precisely the bug that made 1.0.0 completely unresponsive.
+ */
+export function setup() {
+  // Always-available paths first.
+  entry.registerScriptEvent(handleCommand);
+  entry.registerCustomCommand(handleCommand);
 
-  // One-time hint for new players.
-  try {
-    world.afterEvents.playerSpawn.subscribe((ev) => {
-      if (!ev.initialSpawn) return;
-      const player = ev.player;
-      try {
-        if (player.getDynamicProperty("blockpal:hinted")) return;
-        player.setDynamicProperty("blockpal:hinted", true);
-        info(player, "§bBlockpal§7 is active — type §b!ai help§7 to meet your AI companion.");
-      } catch { }
-    });
-  } catch { }
+  // Chat is experimental-only, so it may legitimately not register.
+  entry.registerChat({
+    claims: claimsMessage,
+    run: (sender, message) => { try { handleChatMessage(sender, message); } catch { } }
+  });
+
+  entry.registerInteract(onInteract);
+  entry.registerJoinHint(onPlayerSpawn);
 }

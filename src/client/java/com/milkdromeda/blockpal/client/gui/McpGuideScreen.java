@@ -145,10 +145,13 @@ public class McpGuideScreen extends Screen {
         out.add("");
         out.add("§l§bBefore you start");
         out.add("§71. This must be the chosen AI connection:");
-        out.add("§f   /ai connection mcp §7(only one may be on)");
-        out.add("§72. The AI app must run on §fthis same machine§7,");
-        out.add("§7   unless you turn on §f/ai mcp remote on§7.");
-        out.add("§73. Keep the token secret — it drives your bots.");
+        out.add("§f   /ai connection set mcp §7(only one may be on)");
+        out.add("§72. Then it hosts itself — the address above is");
+        out.add("§7   live the moment your world loads. Nothing");
+        out.add("§7   to launch, nothing to keep open.");
+        out.add("§73. The AI app must be on §fthis machine§7, unless");
+        out.add("§7   you turn on §f/ai mcp remote on§7 (see ChatGPT).");
+        out.add("§74. Keep the token secret — it drives your bots.");
         out.add("");
         out.add("§7Older apps may need the SSE address instead:");
         out.add("§f" + sseEndpoint);

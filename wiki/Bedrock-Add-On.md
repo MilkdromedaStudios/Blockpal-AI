@@ -149,3 +149,61 @@ files.
 - **Invisible/broken companion** — the resource pack didn't attach; re-import
   the `.mcaddon` or add **Blockpal Companion [RP]** manually under Resource
   Packs.
+
+## Commands (updated in 1.0.1)
+
+Use **`/blockpal:ai <command>`** on current versions, or
+**`/scriptevent blockpal:ai <command>`** on older ones. Cheats must be on.
+
+```
+/blockpal:ai help
+/blockpal:ai summon [name]
+/blockpal:ai come | follow | stay | guard | stop | where
+/blockpal:ai name <name> | skin <default|robot|ember|void>
+/blockpal:ai personality <friendly|cheerful|grumpy|stoic|heroic|shy>
+/blockpal:ai bots | inv | say <text>
+/blockpal:ai build a 5x5 floor of stone
+```
+
+### Why `!ai` in chat needs "Beta APIs"
+
+Reading chat requires `world.beforeEvents.chatSend`, which Minecraft ships as an
+**experimental-only** API. With Beta APIs off — the normal case — no add-on can see chat
+at all, so `!ai` cannot work. Everything else works without any experiment.
+
+### If nothing responds
+
+1. Are cheats on? Every command needs them.
+2. Are **both** packs applied to the world (behaviour *and* resource)?
+3. Check the content log at world load. Blockpal prints exactly which entry points
+   registered: `Commands: /blockpal:ai, /scriptevent blockpal:ai`. If one is missing it
+   also prints why.
+
+> **Known-bad version: 1.0.0.** It called the experimental chat API unguarded, which threw
+> while the module was loading and killed the entire add-on — no command of any kind
+> worked. If you have 1.0.0, replace it with 1.0.1 or newer.
+
+## How this add-on is checked before release
+
+Bedrock never tells you an add-on is broken; it just does nothing. So the build refuses to
+package one that is:
+
+```
+python3 bedrock/build.py      # validates, runs the tests, then packages
+python3 bedrock/validate.py   # checks only
+bedrock/tests/run.sh          # behaviour tests only
+```
+
+`validate.py` checks that every JSON file parses, the manifests are well-formed with
+unique UUIDs and a real script entry, the behaviour pack depends on the resource pack,
+every script parses, every `import` resolves **and every imported name is actually
+exported** (a typo there stops the whole pack loading), every entity event the scripts
+trigger exists on the entity, and every texture and geometry the resource pack names is
+present.
+
+`tests/run.sh` then loads the real scripts against a stubbed `@minecraft/server` and drives
+them like a player would — summon, follow, stay, guard, rename, re-skin, change
+personality, run a build task and check blocks actually changed. It runs three times: a
+normal world (**stable APIs only, no chat**), a world with Beta APIs on, and an older
+runtime without custom commands. The stable-only run is the one that would have caught
+1.0.0.

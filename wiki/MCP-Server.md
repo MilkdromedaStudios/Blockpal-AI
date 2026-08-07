@@ -70,7 +70,7 @@ runs decides everything.**
 | **Google AI Studio** | Google's cloud | ✅ **yes** | Same as ChatGPT |
 
 **Why the difference?** Blockpal listens on *your* machine. An app running on your
-machine can reach `localhost:25569` directly. An app running in someone else's data
+machine can reach `localhost:8000` directly. An app running in someone else's data
 centre cannot — to it, `localhost` means *their* server. It needs a public address that
 points back to your PC, which is what a tunnel provides.
 
@@ -80,7 +80,7 @@ points back to your PC, which is what a tunnel provides.
    The MCP server lives inside Minecraft.
 2. **MCP must be the chosen connection** — `/ai connection set mcp`. Only one AI
    connection runs at a time.
-3. **The address** — `http://localhost:25569/mcp` by default. `/ai mcp` shows it.
+3. **The address** — `http://localhost:8000/blockpal` by default. `/ai mcp` shows it.
 4. **The token** — `/ai mcp token`, sent as `Authorization: Bearer <token>`.
 5. **A companion in the world** — `/ai summon`. The AI drives a bot; without one, its
    tools have nothing to act on.
@@ -94,11 +94,11 @@ points back to your PC, which is what a tunnel provides.
 
    ```bash
    # ngrok
-   ngrok http 25569
+   ngrok http 8000
    # → https://something.ngrok-free.app  ... use https://something.ngrok-free.app/mcp
 
    # Cloudflare Tunnel
-   cloudflared tunnel --url http://localhost:25569
+   cloudflared tunnel --url http://localhost:8000
    # → https://something.trycloudflare.com ... use .../mcp
    ```
 
@@ -123,7 +123,7 @@ use a desktop app instead, which is easier anyway.
 
 ## Setting up each app
 
-Every app needs the same two things: the **address** (`http://localhost:25569/mcp` by
+Every app needs the same two things: the **address** (`http://localhost:8000/blockpal` by
 default) and the **token** (`/ai mcp token`). Send the token as
 `Authorization: Bearer <token>`.
 
@@ -140,7 +140,7 @@ default) and the **token** (`/ai mcp token`). Send the token as
   "mcpServers": {
     "blockpal": {
       "command": "npx",
-      "args": ["-y", "mcp-remote", "http://localhost:25569/mcp",
+      "args": ["-y", "mcp-remote", "http://localhost:8000/blockpal",
                "--header", "Authorization: Bearer YOUR_TOKEN"]
     }
   }
@@ -153,7 +153,7 @@ Restart Claude. (`mcp-remote` is the standard bridge for HTTP servers and needs
 **Claude Code** — one line:
 
 ```bash
-claude mcp add --transport http blockpal http://localhost:25569/mcp \
+claude mcp add --transport http blockpal http://localhost:8000/blockpal \
   --header "Authorization: Bearer YOUR_TOKEN"
 ```
 
@@ -190,7 +190,7 @@ Add to `~/.gemini/settings.json`:
 {
   "mcpServers": {
     "blockpal": {
-      "httpUrl": "http://localhost:25569/mcp",
+      "httpUrl": "http://localhost:8000/blockpal",
       "headers": { "Authorization": "Bearer YOUR_TOKEN" }
     }
   }
@@ -209,7 +209,7 @@ Add to `~/.gemini/settings.json`:
 | `/ai mcp status` | Address, port, binding, token state |
 | `/ai mcp token` | Show your access token (privately) |
 | `/ai mcp newtoken` | Roll a new one — the old one stops working immediately |
-| `/ai mcp port <n>` | Change the port (default 25569) |
+| `/ai mcp port <n>` | Change the port (default 8000) |
 | `/ai mcp remote on\|off` | Listen on all interfaces, or localhost only (default) |
 | `/ai mcp start` / `stop` | Start or stop the listener by hand |
 

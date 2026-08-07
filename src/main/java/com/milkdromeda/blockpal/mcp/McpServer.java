@@ -55,6 +55,9 @@ public final class McpServer {
     /** MCP revision this server implements. Sent back verbatim in {@code initialize}. */
     public static final String PROTOCOL_VERSION = "2025-06-18";
 
+    /** The path we advertise. {@code /mcp} is also served, for anyone already set up. */
+    public static final String PATH = "/blockpal";
+
     private static final Gson GSON = new Gson();
 
     private static HttpServer http;
@@ -92,6 +95,9 @@ public final class McpServer {
                     ? new InetSocketAddress(cfg.mcpPort).getAddress()
                     : InetAddress.getLoopbackAddress();
             http = HttpServer.create(new InetSocketAddress(bind, cfg.mcpPort), 8);
+            // /blockpal is the address we advertise; /mcp stays as an alias so a
+            // client someone already set up keeps working.
+            http.createContext(PATH, McpServer::handleStreamable);
             http.createContext("/mcp", McpServer::handleStreamable);
             http.createContext("/sse", McpServer::handleSse);
             http.createContext("/messages", McpServer::handleSseMessage);
@@ -141,11 +147,11 @@ public final class McpServer {
         return status;
     }
 
-    /** The URL a client should be pointed at, e.g. {@code http://localhost:25569/mcp}. */
+    /** The URL a client should be pointed at, e.g. {@code http://localhost:8000/blockpal}. */
     public static String endpoint() {
         ModConfig cfg = ModConfig.get();
         String host = cfg.mcpAllowRemote ? "<this-machine's-ip>" : "localhost";
-        return "http://" + host + ":" + cfg.mcpPort + "/mcp";
+        return "http://" + host + ":" + cfg.mcpPort + PATH;
     }
 
     /** The legacy SSE URL, for clients that only speak the older transport. */
@@ -159,7 +165,8 @@ public final class McpServer {
 
     private static void handleRoot(HttpExchange exchange) throws IOException {
         // A human poking the port in a browser should get a pointer, not a blank page.
-        String body = "Blockpal MCP server.\nMCP endpoint: " + endpoint()
+        String body = "Blockpal MCP server — it starts by itself whenever the AI connection "
+                + "is set to MCP.\nMCP endpoint: " + endpoint()
                 + "\nLegacy SSE endpoint: " + sseEndpoint()
                 + "\nRun /ai mcp in-game for setup instructions and your access token.\n";
         send(exchange, 200, "text/plain; charset=utf-8", body);

@@ -27,7 +27,7 @@ public class ModConfig {
      * default instead of silently inheriting Java's zero/false. A file with no
      * version at all reads back as {@code 0} and is migrated from there.
      */
-    public static final int CURRENT_CONFIG_VERSION = 12;
+    public static final int CURRENT_CONFIG_VERSION = 13;
 
     // Settings (including the API key) live in their own folder under the game's
     // config directory. That directory is untouched when you replace the mod jar,
@@ -299,8 +299,10 @@ public class ModConfig {
 
     // ---- MCP server (connect Claude / ChatGPT / Grok / Gemini to your world) ------
 
-    // TCP port the built-in MCP server listens on when aiConnection is "mcp".
-    public int mcpPort = 25569;
+    // TCP port the built-in MCP server listens on. It starts by itself whenever
+    // aiConnection is "mcp" — nothing to launch by hand. The address it serves is
+    // http://localhost:<mcpPort>/blockpal.
+    public int mcpPort = 8000;
 
     // When false (the default) the MCP server binds to loopback only, so nothing
     // outside this machine can reach it. Turn on ONLY if the AI app runs elsewhere
@@ -608,11 +610,17 @@ public class ModConfig {
             survivalBrain = true;
             mcpRequireToken = true;
             aiLogicMode = "code";
-            mcpPort = 25569;
+            mcpPort = 8000;
             visionWidth = 80;
             visionHeight = 45;
             visionRange = 48;
             scriptMaxTicks = 1200;
+        }
+        if (configVersion < 13) {
+            // The MCP server moved to the friendlier http://localhost:8000/blockpal.
+            // Only move installs that were on the old default — a hand-picked port
+            // was a deliberate choice and is left alone.
+            if (mcpPort == 25569) mcpPort = 8000;
         }
         configVersion = CURRENT_CONFIG_VERSION;
     }
@@ -643,7 +651,7 @@ public class ModConfig {
         applyConnectionExclusivity();
         if (mcpToken == null) mcpToken = "";
         if (mcpTokenObf == null) mcpTokenObf = "";
-        if (mcpPort < 1024 || mcpPort > 65535) mcpPort = 25569;
+        if (mcpPort < 1024 || mcpPort > 65535) mcpPort = 8000;
         if (!"plan".equalsIgnoreCase(aiLogicMode)) aiLogicMode = "code";
         visionWidth = (int) Math.max(32, Math.min(160, visionWidth == 0 ? 80 : visionWidth));
         visionHeight = (int) Math.max(18, Math.min(90, visionHeight == 0 ? 45 : visionHeight));
