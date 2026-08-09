@@ -4,6 +4,23 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.25.3
+- **Bedrock add-on 1.1.0 — the real reason nothing worked.** 1.0.1 fixed a crash, but the
+  add-on still did nothing *and produced no logs at all*, which turned out to be a second,
+  separate bug: the pack asked Minecraft for script API `@minecraft/server` **1.17.0**.
+  That is the Minecraft 1.21.60 line, and **2.0.0 was a breaking major** — so on any
+  current version that API simply doesn't exist, and Minecraft **drops the script module
+  before running a single line**. No commands, no error, no log entry. Nothing to see,
+  which is exactly what was reported.
+  - The pack now targets **`@minecraft/server` 2.0.0** with **`min_engine_version`
+    1.21.80** (where 2.x arrived). **Minecraft Bedrock 1.21.80 or newer is required.**
+  - The build now **fails** if the declared API line is one Minecraft no longer ships, so
+    this class of silent death can't come back.
+- **It tells you it loaded.** A few seconds after the world starts, Blockpal says
+  `Blockpal loaded ✓` in chat, along with which command style to use. The content log is
+  off by default for most players, so a console line was never going to be enough — "did
+  it even start?" is now answerable without changing any settings.
+
 ## 3.25.2
 - **The MCP server now hosts itself at `http://localhost:8000/blockpal`.** Set the AI
   connection to MCP and that address is live the moment your world loads — nothing to

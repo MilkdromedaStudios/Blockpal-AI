@@ -946,6 +946,30 @@ share code or versioning with the Java mod. Source in `bedrock/`, packaged artif
 
 ## Changelog
 
+### 3.25.3
+- **Bedrock 1.1.0 — found the *actual* reason nothing ran.** 1.0.1 fixed a load-time crash
+  but the add-on still did nothing **with no logs at all**, which was the tell: the script
+  module was never executed, so no guard inside it could have helped. Cause: the BP
+  manifest declared `@minecraft/server` **`1.17.0`**. Verified against the npm registry —
+  stable line is now **2.9.0**, `2.0.0` ↔ MC **1.21.80** (published 2025-06-17), 2.9.0 ↔ MC
+  1.26.x. `@minecraft/server` is a **versioned** module: Minecraft only provides versions
+  it ships, and 2.0.0 was a breaking major, so a 1.x request on a current runtime makes the
+  engine **drop the script module before evaluating it** — no error, no content-log line.
+  - Manifest now: `@minecraft/server` **2.0.0**, `min_engine_version` **[1, 21, 80]**, pack
+    version 1.1.0 (BP, RP and the BP→RP dependency kept in step).
+  - `entry.js` also takes `import * as mc` and reads `mc.CommandPermissionLevel` /
+    `mc.CustomCommandParamType` off the namespace — a missing *named* import is a hard
+    module-load failure, a missing property is just `undefined`.
+- **`validate.py` now rejects a dead API line** (`MIN_SERVER_API_MAJOR`, plus a check that
+  `min_engine_version` is at/after where that major appeared). Reverting the manifest to
+  1.17.0 fails the build with exit 1 — verified.
+- **The add-on announces itself in chat** (`report()` → `world.sendMessage` on a 60-tick
+  timeout): the content log is **off by default**, so a `console.warn` diagnostic was
+  invisible to the people who needed it. "Did it even start?" is now answerable in-game.
+- 136 validation checks, 114 behaviour checks across three world shapes, all green;
+  `builds/blockpal-bedrock-1.1.0.mcaddon` written. *Still unverified:* a real Bedrock
+  client — but the failure mode is now diagnosable from inside the game.
+
 ### 3.25.2
 - **MCP auto-hosts on `http://localhost:8000/blockpal`.** `McpServer.PATH` is the
   advertised path (`/mcp` kept as an alias context so existing client configs keep

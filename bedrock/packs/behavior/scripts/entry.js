@@ -20,6 +20,7 @@
 // feature and nothing else. `report()` then tells the player what is actually
 // live, so "it doesn't respond" is never a mystery again.
 import { world, system } from "@minecraft/server";
+import * as mc from "@minecraft/server";
 
 /** What registered, and what didn't — surfaced in-game and to the content log. */
 export const status = {
@@ -81,12 +82,19 @@ export function registerCustomCommand(handleCommand) {
     startup.subscribe((ev) => {
       const registry = ev.customCommandRegistry;
       if (!registry || typeof registry.registerCommand !== "function") return;
+      // Read the enums off the namespace rather than importing them by name: a
+      // missing named import is a hard module-load failure, but a missing
+      // property is just undefined, and the fallback literals are the values
+      // those enums carry anyway.
+      const anyone = mc.CommandPermissionLevel ? mc.CommandPermissionLevel.Any : 0;
+      const stringParam = mc.CustomCommandParamType
+        ? mc.CustomCommandParamType.String : "String";
       registry.registerCommand(
         {
           name: "blockpal:ai",
           description: "Command your Blockpal companion",
-          permissionLevel: 0,          // CommandPermissionLevel.Any
-          optionalParameters: [{ name: "args", type: "String" }]
+          permissionLevel: anyone,
+          optionalParameters: [{ name: "args", type: stringParam }]
         },
         (origin, args) => {
           const player = origin && (origin.sourceEntity || origin.initiator);
@@ -178,5 +186,16 @@ export function report() {
     console.warn(`[Blockpal] Bedrock companion loaded. Commands: ${summary}.`);
     for (const failure of status.failures) console.warn(`[Blockpal]   skipped ${failure}`);
   } catch { }
+
+  // The content log is OFF by default, so a console line is invisible to almost
+  // every player — "is it even running?" has to be answerable in-game. Announce
+  // once per world load, to whoever is there, shortly after startup.
+  safe("load announcement", () => {
+    system.runTimeout(() => {
+      try {
+        world.sendMessage(`§bBlockpal§7 loaded ✓  ${howToUse()}`);
+      } catch { }
+    }, 60);
+  });
   return summary;
 }

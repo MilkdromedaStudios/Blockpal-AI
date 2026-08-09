@@ -30,6 +30,20 @@ ALLOWED_MODULES = {"@minecraft/server", "@minecraft/server-ui"}
 
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 
+# @minecraft/server is a VERSIONED module: Minecraft only provides the versions it
+# ships with. Ask for one the runtime doesn't have and the script module is dropped
+# before a single line runs — no error in game, no content-log entry, nothing.
+#
+# That is what shipped in 1.0.x: it declared 1.17.0 (Minecraft 1.21.60, early 2025)
+# and 2.0.0 was a breaking major, so on any current version the whole add-on was
+# simply never loaded.
+#
+#   1.x  →  Minecraft 1.21.60-1.21.70   (superseded)
+#   2.0.0 →  Minecraft 1.21.80 and up
+MIN_SERVER_API_MAJOR = 2
+# The engine version where each API major became available.
+API_MAJOR_MIN_ENGINE = {2: (1, 21, 80)}
+
 
 class Report:
     def __init__(self):
@@ -107,8 +121,29 @@ def check_manifests(rep):
 
     deps = bp.get("dependencies", [])
     module_deps = {d.get("module_name"): d for d in deps if d.get("module_name")}
-    rep.check("@minecraft/server" in module_deps,
-              "behavior manifest does not depend on @minecraft/server")
+    if rep.check("@minecraft/server" in module_deps,
+                 "behavior manifest does not depend on @minecraft/server"):
+        raw = str(module_deps["@minecraft/server"].get("version", ""))
+        parts = raw.split("-")[0].split(".")
+        try:
+            major = int(parts[0])
+        except (ValueError, IndexError):
+            major = -1
+            rep.error(f"@minecraft/server version '{raw}' is not a version number")
+        if major >= 0:
+            rep.check(major >= MIN_SERVER_API_MAJOR,
+                      f"@minecraft/server {raw} is a dead API line. Minecraft only provides "
+                      f"the versions it ships with, so asking for {major}.x means the script "
+                      f"module is DROPPED BEFORE IT RUNS — no commands, no logs, no error. "
+                      f"Use {MIN_SERVER_API_MAJOR}.0.0 or newer.")
+            wanted = API_MAJOR_MIN_ENGINE.get(major)
+            engine = tuple(bp.get("header", {}).get("min_engine_version", []) or [])
+            if wanted and engine:
+                rep.check(engine >= wanted,
+                          f"min_engine_version {list(engine)} is older than Minecraft "
+                          f"{'.'.join(map(str, wanted))}, which is where @minecraft/server "
+                          f"{major}.x first appears — the pack would load on a version that "
+                          f"cannot provide the API it asks for")
 
     rp_uuid = str(rp.get("header", {}).get("uuid", "")).lower()
     pack_deps = [str(d.get("uuid", "")).lower() for d in deps if d.get("uuid")]
