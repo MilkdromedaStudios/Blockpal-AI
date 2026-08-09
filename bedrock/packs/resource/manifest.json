@@ -6,13 +6,13 @@
     "uuid": "74c531ae-90a0-402c-8a67-6a33957d36a5",
     "version": [
       1,
-      0,
-      1
+      1,
+      0
     ],
     "min_engine_version": [
       1,
       21,
-      60
+      80
     ]
   },
   "modules": [
@@ -21,8 +21,8 @@
       "uuid": "008c35cf-bdc6-4635-8d3f-3ce87fd87d16",
       "version": [
         1,
-        0,
-        1
+        1,
+        0
       ]
     }
   ]

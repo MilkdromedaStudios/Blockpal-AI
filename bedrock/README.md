@@ -71,6 +71,12 @@ rebuild to customize.
 
 Full docs: [`wiki/Bedrock-Add-On.md`](../wiki/Bedrock-Add-On.md).
 
+## Requirements
+
+**Minecraft Bedrock 1.21.80 or newer.** The add-on uses the `@minecraft/server` **2.x**
+script API, which arrived in 1.21.80. On older versions Minecraft cannot provide that API
+and will drop the script module without loading it.
+
 ## Commands
 
 **Use `/blockpal:ai <command>`** on current Minecraft versions, or
@@ -98,7 +104,31 @@ experimental-only API. Without the toggle there is no way for any add-on to see 
 The add-on tells you which entry points came up when the world loads, so you never have to
 guess — check the content log, or just read the hint the first time you spawn.
 
-> **This was broken in 1.0.0.** The pack called that chat API without checking it existed,
-> which threw during load and took the *whole* add-on down — no commands of any kind
-> worked. Fixed in 1.0.1: every entry point registers independently, and `/scriptevent`
-> (which is always available) is registered first.
+## If nothing happens at all
+
+When the add-on loads it announces itself in chat:
+
+```
+Blockpal loaded ✓  Type /blockpal:ai help to begin.
+```
+
+**No message at all means the script module never ran.** Check:
+
+1. **Minecraft 1.21.80+** (see Requirements above).
+2. **Both packs applied to the world** — behaviour *and* resource. The behaviour pack
+   depends on the resource pack and won't activate alone.
+3. **Cheats on**, for any command to work.
+
+### Two bugs that caused exactly this, now fixed
+
+- **1.0.0** called an experimental-only chat API without checking it existed. That threw
+  while the module was loading and took the whole add-on down — no `!ai`, no
+  `/scriptevent`, no right-click, and no error anywhere.
+- **1.0.x** declared `@minecraft/server` **1.17.0**, the Minecraft 1.21.60 API line.
+  `2.0.0` was a breaking major, so on any current Minecraft that version does not exist
+  and the script module was **dropped before running a single line** — which is why there
+  were no logs at all, not even an error.
+
+  Fixed in **1.1.0**: the pack targets `@minecraft/server` 2.0.0 with
+  `min_engine_version` 1.21.80, and `bedrock/validate.py` fails the build if the declared
+  API line is one Minecraft no longer ships.

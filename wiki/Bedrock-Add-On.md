@@ -179,6 +179,15 @@ at all, so `!ai` cannot work. Everything else works without any experiment.
    registered: `Commands: /blockpal:ai, /scriptevent blockpal:ai`. If one is missing it
    also prints why.
 
+> **Requires Minecraft Bedrock 1.21.80 or newer** — that's where the `@minecraft/server`
+> **2.x** script API arrived. On older versions Minecraft can't provide the API the pack
+> asks for and drops the script module without running it.
+
+> **Known-bad versions: 1.0.0 and 1.0.1.** 1.0.1 still declared `@minecraft/server`
+> **1.17.0** (the Minecraft 1.21.60 line). `2.0.0` was a breaking major, so on any current
+> Minecraft that version doesn't exist and the script module was **dropped before running
+> a single line** — no commands, and no logs at all, not even an error. Fixed in **1.1.0**.
+
 > **Known-bad version: 1.0.0.** It called the experimental chat API unguarded, which threw
 > while the module was loading and killed the entire add-on — no command of any kind
 > worked. If you have 1.0.0, replace it with 1.0.1 or newer.
@@ -207,3 +216,18 @@ personality, run a build task and check blocks actually changed. It runs three t
 normal world (**stable APIs only, no chat**), a world with Beta APIs on, and an older
 runtime without custom commands. The stable-only run is the one that would have caught
 1.0.0.
+
+## "Nothing happens and there are no logs"
+
+The add-on announces itself in chat a few seconds after the world loads:
+
+```
+Blockpal loaded ✓  Type /blockpal:ai help to begin.
+```
+
+That message exists because the **content log is off by default**, so a console line is
+invisible to almost everyone. If you don't see it, the script module never ran — check
+your Minecraft version (1.21.80+), that **both** packs are applied, and that cheats are on.
+
+If you *do* see it, it also tells you which entry points registered, so you know whether
+to use `/blockpal:ai`, `/scriptevent blockpal:ai`, or `!ai` in chat.
