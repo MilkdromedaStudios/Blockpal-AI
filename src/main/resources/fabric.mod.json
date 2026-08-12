@@ -7,7 +7,7 @@
   "authors": ["MilkdromedaStudios"],
   "contact": {},
   "license": "MIT",
-  "icon": "assets/blockpal/icon.png",
+  "icon": "assets/blockpal/textures/entity/skins/robot.png",
   "environment": "*",
   "entrypoints": {
     "main": ["com.milkdromeda.blockpal.AiAssistantMod"],
