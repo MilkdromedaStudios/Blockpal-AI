@@ -47,10 +47,6 @@ run/config/
 hf_token*
 hf_tocken*
 blockpal-token*
-# Java source files are intentionally ignored so new implementation files are not
-# staged accidentally. If a Java file must be added to version control, review it
-# for secret-handling risks first and force-add it deliberately.
-*.java
 
 # Python bytecode from the Bedrock build/validate scripts
 __pycache__/
