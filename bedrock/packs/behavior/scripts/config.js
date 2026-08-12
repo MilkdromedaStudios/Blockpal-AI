@@ -10,7 +10,6 @@ export const CONFIG = {
   maxMineBlocks: 216,
   // Script-driven walking (used when native pathfinding isn't available):
   moveStep: 0.35,        // blocks per tick
-  catchupDistance: 24,   // beyond this, teleport straight to the target
   collectRadius: 16,
   commandPrefix: "!ai"
 };

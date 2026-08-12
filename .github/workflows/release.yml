@@ -3,7 +3,7 @@ name: Release to Modrinth
 # Publishes a build to Modrinth.
 #
 # Triggers:
-#   * When a pull request is MERGED     (auto-publishes once per version)
+#   * When a merged pull request touched gradle.properties (normally a version bump)
 #   * Pushing a tag like  v3.1.0        (recommended for tagged releases)
 #   * Manually from the Actions tab     (workflow_dispatch)
 #
@@ -20,6 +20,10 @@ name: Release to Modrinth
 #      exists and skips if so — this catches versions uploaded by hand. The API
 #      check is advisory only; if it can't be reached the git tag still guards us.
 # Bump `mod_version` in gradle.properties to ship a new version.
+#
+# A v* tag MUST match mod_version exactly (for example v3.25.3 when
+# mod_version=3.25.3), preventing an accidentally mistyped tag from publishing
+# a differently-versioned build.
 #
 # The uploaded jar is renamed to  Blockpal-<mod_version>-<minecraft_version>.jar
 # e.g.  Blockpal-3.1.0-26.2.jar
@@ -46,6 +50,8 @@ name: Release to Modrinth
 on:
   pull_request:
     types: [closed]   # gated below to merged-only
+    paths:
+      - 'gradle.properties'
   push:
     tags:
       - 'v*'
@@ -86,6 +92,18 @@ jobs:
         run: |
           echo "mod=$(grep '^mod_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
           echo "mc=$(grep '^minecraft_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+
+      - name: Validate tag matches mod_version
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -euo pipefail
+          EXPECTED="v${{ steps.ver.outputs.mod }}"
+          ACTUAL="$GITHUB_REF_NAME"
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Release tag $ACTUAL does not match mod_version=${{ steps.ver.outputs.mod }}. Expected tag $EXPECTED."
+            exit 1
+          fi
+          echo "Tag/version match: $ACTUAL"
 
       - name: Build
         run: ./gradlew build --no-daemon --stacktrace

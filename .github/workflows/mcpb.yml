@@ -2,8 +2,9 @@ name: Build Claude Desktop MCPB
 
 on:
   push:
-    branches: [ "main", "claude/**" ]
+    branches: [ "main" ]
     tags: [ "v*" ]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -40,3 +41,35 @@ jobs:
           name: BlockPal-Claude-Desktop-MCPB
           path: assets/BlockPal.mcpb
           if-no-files-found: error
+
+  release:
+    # A tagged release gets a permanent, easy-to-find MCPB download in addition
+    # to the short-lived Actions artifact. PRs and normal pushes never write.
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download packaged MCPB
+        uses: actions/download-artifact@v4
+        with:
+          name: BlockPal-Claude-Desktop-MCPB
+          path: release
+
+      - name: Attach MCPB to GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          FILE="$(find release -type f -name 'BlockPal.mcpb' -print -quit)"
+          if [ -z "$FILE" ]; then
+            echo "::error::Downloaded artifact did not contain BlockPal.mcpb"
+            exit 1
+          fi
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$FILE" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$FILE" \
+              --title "Blockpal $GITHUB_REF_NAME" --generate-notes
+          fi
