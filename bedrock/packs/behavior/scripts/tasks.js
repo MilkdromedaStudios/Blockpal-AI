@@ -38,15 +38,14 @@ function finishTask(id, task) {
 }
 
 // Advance the bot one script-walk step toward (x, y, z).
+// Bedrock's script API does not expose the same navigation control as Java, so
+// small teleport increments are used as a walking primitive. Never snap the bot
+// all the way to a distant target: it must traverse the distance step by step.
 // Returns true when it has arrived.
 function stepToward(bot, target) {
   const loc = bot.location;
   const d = distance(loc, target);
   if (d < 1.6) return true;
-  if (d > CONFIG.catchupDistance) {
-    try { bot.teleport(target); } catch { }
-    return true;
-  }
   const step = Math.min(CONFIG.moveStep, d);
   const nx = loc.x + ((target.x - loc.x) / d) * step;
   const nz = loc.z + ((target.z - loc.z) / d) * step;
@@ -178,10 +177,8 @@ function tickScriptFollow() {
       if (!bot.getDynamicProperty(PROP_SCRIPT_FOLLOW)) continue;
       if (modeOf(bot) !== "follow" || hasTask(bot)) continue;
       const d = distance(bot.location, player.location);
-      if (d > CONFIG.catchupDistance) {
-        try { bot.teleport(player.location); } catch { }
-      } else if (d > 5) {
-        // Called every 8 ticks, so take a bigger stride.
+      if (d > 5) {
+        // Called every 8 ticks, so take a bigger stride without instant catch-up.
         for (let i = 0; i < 4; i++) {
           if (stepToward(bot, player.location)) break;
         }
