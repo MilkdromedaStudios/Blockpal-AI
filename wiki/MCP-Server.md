@@ -1,203 +1,162 @@
 # MCP server — connect Claude, ChatGPT, Grok or Gemini
 
-This is the **easiest** way to give your companion a brain, and since **3.25.0** it's a
-first-class AI connection alongside "my own API key", Player2, Ollama and the free
-service.
+BlockPal can host a **Model Context Protocol (MCP)** server inside Minecraft. An AI app connects to your world and drives your companion with tools instead of requiring another model API key inside the game.
 
-Instead of pasting an API key into the game and paying for tokens a second time, Blockpal
-runs a small **[Model Context Protocol](https://modelcontextprotocol.io) server** and the
-AI app you already use connects *to your world*. Your AI looks through the companion's
-eyes and writes little scripts that walk, mine, build and open chests.
+Run:
 
-**In-game guide:** run **`/ai mcp`** — it shows this server's address, your access token,
-and the exact config to paste, with copy buttons.
-
----
-
-## Turn it on
-
-```
+```text
 /ai connection set mcp
 /ai mcp
 ```
 
-Only **one** AI connection runs at a time (see [Settings](Settings)), so switching to
-MCP turns the others off. That's deliberate — no more guessing which provider answered.
+The in-game guide shows the MCP address and your access token. By default the local endpoint is:
 
-**All of this is in the panel too**, if you'd rather not type: `/ai menu` → **AI & API** →
-set **AI** to *MCP server*, and a section appears with the port, the token requirement, the
-remote toggle and an **Open setup guide** button that opens the same per-app instructions
-with your address and token filled in.
+```text
+http://localhost:8000/blockpal
+```
+
+The game must stay running while an AI app is using BlockPal.
 
 ---
 
 ## What the AI gets
 
-Ten tools, shaped like a player's hands and eyes — not an admin console:
+BlockPal exposes player-shaped tools rather than an admin console:
 
 | Tool | What it does |
 |------|--------------|
-| `list_bots` | Every companion in the world, with owner and position |
-| `select_bot` | Choose which one to drive |
-| `look` | **A picture rendered from the bot's own eyes**, plus the scene in words |
-| `observe` | Position, facing, health, inventory, what's in reach, last result |
-| `api_reference` | The scripting language the bot understands |
-| `run_code` | Run a script — walk, turn, mine, place, use, chests |
-| `script_status` | Is it still going, and what has it logged |
-| `stop` | Let go of every key |
-| `say` | Talk out loud in game chat |
-| `inventory` | What it's wearing, holding and carrying |
+| `list_bots` | List companions in the world |
+| `select_bot` | Choose which companion to drive |
+| `look` | See the companion's rendered view plus scene text |
+| `observe` | Read position, facing, health, inventory and nearby state |
+| `api_reference` | Read the scripting API BlockPal understands |
+| `run_code` | Run movement/mining/building/container scripts |
+| `script_status` | Check a running script and its log |
+| `stop` | Release movement/actions |
+| `say` | Speak in game chat |
+| `inventory` | Read held, worn and carried items |
 
-There is no "place block at coordinates" tool and no map dump, because there is no such
-button on a keyboard. See [Vision & Code](Vision-and-Code) for how the loop works and
-what the scripts look like.
+There is deliberately no teleport, set-block, or whole-map tool.
 
 ---
 
-## What you actually need, per app
+## Claude Desktop — use the BlockPal MCPB extension
 
-This is the part that catches people out, so here it is plainly. **Where your AI app
-runs decides everything.**
+**Do not use the old `claude_desktop_config.json` + `npx mcp-remote` instructions.** That route depends on a system Node/npm installation and can fail when Claude Desktop cannot find `npx` or when its environment differs from your terminal.
 
-| Your AI app | Runs where? | Needs a tunnel? | What you need |
-|---|---|---|---|
-| **Claude Desktop** | your PC | ❌ no | Node.js (for the `mcp-remote` bridge), the address, the token |
-| **Claude Code** (CLI) | your PC | ❌ no | Just the address + token — one command |
-| **Gemini CLI** | your PC | ❌ no | Just the address + token in a config file |
-| **Cursor / VS Code / other local editors** | your PC | ❌ no | Address + token in their MCP settings |
-| **ChatGPT** (chatgpt.com or the desktop app) | OpenAI's cloud | ✅ **yes** | A public **HTTPS** URL, `/ai mcp remote on`, the token, and connector/developer mode on your account |
-| **Grok** (grok.com) | xAI's cloud | ✅ **yes** | Same as ChatGPT |
-| **Google AI Studio** | Google's cloud | ✅ **yes** | Same as ChatGPT |
+BlockPal now includes a self-contained **`.mcpb` Claude Desktop extension** in the repository under `mcpb/`. The bridge runs with Claude Desktop's Node runtime and talks directly to BlockPal's localhost HTTP MCP server. It has no npm dependencies and does not require `npx`.
 
-**Why the difference?** Blockpal listens on *your* machine. An app running on your
-machine can reach `localhost:8000` directly. An app running in someone else's data
-centre cannot — to it, `localhost` means *their* server. It needs a public address that
-points back to your PC, which is what a tunnel provides.
+### Install
 
-### Always needed, whichever app
+1. Start Minecraft and open the world/server containing BlockPal.
+2. Run `/ai connection set mcp`.
+3. Run `/ai mcp` and copy the **address** and **token**.
+4. Download/build `BlockPal.mcpb` from this repository. CI also produces a `BlockPal-Claude-Desktop-MCPB` workflow artifact.
+5. In Claude Desktop open **Settings → Extensions → Advanced settings → Install Extension…**.
+6. Select `BlockPal.mcpb`.
+7. Enter the MCP address and token when Claude asks.
+8. Open a new Claude chat and enable/use the BlockPal tools.
 
-1. **The game must be running** — a singleplayer world open, or your dedicated server up.
-   The MCP server lives inside Minecraft.
-2. **MCP must be the chosen connection** — `/ai connection set mcp`. Only one AI
-   connection runs at a time.
-3. **The address** — `http://localhost:8000/blockpal` by default. `/ai mcp` shows it.
-4. **The token** — `/ai mcp token`, sent as `Authorization: Bearer <token>`.
-5. **A companion in the world** — `/ai summon`. The AI drives a bot; without one, its
-   tools have nothing to act on.
+The extension defaults to `http://localhost:8000/blockpal`, but the address is configurable for a non-default port.
 
-### Extra, only for cloud apps (ChatGPT, Grok's website, AI Studio)
+### Build the MCPB from source
 
-6. **`/ai mcp remote on`** — otherwise Blockpal refuses connections from anywhere but
-   your own machine.
-7. **A tunnel giving you an HTTPS URL.** Cloud connectors require `https://`, and
-   Blockpal speaks plain HTTP — the tunnel supplies the TLS. Two easy ones:
+From the repository root:
 
-   ```bash
-   # ngrok
-   ngrok http 8000
-   # → https://something.ngrok-free.app  ... use https://something.ngrok-free.app/mcp
-
-   # Cloudflare Tunnel
-   cloudflared tunnel --url http://localhost:8000
-   # → https://something.trycloudflare.com ... use .../mcp
-   ```
-
-8. **Keep the token requirement ON.** With a tunnel open, your world is reachable by
-   anyone who learns the URL — the token is the only thing standing between them and your
-   companions. Stop the tunnel when you're done, and `/ai mcp newtoken` if you ever pasted
-   the URL somewhere public.
-
-> **Playing on a dedicated server?** Point the tunnel at the *server* machine, not your
-> own PC, and run these commands as an operator. If you're the only one connecting an AI,
-> a desktop app on the server box needs no tunnel at all.
-
-### A note on plans and availability
-
-Connector/MCP support in the cloud apps sits behind plan tiers and developer settings that
-the vendors move around (ChatGPT's is under Settings → Connectors, often gated to paid
-plans and a developer-mode toggle; Grok's and AI Studio's are similar). Blockpal has no
-say in that — if your account can add a custom MCP connector, this works; if it can't,
-use a desktop app instead, which is easier anyway.
-
----
-
-## Setting up each app
-
-Every app needs the same two things: the **address** (`http://localhost:8000/blockpal` by
-default) and the **token** (`/ai mcp token`). Send the token as
-`Authorization: Bearer <token>`.
-
-> Menus move between app versions. The address, transport and token are the parts that
-> matter — if a menu name below has changed, look for "MCP", "connectors" or "tools".
-
-### Claude
-
-**Claude Desktop** — Settings → Developer → Edit Config, then add to
-`claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "blockpal": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "http://localhost:8000/blockpal",
-               "--header", "Authorization: Bearer YOUR_TOKEN"]
-    }
-  }
-}
+```bash
+python mcpb/build.py
 ```
 
-Restart Claude. (`mcp-remote` is the standard bridge for HTTP servers and needs
-[Node.js](https://nodejs.org).)
+This creates:
 
-**Claude Code** — one line:
+```text
+mcpb/dist/BlockPal.mcpb
+```
+
+The bundle contains `manifest.json` and a small CommonJS stdio↔HTTP bridge. The token is **not** committed into the bundle; Claude Desktop collects it as sensitive user configuration and passes it at runtime.
+
+### Troubleshooting Claude Desktop
+
+Open **Settings → Developer → BlockPal → View Logs**. The bridge writes diagnostics to stderr, including the endpoint, HTTP status and connection failures.
+
+Common failures:
+
+- **Connection refused** — Minecraft/BlockPal is not running, MCP is not the selected connection, or the port is wrong.
+- **401 Unauthorized** — the token entered into the extension does not match `/ai mcp token`.
+- **Server disconnected immediately** — check the BlockPal bridge log. The bundled bridge should not call `npx`; if it does, an older extension is still installed.
+- **No tools** — summon a companion and verify the server responds to `tools/list`.
+
+---
+
+## Claude Code
+
+Claude Code runs locally and can connect directly over HTTP without the Desktop MCPB bridge:
 
 ```bash
 claude mcp add --transport http blockpal http://localhost:8000/blockpal \
   --header "Authorization: Bearer YOUR_TOKEN"
 ```
 
-Then just ask: *"look through Ethan's eyes and chop the nearest tree."*
+Use the actual address/token shown by `/ai mcp`.
 
-### ChatGPT
+---
 
-ChatGPT connects to MCP servers as a **connector** (Settings → Connectors → add a custom
-connector). Use the address, pick bearer-token auth, and paste the token.
+## Local apps vs cloud apps
 
-⚠ **ChatGPT runs in OpenAI's cloud, so it cannot reach `localhost` on your PC.** You must
-expose the address to the internet first — a tunnel like ngrok or Cloudflare Tunnel — and
-turn on:
+Where the AI app runs determines whether `localhost` works.
 
-```
+| App | Runs where? | Tunnel needed? |
+|---|---|---|
+| Claude Desktop | your PC | No — use the MCPB extension |
+| Claude Code | your PC | No |
+| Gemini CLI | your PC | No |
+| Cursor / VS Code local MCP clients | your PC | No |
+| ChatGPT connector | cloud | Yes |
+| grok.com | cloud | Yes |
+| Google AI Studio | cloud | Yes |
+
+A cloud service cannot reach `localhost` on your computer. To use a cloud MCP client, turn on remote access and put an HTTPS tunnel in front of BlockPal:
+
+```text
 /ai mcp remote on
 ```
 
-Keep the token requirement **on** when you do that, and stop the tunnel when you're done.
-Anything reachable from the internet is reachable by anyone who learns the URL.
+Examples:
 
-### Grok (xAI)
-
-Same shape: point Grok's connector/tool settings (or the xAI API's MCP server list) at the
-address with the `Authorization: Bearer` header. grok.com is also cloud-hosted, so it needs
-the tunnel + `/ai mcp remote on` treatment described above.
-
-### Gemini / Google AI Studio
-
-**Gemini CLI** runs on your own machine, so it reaches the server with no tunnel at all.
-Add to `~/.gemini/settings.json`:
-
-```json
-{
-  "mcpServers": {
-    "blockpal": {
-      "httpUrl": "http://localhost:8000/blockpal",
-      "headers": { "Authorization": "Bearer YOUR_TOKEN" }
-    }
-  }
-}
+```bash
+ngrok http 8000
 ```
 
-**Google AI Studio** is cloud-hosted — same tunnel + `/ai mcp remote on` as ChatGPT.
+or:
+
+```bash
+cloudflared tunnel --url http://localhost:8000
+```
+
+Use the resulting public **HTTPS** URL with the BlockPal path, and keep token authentication enabled. Turn the tunnel off when you are done.
+
+---
+
+## ChatGPT
+
+ChatGPT custom connectors require a publicly reachable HTTPS MCP URL. `http://localhost:8000/blockpal` cannot be entered directly because ChatGPT's connector runs in OpenAI's cloud.
+
+1. Run `/ai mcp remote on`.
+2. Start an HTTPS tunnel to port 8000.
+3. In ChatGPT connector settings, use the public HTTPS URL ending in `/blockpal`.
+4. Send the token as `Authorization: Bearer <token>` if the connector supports bearer authentication.
+
+---
+
+## Grok
+
+The grok.com website is cloud-hosted, so use the same remote/tunnel setup as ChatGPT. A locally running xAI/API integration can instead connect directly to the local address.
+
+---
+
+## Gemini
+
+Gemini CLI runs locally. Add BlockPal's address and bearer token to its MCP settings. Google AI Studio is cloud-hosted and therefore needs the remote/tunnel setup.
 
 ---
 
@@ -205,57 +164,35 @@ Add to `~/.gemini/settings.json`:
 
 | Command | Effect |
 |---------|--------|
-| `/ai mcp` | Open the setup guide (chat version on Bedrock/vanilla) |
-| `/ai mcp status` | Address, port, binding, token state |
-| `/ai mcp token` | Show your access token (privately) |
-| `/ai mcp newtoken` | Roll a new one — the old one stops working immediately |
+| `/ai mcp` | Open the setup guide |
+| `/ai mcp status` | Show address, port, binding and token state |
+| `/ai mcp token` | Show your access token privately |
+| `/ai mcp newtoken` | Rotate the token immediately |
 | `/ai mcp port <n>` | Change the port (default 8000) |
-| `/ai mcp remote on\|off` | Listen on all interfaces, or localhost only (default) |
-| `/ai mcp start` / `stop` | Start or stop the listener by hand |
+| `/ai mcp remote on|off` | Allow remote connections or localhost only |
+| `/ai mcp start` / `stop` | Start or stop the listener manually |
 
-All of these are operator-only.
+These controls are operator-only.
 
 ---
 
 ## Security
 
-- **Localhost by default.** Nothing outside your machine can reach it until you turn on
-  `/ai mcp remote on`.
-- **Token required by default.** Every request must carry
-  `Authorization: Bearer <token>` (a `?token=` query parameter is accepted for clients
-  that can't set headers — weaker, since URLs end up in logs). Whoever holds the token can
-  drive your companions, so don't paste it in chat or leave it on stream.
-- **Stored obfuscated**, like the API key — never written to `config.json` in plaintext,
-  never logged.
-- **It can't do more than a player can.** No teleport tool, no set-block tool, no world
-  dump. The AI has the same reach, the same speed and the same blindness around corners as
-  anyone else in the world.
+- BlockPal binds to localhost by default.
+- Token authentication is enabled by default.
+- The token is stored obfuscated by the mod and should never be committed to the repository or embedded in a distributed MCPB.
+- Whoever has a reachable address and valid token can drive your companions, so rotate the token if it leaks.
+- Remote mode should only be enabled when you actually need a cloud client.
 
 ---
 
-## Both transports are served
+## Transports
 
-- **Streamable HTTP** — `POST /mcp`, the current spec, what most clients and `mcp-remote`
-  use.
-- **HTTP + SSE** — `GET /sse` then `POST /messages?sessionId=…`, the older transport some
-  clients still speak. The guide screen shows this address too.
+BlockPal serves both:
 
----
+- **Streamable HTTP** — `POST /blockpal` (and `/mcp` as a compatibility alias).
+- **Legacy HTTP + SSE** — `GET /sse` plus `POST /messages?sessionId=…`.
 
-## Troubleshooting
+The Claude Desktop MCPB bridge prefers Streamable HTTP and includes a legacy SSE fallback for older server/client combinations.
 
-**"Connection refused."** The listener only runs when the connection is set to MCP —
-check `/ai mcp status`. If a port is already taken, `/ai mcp port 25570`.
-
-**401 Unauthorized.** The token is wrong or missing. `/ai mcp token` to see it; make sure
-the header is exactly `Authorization: Bearer <token>`.
-
-**The app connects but sees no bots.** Someone has to summon one: `/ai summon`. Then
-`list_bots` → `select_bot`.
-
-**A cloud app can't reach it.** ChatGPT, Grok's website and AI Studio run on someone
-else's computer. They need `/ai mcp remote on` plus a tunnel. Desktop apps (Claude
-Desktop, Gemini CLI) don't.
-
-See also: [Vision & Code](Vision-and-Code) · [Settings](Settings) ·
-[Local & Player2 AI](Local-AI-Ollama-and-Player2) · [Security](Security)
+See also: [Vision & Code](Vision-and-Code) · [Settings](Settings) · [Security](Security) · [Troubleshooting](Troubleshooting)
