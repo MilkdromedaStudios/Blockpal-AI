@@ -1,0 +1,42 @@
+name: Build Claude Desktop MCPB
+
+on:
+  push:
+    branches: [ "main", "claude/**" ]
+    tags: [ "v*" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build BlockPal.mcpb
+        run: python mcpb/build.py
+
+      - name: Verify bundle contents
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          p = Path('mcpb/dist/BlockPal.mcpb')
+          assert p.is_file(), p
+          with ZipFile(p) as z:
+              names = set(z.namelist())
+          required = {'manifest.json', 'server/index.js', 'README.md'}
+          missing = required - names
+          assert not missing, f'missing from MCPB: {sorted(missing)}'
+          print('BlockPal.mcpb OK:', sorted(names))
+          PY
+
+      - name: Upload BlockPal.mcpb
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlockPal-Claude-Desktop-MCPB
+          path: mcpb/dist/BlockPal.mcpb
+          if-no-files-found: error
