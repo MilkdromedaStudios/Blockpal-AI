@@ -17,14 +17,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build BlockPal.mcpb
-        run: python mcpb/build.py
+        run: python assets/mcpb/build.py
 
       - name: Verify bundle contents
         run: |
           python - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
-          p = Path('mcpb/dist/BlockPal.mcpb')
+          p = Path('assets/BlockPal.mcpb')
           assert p.is_file(), p
           with ZipFile(p) as z:
               names = set(z.namelist())
@@ -38,5 +38,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: BlockPal-Claude-Desktop-MCPB
-          path: mcpb/dist/BlockPal.mcpb
+          path: assets/BlockPal.mcpb
           if-no-files-found: error
