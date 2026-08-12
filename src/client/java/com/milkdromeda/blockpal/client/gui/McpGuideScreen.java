@@ -18,8 +18,8 @@ import java.util.List;
  * brain — you point an AI app you already pay for at the world instead of pasting an API
  * key into the game — but "easiest" only holds if the setup instructions are right there
  * with the address and token already filled in. So this screen has a tab per app
- * (Claude, ChatGPT, Grok, Gemini), each showing the exact config for <i>this</i> server,
- * with copy buttons for the two things you actually need to paste.
+ * (Claude, ChatGPT, Grok, Gemini), each showing the setup for <i>this</i> server, with copy
+ * buttons for the values you actually need.
  *
  * <p>The instructions describe where each app keeps its connector settings. Those menus
  * do move between versions — the address, the transport and the token are the parts that
@@ -61,7 +61,7 @@ public class McpGuideScreen extends Screen {
             final int index = i;
             Button b = Button.builder(Component.literal(TABS[i]), btn -> { tab = index; rebuildWidgets(); })
                     .bounds(tx + i * (tabW + gap), 22, tabW, FIELD_H).build();
-            b.active = i != tab;   // the current tab reads as pressed
+            b.active = i != tab;
             addRenderableWidget(b);
         }
 
@@ -89,7 +89,8 @@ public class McpGuideScreen extends Screen {
                 .bounds(bx + bw + gap * 4, by, bw, FIELD_H).build();
         copyToken.active = !token.isBlank();
         addRenderableWidget(copyToken);
-        addRenderableWidget(Button.builder(Component.literal("Copy config"), b -> copy(configSnippet()))
+        String copyLabel = tab == 1 ? "Copy setup" : "Copy config";
+        addRenderableWidget(Button.builder(Component.literal(copyLabel), b -> copy(configSnippet()))
                 .bounds(bx + (bw + gap * 4) * 2, by, bw, FIELD_H).build());
 
         addRenderableWidget(Button.builder(Component.literal("Done ✓"), b -> onClose())
@@ -122,7 +123,6 @@ public class McpGuideScreen extends Screen {
     }
 
     private String masked() {
-        // Shown masked so a stream/screenshot doesn't leak it; Copy token gives the real one.
         if (token.length() <= 10) return "•".repeat(token.length());
         return token.substring(0, 6) + "•".repeat(Math.max(4, token.length() - 10))
                 + token.substring(token.length() - 4);
@@ -158,24 +158,29 @@ public class McpGuideScreen extends Screen {
     }
 
     private void claude(List<String> out) {
-        out.add("§l§bClaude Desktop");
-        out.add("§fSettings → Developer → Edit Config, then add");
-        out.add("§fthis to §7claude_desktop_config.json§f:");
+        out.add("§l§bClaude Desktop — use the BlockPal MCPB");
+        out.add("§fDo §nnot§r§f use Add custom connector for localhost,");
+        out.add("§fand do not use the old npx/Edit Config setup.");
         out.add("");
-        for (String line : claudeConfig().split("\n")) out.add("§7" + line);
+        out.add("§71. Download §fBlockPal.mcpb§7 from the BlockPal");
+        out.add("§7   GitHub build/release, or build mcpb/build.py.");
+        out.add("§72. Claude → Settings → Extensions → Advanced");
+        out.add("§7   settings → Install Extension…");
+        out.add("§73. Select BlockPal.mcpb.");
+        out.add("§74. Enter this address and token when asked.");
+        out.add("§75. Keep Minecraft open, then start a new chat.");
         out.add("");
-        out.add("§fRestart Claude. Blockpal appears under the");
-        out.add("§ftools icon. Say: §a\"look through Ethan's eyes");
-        out.add("§aand chop the nearest tree\"§f.");
+        out.add("§aNo npx, npm, or system Node install is needed.");
+        out.add("§7The extension uses Claude Desktop's Node runtime");
+        out.add("§7and bridges stdio directly to this local server.");
+        out.add("");
+        out.add("§fIf it fails: Settings → Developer → BlockPal");
+        out.add("§f→ View Logs. The bridge prints HTTP diagnostics.");
         out.add("");
         out.add("§l§bClaude Code §7(terminal)");
         out.add("§a claude mcp add --transport http blockpal \\");
         out.add("§a   " + endpoint + " \\");
         out.add("§a   --header \"Authorization: Bearer <token>\"");
-        out.add("");
-        out.add("§7Claude Desktop talks to §fremote§7 servers through");
-        out.add("§7the §fmcp-remote§7 bridge (that's the npx line) —");
-        out.add("§7it needs Node.js installed.");
     }
 
     private void chatgpt(List<String> out) {
@@ -239,26 +244,26 @@ public class McpGuideScreen extends Screen {
         out.add("§fChatGPT.");
     }
 
-    /** The snippet the "Copy config" button hands over, tailored to the open tab. */
+    /** The snippet the copy button hands over, tailored to the open tab. */
     private String configSnippet() {
         return switch (tab) {
+            case 1 -> claudeSetup();
             case 2, 3 -> endpoint + "\nAuthorization: Bearer " + token;
             case 4 -> geminiConfig();
-            default -> claudeConfig();
+            default -> endpoint + "\nAuthorization: Bearer " + token;
         };
     }
 
-    private String claudeConfig() {
+    private String claudeSetup() {
         return """
-            {
-              "mcpServers": {
-                "blockpal": {
-                  "command": "npx",
-                  "args": ["-y", "mcp-remote", "%s",
-                           "--header", "Authorization: Bearer %s"]
-                }
-              }
-            }""".formatted(endpoint, token);
+            BlockPal Claude Desktop setup (MCPB)
+            1. Install BlockPal.mcpb in Claude Desktop:
+               Settings -> Extensions -> Advanced settings -> Install Extension
+            2. MCP address: %s
+            3. Access token: %s
+            4. Keep Minecraft/BlockPal running while using the tools.
+            No npx, npm, or system Node installation is required.
+            """.formatted(endpoint, token);
     }
 
     private String geminiConfig() {
