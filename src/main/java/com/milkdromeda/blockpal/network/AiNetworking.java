@@ -189,6 +189,7 @@ public final class AiNetworking {
                 // stop or rebind the MCP server so the panel's choice takes effect now
                 // rather than at the next restart.
                 com.milkdromeda.blockpal.mcp.McpServer.sync(server);
+                com.milkdromeda.blockpal.localai.LocalAiManager.sync(server);
                 if (ModConfig.get().isMcpConnection()) {
                     player.sendSystemMessage(Component.literal(
                             "§b[Blockpal] MCP: §f" + com.milkdromeda.blockpal.mcp.McpServer.status()

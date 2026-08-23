@@ -102,6 +102,15 @@ public class AiConfigScreen extends Screen {
     private CycleButton<String> reactionSpeedButton;
     private CycleButton<String> combatSkillButton;
     private CycleButton<Boolean> allowPvpButton;
+    // ── the local model on this machine's GPU ──
+    private String pLocalModelId = "qwen3b";
+    private int pLocalPort = 8081, pLocalGpuLayers = -1, pLocalContext = 4096;
+    private boolean pLocalAutoStart = true, localConsented = false;
+    private String localState = "off";
+    private CycleButton<String> localModelButton;
+    private CycleButton<Boolean> localAutoStartButton;
+    private OptionSlider localContextSlider, localGpuLayersSlider;
+    private EditBox localPortBox;
     private CycleButton<Boolean> pvtEnabledButton;
     private CycleButton<Boolean> pvtAutoRecordButton;
     private OptionSlider pvtHiddenSlider, pvtEpochsSlider, pvtFramesSlider;
@@ -202,6 +211,13 @@ public class AiConfigScreen extends Screen {
         pPvtMaxFrames = d.pvtMaxFrames();
         pPvtConfidence = d.pvtConfidence();
         pvtHasPolicy = d.pvtHasPolicy();
+        pLocalModelId = d.localModelId();
+        pLocalPort = d.localPort();
+        pLocalGpuLayers = d.localGpuLayers();
+        pLocalContext = d.localContext();
+        pLocalAutoStart = d.localAutoStart();
+        localConsented = d.localConsented();
+        localState = d.localState();
         // Capture the as-loaded state once so dirty-tracking survives tab switches
         // (init() runs on every tab change, so we must NOT recompute it there).
         baseline = buildData();
@@ -498,6 +514,28 @@ public class AiConfigScreen extends Screen {
         return "code";
     }
 
+    /** The local-model cycler shows name + size; the id is mapped back on capture. */
+    private static String localModelLabelOf(String id) {
+        com.milkdromeda.blockpal.ai.LocalModel m = com.milkdromeda.blockpal.ai.LocalModel.byId(id);
+        if (m == null) m = com.milkdromeda.blockpal.ai.LocalModel.defaultModel();
+        return m.display() + " (" + m.sizeText() + ")";
+    }
+
+    private static String localModelIdOf(String label) {
+        for (com.milkdromeda.blockpal.ai.LocalModel m : com.milkdromeda.blockpal.ai.LocalModel.values()) {
+            if (localModelLabelOf(m.id()).equals(label)) return m.id();
+        }
+        return com.milkdromeda.blockpal.ai.LocalModel.defaultModel().id();
+    }
+
+    private static java.util.List<String> localModelLabels() {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (com.milkdromeda.blockpal.ai.LocalModel m : com.milkdromeda.blockpal.ai.LocalModel.values()) {
+            out.add(localModelLabelOf(m.id()));
+        }
+        return out;
+    }
+
     // ── labels for the speed and combat cyclers ──
     private static final String TEMPO_INSTANT = "Instant — no waiting at all";
     private static final String TEMPO_FAST = "Fast — snappy but believable";
@@ -612,6 +650,33 @@ public class AiConfigScreen extends Screen {
         // ── endpoints for the local/easy providers ──
         // These are plain settings now, not switches: whether they're USED is decided by
         // the one connection picker at the top of this tab.
+        // ── the model Blockpal runs itself, on this machine's GPU ──
+        header(body, "Local AI on this machine (no key)");
+        body.addChild(new StringWidget(W, LABEL_H, Component.literal(localStateText()), this.font));
+        body.addChild(new StringWidget(W, LABEL_H, Component.literal(
+                "§7Blockpal downloads a model (under 3 GB) and runs it on your graphics card."), this.font));
+        body.addChild(new StringWidget(W, LABEL_H, Component.literal(
+                "§7Nothing downloads until you say yes: run §f/ai local setup§7 in chat."), this.font));
+        localModelButton = body.addChild(CycleButton.<String>builder(
+                        Component::literal, localModelLabelOf(pLocalModelId))
+                .withValues(localModelLabels())
+                .create(0, 0, W, FIELD_H, Component.literal("Local model"),
+                        (btn, val) -> pLocalModelId = localModelIdOf(val)));
+        localModelButton.setTooltip(Tooltip.create(Component.literal(
+                "Which model to run here. All of them are 4-bit quantised and under 3 GB, so they "
+                        + "fit a mid-range card. Changing this after a download means downloading "
+                        + "the new one — it will ask again.")));
+        localAutoStartButton = bodyToggle(body, "Start it with the server", pLocalAutoStart,
+                "Once downloaded, bring the model up automatically when the server starts.");
+        localContextSlider = bodySlider(body, "Context window (tokens)", 512, 16384, pLocalContext, true,
+                "How much the model can hold in mind at once. Bigger remembers more of what just "
+                        + "happened and uses more memory.");
+        localGpuLayersSlider = bodySlider(body, "GPU layers (-1 = auto)", -1, 99, pLocalGpuLayers, true,
+                "How much of the model to put on the graphics card. -1 lets llama.cpp decide, which "
+                        + "is usually right; raise it only if your card is being under-used.");
+        localPortBox = bodyBox(body, "Local model port", String.valueOf(pLocalPort), 8,
+                "Loopback port the model server listens on (default 8081). Never exposed off this machine.");
+
         header(body, "Local & easy AI endpoints");
         body.addChild(new StringWidget(W, LABEL_H, activeProviderText(), this.font));
 
@@ -630,6 +695,22 @@ public class AiConfigScreen extends Screen {
                 "Model name sent to the free keyless service.");
         freeApiUrlBox = bodyBox(body, "Free service URL", pFreeApiUrl, 256,
                 "The keyless OpenAI-compatible endpoint used by the \"Free keyless service\" connection.");
+    }
+
+    /** One line saying what the local model is actually doing right now. */
+    private String localStateText() {
+        return switch (localState == null ? "off" : localState) {
+            case "ready" -> "§a▶ Running on this machine — free, private, nothing leaves it";
+            case "downloading" -> "§e▶ Downloading… §f/ai local§e for progress";
+            case "starting" -> "§e▶ Starting up — it loads a couple of gigabytes first";
+            case "failed" -> "§c▶ Something went wrong — §f/ai local§c has the details";
+            case "needs_consent" -> localConsented
+                    ? "§e▶ Not downloaded yet — run §f/ai local setup"
+                    : "§e▶ Waiting for someone to agree to the download (§f/ai local setup§e)";
+            default -> localConsented
+                    ? "§7▶ Downloaded but not running — §f/ai local start"
+                    : "§7▶ Not set up. Run §f/ai local setup§7 to see what it would download.";
+        };
     }
 
     /** The MCP block: what to connect, where, and how locked down it is. */
@@ -891,6 +972,17 @@ public class AiConfigScreen extends Screen {
         if (reactionSpeedButton != null) pReactionSpeed = tempoIdOf(reactionSpeedButton.getValue());
         if (combatSkillButton != null) pCombatSkill = skillIdOf(combatSkillButton.getValue());
         if (allowPvpButton != null) pAllowPvp = allowPvpButton.getValue();
+        if (localModelButton != null) pLocalModelId = localModelIdOf(localModelButton.getValue());
+        if (localAutoStartButton != null) pLocalAutoStart = localAutoStartButton.getValue();
+        if (localContextSlider != null) pLocalContext = (int) Math.round(localContextSlider.current());
+        if (localGpuLayersSlider != null) pLocalGpuLayers = (int) Math.round(localGpuLayersSlider.current());
+        if (localPortBox != null) {
+            try {
+                pLocalPort = Integer.parseInt(localPortBox.getValue().trim());
+            } catch (NumberFormatException ignored) {
+                // Leave the previous port; normalize() would reject nonsense anyway.
+            }
+        }
         if (pvtEnabledButton != null) pPvtEnabled = pvtEnabledButton.getValue();
         if (pvtAutoRecordButton != null) pPvtAutoRecord = pvtAutoRecordButton.getValue();
         if (pvtHiddenSlider != null) pPvtHiddenSize = (int) Math.round(pvtHiddenSlider.current());
@@ -916,7 +1008,9 @@ public class AiConfigScreen extends Screen {
                 pVillageTarget, pVillageStart,
                 pReactionSpeed, pCombatSkill, pAllowPvp,
                 pPvtEnabled, pPvtAutoRecord, pPvtHiddenSize, pPvtEpochs,
-                pPvtLearningRate, pPvtMaxFrames, pPvtConfidence, pvtHasPolicy);
+                pPvtLearningRate, pPvtMaxFrames, pPvtConfidence, pvtHasPolicy,
+                pLocalModelId, pLocalPort, pLocalGpuLayers, pLocalContext,
+                pLocalAutoStart, localConsented, localState);
     }
 
     private Component tokenStatusText() {

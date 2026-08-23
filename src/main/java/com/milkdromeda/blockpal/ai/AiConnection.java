@@ -23,8 +23,13 @@ import java.util.Locale;
  *   <li>{@link #API_KEY} — your own OpenAI-compatible key (HuggingFace, OpenAI,
  *       Anthropic, Google, xAI …) typed into the settings panel.</li>
  *   <li>{@link #PLAYER2} — the free Player2 app / its cloud.</li>
- *   <li>{@link #OLLAMA} — a local Ollama (or LM Studio) server: keyless, offline.</li>
- *   <li>{@link #FREE} — the free keyless internet service (small, rate-limited).</li>
+ *   <li>{@link #LOCAL} — <b>the keyless one.</b> Blockpal downloads a small model (never
+ *       more than 3 GB) and runs it on this machine's graphics card. Free, private,
+ *       offline, and it asks before downloading anything. This replaced the free internet
+ *       service as the option that works without a key.</li>
+ *   <li>{@link #OLLAMA} — a local Ollama (or LM Studio) server you manage yourself.</li>
+ *   <li>{@link #FREE} — the old free keyless internet service. Superseded by
+ *       {@link #LOCAL} and kept only so servers already on it keep working.</li>
  *   <li>{@link #OFF} — no AI. The bot still lives on its own with its built-in
  *       survival brain; it just won't plan or hold a conversation.</li>
  * </ul>
@@ -36,10 +41,14 @@ public enum AiConnection {
             "Type an OpenAI-compatible key + model into the AI & API tab."),
     PLAYER2("player2", "Player2 app",
             "Install the free Player2 app — keyless local AI, or its cloud with a PLAYER2_KEY."),
+    LOCAL("local", "Local AI on this machine's GPU",
+            "Blockpal downloads a small model (under 3 GB) and runs it on your graphics card. "
+                    + "Free, private and offline — it asks before downloading anything."),
     OLLAMA("ollama", "Local Ollama / LM Studio",
-            "Run your own model on this machine. No key, no internet."),
-    FREE("free", "Free keyless service",
-            "A small free internet model. Works out of the box; rate-limited and not very smart."),
+            "Run your own model on this machine, managed by you. No key, no internet."),
+    FREE("free", "Free keyless internet service (legacy)",
+            "A small shared internet model. Superseded by \"Local AI\", which is private and "
+                    + "not rate-limited; kept so servers already using it keep working."),
     OFF("off", "No AI",
             "Bots still live, fight, eat and survive on their own — they just don't think with a model.");
 
@@ -75,7 +84,8 @@ public enum AiConnection {
         return switch (needle) {
             case "apikey", "api_key", "api-key", "token" -> API_KEY;
             case "none", "disabled" -> OFF;
-            case "local", "lmstudio", "lm-studio" -> OLLAMA;
+            case "lmstudio", "lm-studio" -> OLLAMA;
+            case "gpu", "localgpt", "local-gpt", "localai" -> LOCAL;
             default -> null;
         };
     }

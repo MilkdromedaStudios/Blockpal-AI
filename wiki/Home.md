@@ -26,6 +26,9 @@ and configures itself from a real in-game settings screen.
   eyes*, decides, and writes a little script that presses its movement keys and mouse
   buttons. Slower and clumsier than magic on purpose: everything it does, a player could
   do. See **[Vision & Code](Vision-and-Code)**.
+- **It can run entirely on your own machine** — Blockpal downloads a small model (under
+  3 GB) and runs it on your graphics card. Free, private, offline, no key. It asks before
+  downloading anything. See **[Local AI on your GPU](Local-AI-On-Your-GPU)**.
 - **It learns by watching you play** — let it watch (`/ai pvt watch on`, off by default)
   and it learns to move and react from your own play, with no model call at all. Reflexes
   from what it learned, intent from the model. See

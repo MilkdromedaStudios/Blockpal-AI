@@ -32,6 +32,7 @@
 
 **AI providers**
 - [MCP server (Claude/ChatGPT/Grok/Gemini)](MCP-Server)
+- [Local AI on your GPU](Local-AI-On-Your-GPU)
 - [Local & Player2 AI](Local-AI-Ollama-and-Player2)
 - [Per-Player Keys & Models](Per-Player-Keys-and-Models)
 

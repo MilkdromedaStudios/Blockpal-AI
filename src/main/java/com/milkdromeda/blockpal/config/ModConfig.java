@@ -27,7 +27,7 @@ public class ModConfig {
      * default instead of silently inheriting Java's zero/false. A file with no
      * version at all reads back as {@code 0} and is migrated from there.
      */
-    public static final int CURRENT_CONFIG_VERSION = 14;
+    public static final int CURRENT_CONFIG_VERSION = 15;
 
     // Settings (including the API key) live in their own folder under the game's
     // config directory. That directory is untouched when you replace the mod jar,
@@ -347,6 +347,28 @@ public class ModConfig {
     // Hard cap on how long one AI-written script may run before it is stopped, in
     // ticks (20 = 1 s). Stops a runaway loop from owning the bot forever.
     public int scriptMaxTicks = 1200;
+
+    // ---- Local AI: a model running on THIS machine's GPU --------------------------
+
+    // Which model from ai/LocalModel to run. All of them are under 3 GB by rule.
+    public String localModelId = "qwen3b";
+
+    // Loopback port llama-server listens on. Never exposed beyond 127.0.0.1.
+    public int localPort = 8081;
+
+    // Layers to push onto the GPU. -1 leaves it to llama-server's own "auto", which is
+    // usually right; raise it only to force more onto a card it under-uses.
+    public int localGpuLayers = -1;
+
+    // Context window in tokens. Bigger remembers more and costs more memory.
+    public int localContext = 4096;
+
+    // Has somebody agreed to the download? Nothing is fetched until this is true, and
+    // it is only ever set by an explicit yes (/ai local accept, or the setup screen).
+    public boolean localConsented = false;
+
+    // Start the model automatically when the server starts, once it's downloaded.
+    public boolean localAutoStart = true;
 
     // ---- How fast it acts (agent/Tempo) ------------------------------------------
 
@@ -672,6 +694,18 @@ public class ModConfig {
             visionRange = 48;
             scriptMaxTicks = 1200;
         }
+        if (configVersion < 15) {
+            // v15 replaces the free keyless internet service with a model that runs on
+            // this machine. Existing installs are NOT switched over automatically: that
+            // would mean a surprise two-gigabyte download on somebody's server. They keep
+            // the free service until they choose otherwise, and it still works.
+            localModelId = "qwen3b";
+            localPort = 8081;
+            localGpuLayers = -1;
+            localContext = 4096;
+            localAutoStart = true;
+            localConsented = false;
+        }
         if (configVersion < 14) {
             // v14 adds the tempo system, PVT and the combat gate. Booleans in an old
             // file deserialize to false, so restore the shipping defaults rather than
@@ -737,6 +771,12 @@ public class ModConfig {
         visionHeight = (int) Math.max(18, Math.min(90, visionHeight == 0 ? 45 : visionHeight));
         visionRange = (int) Math.max(8, Math.min(64, visionRange == 0 ? 48 : visionRange));
         if (scriptMaxTicks < 100 || scriptMaxTicks > 12000) scriptMaxTicks = 1200;
+        if (com.milkdromeda.blockpal.ai.LocalModel.byId(localModelId) == null) {
+            localModelId = com.milkdromeda.blockpal.ai.LocalModel.defaultModel().id();
+        }
+        if (localPort < 1024 || localPort > 65535) localPort = 8081;
+        if (localGpuLayers < -1 || localGpuLayers > 999) localGpuLayers = -1;
+        localContext = (int) Math.max(512, Math.min(32768, localContext == 0 ? 4096 : localContext));
         if (com.milkdromeda.blockpal.agent.Tempo.byId(reactionSpeed) == null) reactionSpeed = "fast";
         pvtHiddenSize = (int) Math.max(32, Math.min(512, pvtHiddenSize == 0 ? 192 : pvtHiddenSize));
         pvtEpochs = (int) Math.max(1, Math.min(200, pvtEpochs == 0 ? 24 : pvtEpochs));
@@ -896,6 +936,8 @@ public class ModConfig {
         player2Enabled = c == com.milkdromeda.blockpal.ai.AiConnection.PLAYER2;
         ollamaEnabled = c == com.milkdromeda.blockpal.ai.AiConnection.OLLAMA;
         freeAiFallback = c == com.milkdromeda.blockpal.ai.AiConnection.FREE;
+        // LOCAL has no legacy boolean of its own — it is driven entirely by the
+        // connection plus localConsented, so there is nothing here to keep in step.
     }
 
     /** True when this server's AI is the built-in MCP server (an outside app drives). */
@@ -943,6 +985,10 @@ public class ModConfig {
         return switch (connection()) {
             case API_KEY -> hasApiToken();
             case PLAYER2, OLLAMA, FREE -> true;
+            // The local model only counts once it has actually been downloaded. Before
+            // that the honest answer is "no AI yet", which is what prompts the setup
+            // message rather than a stream of failed requests to a port with nothing on it.
+            case LOCAL -> com.milkdromeda.blockpal.localai.LocalAiManager.isSetUp();
             // MCP puts the intelligence in an outside app, and "off" means none at all:
             // in both cases nothing in-game should try to plan with a model.
             case MCP, OFF -> false;
@@ -958,6 +1004,7 @@ public class ModConfig {
         return switch (connection()) {
             case API_KEY -> !resolveTokenFor(owner, ownerName).isBlank();
             case PLAYER2, OLLAMA, FREE -> true;
+            case LOCAL -> com.milkdromeda.blockpal.localai.LocalAiManager.isSetUp();
             case MCP, OFF -> false;
         };
     }
