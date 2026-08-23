@@ -89,15 +89,12 @@ public class ExecuteTaskGoal extends Goal {
     }
 
     /**
-     * How long to pause between action steps. With {@code humanizeActions} on this is
-     * the configured base delay plus a small random jitter, so the bot doesn't act with
-     * inhuman, frame-perfect speed; off, it's the plain configured delay (snappy).
+     * How long to pause between action steps — the tempo's pause plus, only at the
+     * human tempo, a small random "reaction" jitter on top.
      */
     private int interStepDelay() {
-        int base = com.milkdromeda.blockpal.config.ModConfig.get().actionTickDelay;
-        if (!com.milkdromeda.blockpal.config.ModConfig.get().humanizeActions) return base;
-        // A human "reaction" pause: the base delay plus 3–12 extra ticks of jitter.
-        return base + 3 + rng.nextInt(10);
+        return com.milkdromeda.blockpal.agent.Tempo.stepDelayTicks()
+                + com.milkdromeda.blockpal.agent.Tempo.reactionJitter(rng, 12);
     }
 
     @Override
@@ -410,8 +407,9 @@ public class ExecuteTaskGoal extends Goal {
         }
         // In range — "reach out" for a few ticks before it's collected, so items aren't
         // snatched the instant the bot arrives (skipped when humanizeActions is off).
-        if (com.milkdromeda.blockpal.config.ModConfig.get().humanizeActions) {
-            if (collectDwell < 0) collectDwell = 5 + rng.nextInt(8);   // ~0.25–0.65 s
+        int dwell = com.milkdromeda.blockpal.agent.Tempo.reactionJitter(rng, 12);
+        if (dwell > 0) {
+            if (collectDwell < 0) collectDwell = dwell;
             entity.getLookControl().setLookAt(x, y, z, 30f, 30f);
             if (collectDwell-- > 0) return false;
         }

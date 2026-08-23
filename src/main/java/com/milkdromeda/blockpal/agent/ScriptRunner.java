@@ -23,7 +23,7 @@ import java.util.Map;
  *
  * <p>Three budgets keep a bad generation harmless:
  * <ul>
- *   <li>{@link #MAX_OPS_PER_TICK} instructions per tick (a tight {@code while} loop
+ *   <li>{@link #maxOpsPerTick()} instructions per tick (a tight {@code while} loop
  *       burns its own bot's time slice, not the server's);</li>
  *   <li>{@code scriptMaxTicks} total run time from the config;</li>
  *   <li>and any error — bad argument, unknown action, division by nothing — stops the
@@ -33,8 +33,12 @@ import java.util.Map;
  */
 public class ScriptRunner {
 
-    /** Instructions executed per tick before the runner yields back to the game. */
-    public static final int MAX_OPS_PER_TICK = 400;
+    /**
+      * Instructions executed per tick before the runner yields back to the game.
+      * Set by {@link Tempo}: a tight budget made scripts that do arithmetic between
+      * actions crawl, since each tick only advanced them a few hundred ops.
+      */
+    public static int maxOpsPerTick() { return Tempo.current().opsPerTick(); }
 
     /** Most log lines kept — this is what the model reads back as "what happened". */
     private static final int MAX_LOG = 40;
@@ -154,7 +158,8 @@ public class ScriptRunner {
         }
 
         int executed = 0;
-        while (executed++ < MAX_OPS_PER_TICK) {
+        int opBudget = maxOpsPerTick();
+        while (executed++ < opBudget) {
             if (pc < 0 || pc >= program.ops().size()) { finish(); return true; }
             AgentScript.Op op = program.ops().get(pc++);
             try {

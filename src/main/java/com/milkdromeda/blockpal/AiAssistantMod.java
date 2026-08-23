@@ -44,6 +44,7 @@ public class AiAssistantMod implements ModInitializer {
         registerFirstRunTutorial();
         registerMcpServer();
         CreativeWatch.register();
+        registerPvt();
         // Keep parties/games/possession tidy: drop a player from each when they disconnect.
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             PartyManager.handleDisconnect(handler.player);
@@ -51,6 +52,7 @@ public class AiAssistantMod implements ModInitializer {
             VillageManager.handleDisconnect(handler.player);
             PossessionManager.handleDisconnect(handler.player);
             CreativeWatch.handleDisconnect(handler.player);
+            com.milkdromeda.blockpal.pvt.PvtManager.onPlayerLeave(handler.player);
         });
 
         LOGGER.info("Blockpal mod initialized.");
@@ -87,6 +89,20 @@ public class AiAssistantMod implements ModInitializer {
         });
         ServerLifecycleEvents.SERVER_STOPPING.register(server ->
                 com.milkdromeda.blockpal.mcp.McpServer.stop());
+    }
+
+    /**
+     * Pre-video training: tick the live recorders, start recording players who have
+     * opted in as they join, and close every episode file cleanly on shutdown so a
+     * stopped server never leaves a half-written recording behind.
+     */
+    private void registerPvt() {
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(
+                com.milkdromeda.blockpal.pvt.PvtManager::tick);
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
+                com.milkdromeda.blockpal.pvt.PvtManager.onPlayerJoin(handler.player));
+        ServerLifecycleEvents.SERVER_STOPPING.register(server ->
+                com.milkdromeda.blockpal.pvt.PvtManager.stopAll());
     }
 
     /**

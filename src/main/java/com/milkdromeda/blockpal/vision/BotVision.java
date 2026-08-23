@@ -45,7 +45,7 @@ import java.util.Map;
  * That limitation is the point: the bot plays with a player's information.
  *
  * <p><b>Cost:</b> one capture is {@code width × height} block ray casts on the server
- * thread, so it is rate-limited per bot ({@link #MIN_CAPTURE_INTERVAL_MS}) and the
+ * thread, so it is rate-limited per bot ({@link #minCaptureIntervalMs()}) and the
  * resolution is clamped. Turn pictures off entirely with {@code visionEnabled} — the
  * text description alone still works (and is what non-vision models get).
  */
@@ -53,8 +53,15 @@ public final class BotVision {
 
     private BotVision() {}
 
-    /** Never render two pictures for the same bot closer together than this. */
-    public static final long MIN_CAPTURE_INTERVAL_MS = 900L;
+    /**
+      * Never render two pictures for the same bot closer together than this. Set by
+      * {@link com.milkdromeda.blockpal.agent.Tempo} — a fixed 900 ms floor meant a bot
+      * that had just finished a script had to wait most of a second before it could
+      * even look at what it had done.
+      */
+    public static long minCaptureIntervalMs() {
+        return com.milkdromeda.blockpal.agent.Tempo.current().visionIntervalMs();
+    }
 
     /** Horizontal field of view, in degrees — roughly a player's default FOV. */
     private static final double FOV_DEGREES = 90.0;

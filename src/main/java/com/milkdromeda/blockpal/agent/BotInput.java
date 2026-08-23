@@ -59,8 +59,12 @@ public class BotInput {
     /** How far the bot can reach to break or place, in blocks (a survival player's arm). */
     public static final double REACH = 4.5;
 
-    /** Fastest a head can turn, in degrees per tick — a snap-aim would be a giveaway. */
-    private static final float TURN_RATE = 22f;
+    /**
+      * Fastest a head can turn, in degrees per tick. Set by {@link Tempo}, because a
+      * fixed 22°/tick was most of why the bot felt slow — turning to face something
+      * behind it took the better part of a second before it could even start.
+      */
+    private static float turnRate() { return Tempo.current().turnRate(); }
 
     // ── the "buttons" a script can hold ─────────────────────────────────────────
     private float forward;      // -1..1  (S/W)
@@ -157,7 +161,7 @@ public class BotInput {
         }
 
         if (useHeld && useCooldown <= 0) {
-            useCooldown = 5;              // ~4 clicks a second, like holding right-click
+            useCooldown = Tempo.current().useCooldown();   // like holding right-click
             applyUse(bot, level);
         }
     }
@@ -230,10 +234,11 @@ public class BotInput {
         boolean correctTool = !state.requiresCorrectToolForDrops() || held.isCorrectToolForDrops(state);
         // Vanilla's own formula: /30 with the right tool, /100 when bare-handing it.
         float perTick = hardness <= 0f ? 1f : toolSpeed / hardness / (correctTool ? 30f : 100f);
-        breakProgress += perTick;
+        // Vanilla-accurate at every tempo except "instant", which trades realism for pace.
+        breakProgress += perTick * Tempo.current().miningMultiplier();
 
         if (swingCooldown <= 0) {
-            swingCooldown = 5;
+            swingCooldown = Tempo.current().swingCooldown();
             bot.swing(InteractionHand.MAIN_HAND);
         }
 
@@ -421,9 +426,10 @@ public class BotInput {
     // ── helpers ─────────────────────────────────────────────────────────────────
 
     private static float approach(float current, float target) {
+        float rate = turnRate();
         float delta = net.minecraft.util.Mth.wrapDegrees(target - current);
-        if (delta > TURN_RATE) delta = TURN_RATE;
-        if (delta < -TURN_RATE) delta = -TURN_RATE;
+        if (delta > rate) delta = rate;
+        if (delta < -rate) delta = -rate;
         return current + delta;
     }
 

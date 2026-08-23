@@ -27,7 +27,7 @@ public class ModConfig {
      * default instead of silently inheriting Java's zero/false. A file with no
      * version at all reads back as {@code 0} and is migrated from there.
      */
-    public static final int CURRENT_CONFIG_VERSION = 13;
+    public static final int CURRENT_CONFIG_VERSION = 14;
 
     // Settings (including the API key) live in their own folder under the game's
     // config directory. That directory is untouched when you replace the mod jar,
@@ -64,8 +64,10 @@ public class ModConfig {
     public int maxNewTokens = 512;
     public double temperature = 0.7;
     public boolean debugLogging = false;
-    // Lower = faster, snappier action execution (ticks between plan steps).
-    public int actionTickDelay = 8;
+    // Lower = faster, snappier action execution (ticks between plan steps). This is a
+    // FLOOR now, not the target: agent/Tempo picks the real pause from reactionSpeed and
+    // only honours this when it has been raised above the shipping default on purpose.
+    public int actionTickDelay = 2;
     public double followDistance = 4.0;
     public double guardRadius = 16.0;
     // Self-preservation: flee/heal-up when health drops below this fraction.
@@ -325,6 +327,8 @@ public class ModConfig {
     //           decides, and WRITES A SCRIPT that presses its keys and mouse buttons.
     //           Dumber than a cheat, but everything it does, a player could do.
     // "plan"  — the classic JSON action planner (MOVE_TO/PLACE_BLOCK/...).
+    // "pvt"   — a policy LEARNED from watching players (pvt/), driving the same keys
+    //           and mouse buttons twenty times a second with no model call at all.
     public String aiLogicMode = "code";
 
     // Render a picture from the bot's eyes and send it to the model. Turn off to send
@@ -343,6 +347,58 @@ public class ModConfig {
     // Hard cap on how long one AI-written script may run before it is stopped, in
     // ticks (20 = 1 s). Stops a runaway loop from owning the bot forever.
     public int scriptMaxTicks = 1200;
+
+    // ---- How fast it acts (agent/Tempo) ------------------------------------------
+
+    // "instant" — no invented waiting at all: turns on a dime, re-plans the moment a
+    //             script ends, mines at double speed. Fastest, least lifelike.
+    // "fast"    — the default. Snappy, but still turns its head believably.
+    // "human"   — the old feel: slow head turns, visible reaction times, a think
+    //             every five seconds.
+    // This one setting replaces a dozen scattered hard-coded delays.
+    public String reactionSpeed = "fast";
+
+    // ---- PVT: pre-video training (learning to act by watching) --------------------
+
+    // Master switch for the whole PVT layer — recording demonstrations, training a
+    // policy from them, and letting a bot be driven by that policy.
+    public boolean pvtEnabled = true;
+
+    // Watch players and quietly bank what they do as training frames. This is the
+    // "pre-" in pre-video training: the data is collected long before any bot uses it.
+    // Only ever records players who have opted in (/ai pvt watch me).
+    public boolean pvtAutoRecord = true;
+
+    // Hidden layer width of the policy network. Bigger learns more nuance and costs
+    // more per tick to run. Clamped 32..512.
+    public int pvtHiddenSize = 192;
+
+    // Passes over the demonstration set per training run (clamped 1..200).
+    public int pvtEpochs = 24;
+
+    // Adam step size (clamped 0.00001..0.1).
+    public double pvtLearningRate = 0.002;
+
+    // Most frames kept on disk. One frame is a few hundred bytes; 200k is roughly
+    // three hours of recorded play. Oldest episodes are dropped first.
+    public int pvtMaxFrames = 200000;
+
+    // How sure the policy must be before it is allowed to drive on its own. Below
+    // this, the bot falls back to whatever brain aiLogicMode names. 0..1.
+    public double pvtConfidence = 0.30;
+
+    // ---- Combat ------------------------------------------------------------------
+
+    // Let a companion raise its hand against another PLAYER. Off by default and
+    // deliberately hard to turn on: a bot that fights people is a griefing tool
+    // unless the server has agreed to it. Even when on, a bot only fights a player
+    // who is actually attacking it or its owner (see combat/CombatBrain).
+    public boolean allowPvp = false;
+
+    // How well it fights: "basic" (swing when in range — the old behaviour),
+    // "skilled" (strafe, block with a shield, back off when hurt),
+    // "expert" (adds crit timing, bow work and combat potions).
+    public String combatSkill = "skilled";
 
     // ---- Living on its own -------------------------------------------------------
 
@@ -616,6 +672,26 @@ public class ModConfig {
             visionRange = 48;
             scriptMaxTicks = 1200;
         }
+        if (configVersion < 14) {
+            // v14 adds the tempo system, PVT and the combat gate. Booleans in an old
+            // file deserialize to false, so restore the shipping defaults rather than
+            // silently disabling a feature the player never turned off.
+            reactionSpeed = "fast";
+            pvtEnabled = true;
+            pvtAutoRecord = true;
+            pvtHiddenSize = 192;
+            pvtEpochs = 24;
+            pvtLearningRate = 0.002;
+            pvtMaxFrames = 200000;
+            pvtConfidence = 0.30;
+            combatSkill = "skilled";
+            // PvP stays OFF across an upgrade: nobody's server starts letting bots
+            // hit people because they updated a mod.
+            allowPvp = false;
+            // The old 8-tick step delay was the shipped default, not a choice — move
+            // installs still on it down to the new default so they feel the speed-up.
+            if (actionTickDelay == 8) actionTickDelay = 2;
+        }
         if (configVersion < 13) {
             // The MCP server moved to the friendlier http://localhost:8000/blockpal.
             // Only move installs that were on the old default — a hand-picked port
@@ -652,11 +728,25 @@ public class ModConfig {
         if (mcpToken == null) mcpToken = "";
         if (mcpTokenObf == null) mcpTokenObf = "";
         if (mcpPort < 1024 || mcpPort > 65535) mcpPort = 8000;
-        if (!"plan".equalsIgnoreCase(aiLogicMode)) aiLogicMode = "code";
+        if (!"plan".equalsIgnoreCase(aiLogicMode) && !"pvt".equalsIgnoreCase(aiLogicMode)) {
+            aiLogicMode = "code";
+        } else {
+            aiLogicMode = aiLogicMode.toLowerCase(java.util.Locale.ROOT);
+        }
         visionWidth = (int) Math.max(32, Math.min(160, visionWidth == 0 ? 80 : visionWidth));
         visionHeight = (int) Math.max(18, Math.min(90, visionHeight == 0 ? 45 : visionHeight));
         visionRange = (int) Math.max(8, Math.min(64, visionRange == 0 ? 48 : visionRange));
         if (scriptMaxTicks < 100 || scriptMaxTicks > 12000) scriptMaxTicks = 1200;
+        if (com.milkdromeda.blockpal.agent.Tempo.byId(reactionSpeed) == null) reactionSpeed = "fast";
+        pvtHiddenSize = (int) Math.max(32, Math.min(512, pvtHiddenSize == 0 ? 192 : pvtHiddenSize));
+        pvtEpochs = (int) Math.max(1, Math.min(200, pvtEpochs == 0 ? 24 : pvtEpochs));
+        if (pvtLearningRate < 0.00001 || pvtLearningRate > 0.1) pvtLearningRate = 0.002;
+        if (pvtMaxFrames < 1000 || pvtMaxFrames > 5_000_000) pvtMaxFrames = 200000;
+        if (pvtConfidence < 0 || pvtConfidence > 1) pvtConfidence = 0.30;
+        if (!"basic".equals(combatSkill) && !"skilled".equals(combatSkill)
+                && !"expert".equals(combatSkill)) {
+            combatSkill = "skilled";
+        }
         if (villageTargetPopulation < 2) villageTargetPopulation = 24;
         if (villageStartPopulation < 1) villageStartPopulation = 5;
         if (defaultName == null || defaultName.isBlank()) defaultName = "Ethan";

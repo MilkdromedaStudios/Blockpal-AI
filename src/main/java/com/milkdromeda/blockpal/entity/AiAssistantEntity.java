@@ -479,7 +479,7 @@ public class AiAssistantEntity extends PathfinderMob {
     public com.milkdromeda.blockpal.vision.BotVision.Snapshot look() {
         long now = System.currentTimeMillis();
         if (lastLook != null
-                && now - lastLookAt < com.milkdromeda.blockpal.vision.BotVision.MIN_CAPTURE_INTERVAL_MS) {
+                && now - lastLookAt < com.milkdromeda.blockpal.vision.BotVision.minCaptureIntervalMs()) {
             return lastLook;
         }
         lastLook = com.milkdromeda.blockpal.vision.BotVision.capture(this);
