@@ -26,6 +26,13 @@ and configures itself from a real in-game settings screen.
   eyes*, decides, and writes a little script that presses its movement keys and mouse
   buttons. Slower and clumsier than magic on purpose: everything it does, a player could
   do. See **[Vision & Code](Vision-and-Code)**.
+- **It learns by watching you play** — let it watch (`/ai pvt watch on`, off by default)
+  and it learns to move and react from your own play, with no model call at all. Reflexes
+  from what it learned, intent from the model. See
+  **[PVT — learning by watching](PVT-Learning-By-Watching)**.
+- **It's quick, and it can fight** — one `reactionSpeed` setting replaced a dozen invented
+  delays, and it now holds a range, circles, shields, times crits and backs off when
+  losing. See **[Speed & Combat](Speed-and-Combat)**.
 - **It uses chests** — opens chests, barrels, shulkers and furnaces within arm's reach,
   takes and stores stacks, loads ore and fuel into the right furnace slots.
 - **It never teleports** — companions walk, swim and climb after you like something that
