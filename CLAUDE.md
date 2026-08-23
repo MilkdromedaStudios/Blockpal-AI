@@ -1100,11 +1100,17 @@ share code or versioning with the Java mod. Source in `bedrock/`, packaged artif
   off across an upgrade, a hand-raised delay surviving, garbage values clamped).
   *(The stub must be an `interface`, not a class — ModConfig's call site is an
   InterfaceMethodref and a class stub dies with `IncompatibleClassChangeError`.)*
-- *Not verified here:* no jar was built (Loom packaging still needs Gradle, which this
-  environment's egress policy blocks), so `builds/` has no 3.26.0 jar yet — `build.yml`
-  compile-checks the push. And the things that need a real game: how a PVT policy actually
-  *looks* after an hour of somebody's play, whether the combat ranges feel right in a real
-  fight, and the in-world feel of the new tempo.
+- **The jar is in `builds/`.** Gradle still can't run *here* (its distribution download is
+  egress-blocked), but `build.yml` runs `./gradlew build` on every PR and uploads the jar —
+  so the full Loom build passed on the pushed commit, which is a stronger check than the
+  local javac one. `builds/blockpal-3.26.0.jar` is that artifact, pulled from the CI run for
+  head `818a490` and verified before committing: id/version/entrypoints correct, all nine new
+  classes present, 215 classes, zip intact, and no `PLAYER2_KEY` baked in.
+  **Retrieving a CI-built jar is the way to satisfy the `builds/` rule from a sandbox** — the
+  artifact is named `blockpal-jar` on the `build` workflow run.
+- *Still not verified:* the things that need a real game — how a PVT policy actually *looks*
+  after an hour of somebody's play, whether the combat ranges feel right in a real fight, and
+  the in-world feel of the new tempo.
 
 ### 3.25.3
 - **Bedrock 1.1.0 — found the *actual* reason nothing ran.** 1.0.1 fixed a load-time crash
