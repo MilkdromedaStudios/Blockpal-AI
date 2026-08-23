@@ -20,6 +20,8 @@
 - [Running Commands](Running-Commands)
 - [AI Actions](AI-Actions)
 - [Vision & Code](Vision-and-Code)
+- [PVT — learning by watching](PVT-Learning-By-Watching)
+- [Speed & Combat](Speed-and-Combat)
 - [Bedrock (Geyser)](Geyser-Bedrock)
 - [Bedrock Add-On (single-player)](Bedrock-Add-On)
 

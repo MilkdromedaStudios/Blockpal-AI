@@ -64,8 +64,9 @@ public class CollectItemsGoal extends Goal {
         target = findItem();
         if (target == null) return false;
         // Don't beeline the instant loot appears — take a short human "notice" pause first.
-        if (com.milkdromeda.blockpal.config.ModConfig.get().humanizeActions) {
-            noticeDelay = 5 + rng.nextInt(15);   // ~0.25–1.0 s
+        int notice = com.milkdromeda.blockpal.agent.Tempo.reactionJitter(rng, 18);
+        if (notice > 0) {
+            noticeDelay = notice;
             return false;
         }
         repathCooldown = 0;          // path on the very first tick

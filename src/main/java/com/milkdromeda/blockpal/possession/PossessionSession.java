@@ -187,7 +187,7 @@ public class PossessionSession {
         if (done || stepTimer > STEP_TIMEOUT) {
             currentStep = null;
             mineQueue.clear();
-            waitRemaining = Math.max(1, ModConfig.get().actionTickDelay);
+            waitRemaining = Math.max(1, com.milkdromeda.blockpal.agent.Tempo.stepDelayTicks());
         }
     }
 

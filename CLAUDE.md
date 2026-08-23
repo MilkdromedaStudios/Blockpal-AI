@@ -167,6 +167,92 @@ can do and how it evolved.
 - Player-facing: `/ai look` (read the scene), `/ai code <script>` / `/ai code stop`.
   Wiki: `wiki/Vision-and-Code.md`.
 
+### PVT — learning to act by watching people play (3.26.0)
+- **`pvt/` is a behaviour-cloning brain**, modelled on OpenAI's VPT and adapted to what a
+  Fabric mod can observe. `aiLogicMode = pvt` drives a bot from a policy learned from
+  recorded play, at `PvtObservation.DECISION_INTERVAL` (2 ticks = 10 Hz), with **no model
+  call at all** — tens of microseconds per decision against seconds for an LLM round trip.
+- **`PvtObservation`** encodes what an agent perceives as **288 floats**: a 12×7 retina
+  (closeness / material class / hardness per cell, ~100° FOV, 24-block range) plus 36
+  proprioceptive features. **Identical for a player and a bot, egocentric throughout** —
+  that is the whole reason a demonstration recorded from a person replays on a companion.
+  84 ray casts per observation, against BotVision's 3,600.
+- **`PvtRecorder`** banks (observation, action) frames while somebody plays. A server never
+  receives keystrokes, so the action is recovered analytically: displacement over the
+  window rotated into the player's own facing gives the movement keys, view rotation gives
+  the mouse, `swinging`/`isUsingItem()` give the buttons. Frames a walking bot could never
+  reproduce (flight, riding, spectating, dead) are skipped.
+- **`PvtNet`** is a hand-rolled 2-hidden-layer MLP with a **factored output** (one softmax
+  per `PvtAction` head — 3+3+2+2+2+2+2+11+7 = 34 logits) trained by Adam with gradient
+  clipping and optional data-parallel minibatches. Hand-rolled because a mod cannot ship a
+  tensor library; ~100k weights runs in tens of microseconds.
+- **`PvtAction`** is nine independent heads rather than one flat space — a flat space would
+  need ~44,000 classes, nearly all unobserved; nine heads share evidence.
+- **`PvtIdm`** is the inverse dynamics model: `(obs_t, delta) → action_t`, trained on
+  properly-labelled frames, then used to label observation-only footage. **Input is the
+  first observation plus the *change*, squashed with tanh** — see the changelog for why
+  both of those were measured rather than assumed.
+- **`PvtTrainer`** runs on a daemon thread at MIN_PRIORITY: IDM → labelling (discarding
+  low-confidence guesses) → behaviour cloning with a held-out tenth, early stopping and
+  best-weights-kept. **`PvtDataset`** is append-only episode files (`.bpd`, ~298 bytes a
+  frame, observations quantised to bytes), episode-aware so consecutive pairs never
+  straddle two sessions, crash-tolerant, and pruned oldest-first to `pvtMaxFrames`.
+- **`PvtBrain`** sits below combat and above the thinking brain, and **hands the tick back**
+  when confidence < `pvtConfidence` — the policy is the reflexes, the model is the intent.
+- **Recording is opt-in per player**, stored in `pvt/recording-consent.txt`.
+  `pvtAutoRecord` only resumes recording for someone already opted in.
+- Commands: `/ai pvt [status|watch on|off|record start|stop|train|clear|use on|off]`.
+  MCP: `pvt_status`, `pvt_train`. Wiki: `wiki/PVT-Learning-By-Watching.md`.
+
+### How fast it acts — `agent/Tempo` (3.26.0)
+- **One setting replaces a dozen scattered hard-coded delays.** `reactionSpeed`
+  (`instant` / **`fast`** default / `human`) resolves the inter-step pause, `BotInput`'s
+  head turn rate, `BotBrain`'s think interval, `BotVision`'s capture interval,
+  `ScriptRunner`'s ops-per-tick budget, and the use/swing cooldowns.
+- **The think cooldown bug**: it was measured from when the *previous* round started, so a
+  bot that finished a script in a second stood still for four. `BotBrain` now sets
+  `thinkCooldown = 0` the moment a script completes successfully.
+- `actionTickDelay` default 8 → **2**, and it is now a **floor**, not a target — a
+  hand-raised value is still honoured (`Tempo.stepDelayTicks()`), a shipped default is not.
+- Mining stays vanilla-accurate at every tempo except `instant` (2×, documented as the
+  realism/pace trade). Nothing else about reach, tool speed or pathing changes.
+
+### Combat, and PvP under rules (3.26.0)
+- **`combat/CombatBrain`** fights with a player's habits: holds `preferredRange` rather than
+  standing inside the enemy's swing, circles on an irregular beat (`strafeFlipIn`), raises a
+  shield between its own swings, jumps before striking for crits, draws a bow at range
+  (full 20-tick draw only), retreats and eats below `retreatBelow`. All through `BotInput`.
+- **`combat/CombatSkill`** — `basic` (the pre-3.26 behaviour), **`skilled`** (default),
+  `expert`. Sits in `BotBrain` above the learned policy and the thinking brain.
+- **`combat/PvpRules` is the single gate** that replaced the `!(e instanceof Player)` filter
+  in `BotInput.entityInCrosshair`. A swing reaches a person only if **all** hold:
+  `allowPvp` on (ops-only, never enabled by migration); target is not the owner nor trusted;
+  target is not creative/spectator/invulnerable; and the bot was **provoked** — that player
+  hurt it or its owner within `PROVOCATION_TICKS` (200), or the owner named them with
+  `/ai attack`. Ordered fights are **transient** (60 s, never in NBT).
+  Vanilla's own hurt path still refuses damage on a PvP-off server regardless.
+- Commands: `/ai combat [basic|skilled|expert]`, `/ai admin pvp on|off`, `/ai attack <player>`.
+
+### What a script can do — 86 verbs (3.26.0)
+- **`agent/BotCrafting`** — real crafting from `server.getRecipeManager().getRecipes()`, so
+  data-pack and modded recipes work and a disabled one is genuinely unavailable. Shaped
+  recipes expose ingredients without a width, so candidate grids are handed to vanilla's own
+  `matches()` rather than guessing the shape. Anything past 2×2 needs a crafting table in
+  reach. `craft("stick", 8)`.
+- **`agent/BotSkills`** — the jobs that are exhausting to write out of primitives:
+  `tunnel`, `stairsDown` (staircase, not straight down, and it checks each neighbour for
+  liquid first), `bridge` (sneaks at the edge, stops when blocks run out), `pillarUp`,
+  `mineVein` (flood fill, capped at 64), `harvest`, `plant`, `defend`, `sleep`, `torch`.
+- **A persistent notebook** on the entity: `remember`/`recall`/`forget` (48 entries, NBT
+  `Memory`) and named waypoints (`wp:` prefix) — `setWaypoint`, `waypoint`, `waypoints`,
+  `goToWaypoint`.
+- **More senses**: `inventoryList`, `hasSpace`, `nearestPlayer`, `playerName`, `isDay`,
+  `isRaining`, `dimension`, `armor`, `canSee`.
+- **A job queue** on the entity (NBT `TaskQueue`, 16 deep): `/ai queue <task>`, `list`,
+  `clear`; `BotBrain` pulls the next one when its goal empties. MCP: `queue_task`.
+- `BotApi.reference()` is still the single source of truth for the prompt and the MCP tool,
+  and a test asserts every verb is dispatchable, documented and arity-checked.
+
 ### Living in the world — no teleport, and self-sufficiency (3.25.0)
 - **A companion never teleports.** The `setPos` jump in `FollowOwnerGoal` and the one in
   `comeTo` are gone; it walks (a little faster when it's fallen behind) and says so if it
@@ -488,6 +574,13 @@ having Blockpal. Code lives under `client/assist/` + two GUI screens.
 | `/ai connection [set <id>]` | The ONE AI connection: `mcp`/`key`/`player2`/`ollama`/`free`/`off` |
 | `/ai mcp` | **(ops)** Setup guide: connect Claude / ChatGPT / Grok / Gemini to your world |
 | `/ai mcp status\|start\|stop\|token\|newtoken\|port <n>\|remote on\|off` | **(ops)** MCP server controls |
+| `/ai speed [instant\|fast\|human]` | How quickly it reacts (one setting, every delay) |
+| `/ai combat [basic\|skilled\|expert]` | How well it fights |
+| `/ai attack <player>` | **(owner)** Point it at someone — needs `allowPvp`, provoked-only |
+| `/ai queue <task>` / `list` / `clear` | Line up jobs; it works through them in order |
+| `/ai pvt [status\|watch on\|off\|record start\|stop]` | Teach it by letting it watch you play |
+| `/ai pvt train` / `use on\|off` / `clear` | **(ops)** Train / switch on / delete recordings |
+| `/ai admin pvp on\|off` | **(ops)** May companions ever fight a player |
 | `/ai look` | Read what the nearby companion can actually see (its own eyes) |
 | `/ai code <script>` / `/ai code stop` | Hand it a script in the language its AI writes |
 | `/ai resume` / `/ai enable` | Re-enable after the FPS kill switch tripped |
@@ -632,7 +725,9 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   writes a temp file and atomically moves it over `config.json` (never a
   half-written file), keeps the previous good file as `config.json.prev`, retries
   once on a transient IO failure, and is `synchronized`.
-- Full list of settings: `aiConnection`, `mcpPort`, `mcpAllowRemote`, `mcpRequireToken`,
+- Full list of settings: `reactionSpeed`, `combatSkill`, `allowPvp`, `pvtEnabled`,
+  `pvtAutoRecord`, `pvtHiddenSize`, `pvtEpochs`, `pvtLearningRate`, `pvtMaxFrames`,
+  `pvtConfidence`, `aiConnection`, `mcpPort`, `mcpAllowRemote`, `mcpRequireToken`,
   `mcpTokenObf`, `aiLogicMode`, `visionEnabled`, `visionWidth`, `visionHeight`,
   `visionRange`, `scriptMaxTicks`, `survivalBrain`, `creativeModeWarning`,
   `allowBotTeleport` (always false), `hfToken`/`hfTokenObf`, `hfModel`, `apiUrl`,
@@ -945,6 +1040,77 @@ share code or versioning with the Java mod. Source in `bedrock/`, packaged artif
 ---
 
 ## Changelog
+
+### 3.26.0
+- **PVT — the companion learns to act by watching people play.** New `pvt/` package
+  implementing behaviour cloning the way OpenAI's VPT does, adapted to what a mod can
+  observe: `PvtObservation` (288 egocentric floats, identical for a player and a bot),
+  `PvtRecorder` (recovers the action analytically from displacement/rotation/swing flags,
+  since a server never receives keystrokes), `PvtNet` (hand-rolled MLP, factored 34-logit
+  output, Adam), `PvtIdm` (inverse dynamics — the piece that makes observation-only footage
+  usable), `PvtDataset` (append-only `.bpd` episodes, byte-quantised, episode-aware,
+  crash-tolerant, pruned oldest-first), `PvtTrainer` (daemon thread, held-out tenth, early
+  stopping, best-weights-kept) and `PvtBrain` (drives at 10 Hz, yields when unsure).
+  Opt-in per player with a consent file. `aiLogicMode = "pvt"`.
+- **Two findings from actually running the thing, not from review.** (1) Feeding the inverse
+  dynamics model a raw pair of observations makes it rediscover subtraction across 576
+  inputs whose noise is shared: movement recovery **58%**, turn recovery **15%**. Feeding
+  the *delta* explicitly took movement to **99.6%**. (2) Hard-clamping that delta then
+  collapsed every turn past ~23° onto the same value, so a 25° flick and a 45° spin were
+  indistinguishable — turn recovery **37%**. `tanh` keeps the ordering: **80% exact, 99.6%
+  within one bin**, and more epochs don't improve it (it converges; the residual misses are
+  adjacent bins, i.e. 2° read as 5°, which is immaterial to how the bot moves). A third
+  finding was a *test* bug, not a code one: a synthetic world where a turn changed one
+  feature gave 41%, where a turn that slides the whole retina — what actually happens —
+  gives 80%. The test was corrected to model reality.
+- **`agent/Tempo` — one setting for every invented delay.** `reactionSpeed`
+  (`instant`/**`fast`**/`human`) now resolves the step pause, head turn rate, think
+  interval, vision capture interval, script ops/tick and use/swing cooldowns.
+  `actionTickDelay` 8 → **2**, and it became a *floor* so a hand-raised value is kept.
+  The real bug: the think cooldown was measured from when the **previous** round started,
+  so a bot that finished a script in a second stood still for four — it now re-plans the
+  moment a script completes. Mining stays vanilla-accurate except at `instant` (2×).
+- **`combat/` — real fighting, and PvP under rules.** `CombatBrain` holds a range, circles
+  on an irregular beat, shields between swings, times crits, bows at range and retreats;
+  `CombatSkill` is basic/**skilled**/expert. `PvpRules` is the **single** gate replacing the
+  `!(e instanceof Player)` filter in `BotInput.entityInCrosshair`: ops-only `allowPvp`, never
+  the owner or a trusted player, never creative/spectator/invulnerable, and **provoked only**
+  (hurt within 200 ticks, or named with `/ai attack`). Ordered fights are transient, never NBT.
+- **62 script verbs → 86.** `BotCrafting` (real recipes from the server's recipe manager,
+  probing candidate grids against vanilla's own `matches()` rather than guessing a shaped
+  recipe's width), `BotSkills` (tunnel, stairsDown with liquid checks, bridge, pillarUp,
+  mineVein, harvest, plant, defend, sleep, torch), a persistent notebook and waypoints, nine
+  new senses, and a 16-deep job queue (`/ai queue`).
+- **Everything reachable**: `/ai pvt`, `/ai speed`, `/ai combat`, `/ai attack`, `/ai queue`,
+  `/ai admin pvp`; panel controls on Settings → Behavior; MCP tools `pvt_status`,
+  `pvt_train`, `combat_status`, `queue_task`. Config schema → **v14** (migration fills the
+  new defaults and **never** enables PvP).
+- **Verification.** Both source sets compile against MC 26.2 with the javac recipe from the
+  3.20.0 entry (that recipe still works: piston manifest + libraries, fabric-api nested
+  modules, Fabric Loader from maven.fabricmc.net, JDK 25 from download.java.net). Five test
+  suites, all run this session: **28** network/action tests (backprop verified by learning
+  XOR — 99.5% clean, against a 50% linear ceiling — plus save/load determinism and a
+  foreign-file refusal), **24** pipeline tests (disk round-trip, quantisation error, episode
+  boundaries, a crash-truncated file still yielding its complete frames, pruning, lopsided-
+  data detection, and the IDM recovering actions from two views), a **63-field `ConfigData`
+  round-trip** through a real `FriendlyByteBuf` with a distinct value per field (write/read
+  order drift compiles fine and silently shows one setting's value in another's box), an
+  **86-verb API consistency** check (every verb dispatchable, documented and arity-bounded),
+  and **35 config tests** against a stubbed `FabricLoader` (v13→v14 migration, PvP staying
+  off across an upgrade, a hand-raised delay surviving, garbage values clamped).
+  *(The stub must be an `interface`, not a class — ModConfig's call site is an
+  InterfaceMethodref and a class stub dies with `IncompatibleClassChangeError`.)*
+- **The jar is in `builds/`.** Gradle still can't run *here* (its distribution download is
+  egress-blocked), but `build.yml` runs `./gradlew build` on every PR and uploads the jar —
+  so the full Loom build passed on the pushed commit, which is a stronger check than the
+  local javac one. `builds/blockpal-3.26.0.jar` is that artifact, pulled from the CI run for
+  head `818a490` and verified before committing: id/version/entrypoints correct, all nine new
+  classes present, 215 classes, zip intact, and no `PLAYER2_KEY` baked in.
+  **Retrieving a CI-built jar is the way to satisfy the `builds/` rule from a sandbox** — the
+  artifact is named `blockpal-jar` on the `build` workflow run.
+- *Still not verified:* the things that need a real game — how a PVT policy actually *looks*
+  after an hour of somebody's play, whether the combat ranges feel right in a real fight, and
+  the in-world feel of the new tempo.
 
 ### 3.25.3
 - **Bedrock 1.1.0 — found the *actual* reason nothing ran.** 1.0.1 fixed a load-time crash

@@ -64,7 +64,7 @@ public class BuildGoal extends Goal {
         placeBlock(current.pos(), current.blockId());
         entity.swing(InteractionHand.MAIN_HAND);
         current = null;
-        waitTicks = com.milkdromeda.blockpal.config.ModConfig.get().actionTickDelay / 2;
+        waitTicks = com.milkdromeda.blockpal.agent.Tempo.stepDelayTicks() / 2;
     }
 
     private void placeBlock(BlockPos pos, String blockId) {

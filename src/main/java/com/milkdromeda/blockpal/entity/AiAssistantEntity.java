@@ -479,7 +479,7 @@ public class AiAssistantEntity extends PathfinderMob {
     public com.milkdromeda.blockpal.vision.BotVision.Snapshot look() {
         long now = System.currentTimeMillis();
         if (lastLook != null
-                && now - lastLookAt < com.milkdromeda.blockpal.vision.BotVision.MIN_CAPTURE_INTERVAL_MS) {
+                && now - lastLookAt < com.milkdromeda.blockpal.vision.BotVision.minCaptureIntervalMs()) {
             return lastLook;
         }
         lastLook = com.milkdromeda.blockpal.vision.BotVision.capture(this);
@@ -883,6 +883,8 @@ public class AiAssistantEntity extends PathfinderMob {
         if (ownerName != null && !ownerName.isBlank()) output.putString("OwnerName", ownerName);
         if (!trusted.isEmpty()) output.store("Trusted", TrustEntry.LIST_CODEC, trustedEntries());
         if (pendingTask != null) output.putString("PendingTask", pendingTask);
+        if (!memory.isEmpty()) output.putString("Memory", memoryToString());
+        if (!taskQueue.isEmpty()) output.putString("TaskQueue", queueToString());
         output.putBoolean("AutonomousMode", autonomousMode);
         ContainerHelper.saveAllItems(output.child("Inventory"), inventorySnapshot());
     }
@@ -900,6 +902,8 @@ public class AiAssistantEntity extends PathfinderMob {
         try { mode = Mode.valueOf(modeStr); } catch (IllegalArgumentException ignored) { mode = Mode.FOLLOWING; }
         input.read("OwnerUuid", UUIDUtil.STRING_CODEC).ifPresent(uuid -> ownerUuid = uuid);
         ownerName = input.getStringOr("OwnerName", "");
+        memoryFromString(input.getStringOr("Memory", ""));
+        queueFromString(input.getStringOr("TaskQueue", ""));
         trusted.clear();
         input.read("Trusted", TrustEntry.LIST_CODEC).ifPresent(list -> {
             for (TrustEntry e : list) {
@@ -1048,6 +1052,147 @@ public class AiAssistantEntity extends PathfinderMob {
     }
 
     public UUID getOwnerUuid() { return ownerUuid; }
+
+    // ── things it was told to remember ──────────────────────────────────────────
+
+    /**
+     * A small key/value notebook the bot carries between sessions: where it left a
+     * chest, which way home is, what its owner asked it to keep doing.
+     *
+     * <p>Scripts get {@code remember} / {@code recall} / {@code forget}, and waypoints
+     * are stored here too under a {@code wp:} prefix. Kept deliberately small — this is a
+     * notebook, not a database, and it rides in the entity's own save data.
+     */
+    private final java.util.LinkedHashMap<String, String> memory = new java.util.LinkedHashMap<>();
+
+    /** Most notes kept; the oldest is dropped when a new one would overflow. */
+    private static final int MEMORY_LIMIT = 48;
+    private static final int MEMORY_VALUE_LIMIT = 96;
+
+    public void remember(String key, String value) {
+        if (key == null || key.isBlank()) return;
+        String k = key.trim().toLowerCase(java.util.Locale.ROOT);
+        if (k.length() > 32) k = k.substring(0, 32);
+        String v = value == null ? "" : value.trim();
+        if (v.length() > MEMORY_VALUE_LIMIT) v = v.substring(0, MEMORY_VALUE_LIMIT);
+        memory.remove(k);                       // re-inserting keeps the order honest
+        memory.put(k, v);
+        while (memory.size() > MEMORY_LIMIT) {
+            memory.remove(memory.keySet().iterator().next());
+        }
+    }
+
+    public String recall(String key) {
+        if (key == null) return "";
+        return memory.getOrDefault(key.trim().toLowerCase(java.util.Locale.ROOT), "");
+    }
+
+    public boolean forget(String key) {
+        return key != null
+                && memory.remove(key.trim().toLowerCase(java.util.Locale.ROOT)) != null;
+    }
+
+    public java.util.Map<String, String> memory() { return memory; }
+
+    /** The notebook as one line, for status readouts and the planner's context. */
+    public String memoryText() {
+        if (memory.isEmpty()) return "(nothing noted)";
+        StringBuilder sb = new StringBuilder();
+        memory.forEach((k, v) -> {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(k).append('=').append(v);
+        });
+        return sb.toString();
+    }
+
+    /** Serialised form: {@code key=value} pairs separated by newlines (neither is legal
+     *  inside a key, and a value's newlines are stripped on the way in). */
+    private String memoryToString() {
+        StringBuilder sb = new StringBuilder();
+        memory.forEach((k, v) -> sb.append(k).append('=')
+                .append(v.replace("\n", " ").replace("=", " ")).append('\n'));
+        return sb.toString();
+    }
+
+    private void memoryFromString(String raw) {
+        memory.clear();
+        if (raw == null || raw.isBlank()) return;
+        for (String line : raw.split("\n")) {
+            int eq = line.indexOf('=');
+            if (eq <= 0) continue;
+            remember(line.substring(0, eq), line.substring(eq + 1));
+        }
+    }
+
+    // ── a queue of things to do ─────────────────────────────────────────────────
+
+    /**
+     * Jobs lined up for when the current one finishes. Without this, telling a companion
+     * to do three things means standing there and telling it the second one at the right
+     * moment; with it, you queue the afternoon's work and walk away.
+     *
+     * <p>Persisted, because "chop wood then build the wall" should survive logging off.
+     */
+    private final java.util.ArrayList<String> taskQueue = new java.util.ArrayList<>();
+
+    private static final int QUEUE_LIMIT = 16;
+
+    /** @return false when the queue is full */
+    public boolean queueTask(String task) {
+        if (task == null || task.isBlank()) return false;
+        if (taskQueue.size() >= QUEUE_LIMIT) return false;
+        taskQueue.add(task.trim());
+        return true;
+    }
+
+    /** Takes the next job off the queue, or null when there's nothing waiting. */
+    public String pollTask() {
+        return taskQueue.isEmpty() ? null : taskQueue.remove(0);
+    }
+
+    public java.util.List<String> taskQueue() { return java.util.List.copyOf(taskQueue); }
+
+    public int clearQueue() {
+        int n = taskQueue.size();
+        taskQueue.clear();
+        return n;
+    }
+
+    private String queueToString() { return String.join("\n", taskQueue); }
+
+    private void queueFromString(String raw) {
+        taskQueue.clear();
+        if (raw == null || raw.isBlank()) return;
+        for (String line : raw.split("\n")) {
+            if (!line.isBlank()) queueTask(line);
+        }
+    }
+
+    // ── an explicitly ordered fight ─────────────────────────────────────────────
+
+    /**
+     * A player the owner named with {@code /ai attack}. Deliberately <b>transient</b>
+     * and short-lived: an order to fight somebody must not survive a server restart,
+     * be inherited by a reloaded world, or sit in NBT where nobody would think to look
+     * for why a companion is hostile to a particular person.
+     */
+    private transient UUID combatOrder;
+    private transient long combatOrderExpires;
+
+    /** How long an ordered fight lasts before the bot drops it, in ticks (60 s). */
+    private static final long COMBAT_ORDER_TICKS = 1200;
+
+    /** The player this bot has been told to fight, or null. */
+    public UUID getCombatOrder() {
+        if (combatOrder != null && tickCount > combatOrderExpires) combatOrder = null;
+        return combatOrder;
+    }
+
+    /** Orders (or with null, cancels) a fight against a specific player. */
+    public void setCombatOrder(UUID target) {
+        combatOrder = target;
+        combatOrderExpires = tickCount + COMBAT_ORDER_TICKS;
+    }
     public void setOwnerUuid(UUID uuid) { this.ownerUuid = uuid; }
     public String getOwnerName() { return ownerName == null ? "" : ownerName; }
     public void setOwnerName(String name) { this.ownerName = name == null ? "" : name; }

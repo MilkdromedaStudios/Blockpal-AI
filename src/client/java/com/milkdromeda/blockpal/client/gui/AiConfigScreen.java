@@ -92,6 +92,20 @@ public class AiConfigScreen extends Screen {
     private boolean pPreferSurvival = true, pHumanize = true;
     private String pFreeApiUrl = "", pFreeModel = "", pPlayer2LocalUrl = "";
     private int pVillageTarget = 24, pVillageStart = 5;
+    // ── how fast it acts, how it fights, what it learned by watching (3.26.0) ──
+    private String pReactionSpeed = "fast";
+    private String pCombatSkill = "skilled";
+    private boolean pAllowPvp = false;
+    private boolean pPvtEnabled = true, pPvtAutoRecord = true, pvtHasPolicy = false;
+    private int pPvtHiddenSize = 192, pPvtEpochs = 24, pPvtMaxFrames = 200000;
+    private double pPvtLearningRate = 0.002, pPvtConfidence = 0.30;
+    private CycleButton<String> reactionSpeedButton;
+    private CycleButton<String> combatSkillButton;
+    private CycleButton<Boolean> allowPvpButton;
+    private CycleButton<Boolean> pvtEnabledButton;
+    private CycleButton<Boolean> pvtAutoRecordButton;
+    private OptionSlider pvtHiddenSlider, pvtEpochsSlider, pvtFramesSlider;
+    private OptionSlider pvtLearningRateSlider, pvtConfidenceSlider;
     private OptionSlider visionWidthSlider, visionHeightSlider, visionRangeSlider, scriptTicksSlider;
     private CycleButton<Boolean> preferSurvivalButton, humanizeButton;
     private EditBox freeApiUrlBox, freeModelBox, player2LocalUrlBox;
@@ -177,6 +191,17 @@ public class AiConfigScreen extends Screen {
         pPlayer2LocalUrl = d.player2LocalUrl();
         pVillageTarget = d.villageTargetPopulation();
         pVillageStart = d.villageStartPopulation();
+        pReactionSpeed = d.reactionSpeed();
+        pCombatSkill = d.combatSkill();
+        pAllowPvp = d.allowPvp();
+        pPvtEnabled = d.pvtEnabled();
+        pPvtAutoRecord = d.pvtAutoRecord();
+        pPvtHiddenSize = d.pvtHiddenSize();
+        pPvtEpochs = d.pvtEpochs();
+        pPvtLearningRate = d.pvtLearningRate();
+        pPvtMaxFrames = d.pvtMaxFrames();
+        pPvtConfidence = d.pvtConfidence();
+        pvtHasPolicy = d.pvtHasPolicy();
         // Capture the as-loaded state once so dirty-tracking survives tab switches
         // (init() runs on every tab change, so we must NOT recompute it there).
         baseline = buildData();
@@ -347,10 +372,10 @@ public class AiConfigScreen extends Screen {
         header(body, "How companions think");
         logicModeButton = body.addChild(CycleButton.<String>builder(
                         Component::literal,
-                        "code".equalsIgnoreCase(pLogicMode) ? LOGIC_CODE : LOGIC_PLAN)
-                .withValues(java.util.List.of(LOGIC_CODE, LOGIC_PLAN))
+                        logicLabelOf(pLogicMode))
+                .withValues(java.util.List.of(LOGIC_CODE, LOGIC_PLAN, LOGIC_PVT))
                 .create(0, 0, W, FIELD_H, Component.literal("Thinking style"),
-                        (btn, val) -> pLogicMode = val.startsWith("Look") ? "code" : "plan"));
+                        (btn, val) -> pLogicMode = logicIdOf(val)));
         logicModeButton.setTooltip(Tooltip.create(Component.literal(
                 "\"Look and write code\" renders what the bot can see, sends the picture to the AI, and "
                         + "runs the little script it writes — everything it does, a player could do. "
@@ -387,6 +412,65 @@ public class AiConfigScreen extends Screen {
                 "How long one AI-written script may run before it's stopped. 20 ticks = 1 second; "
                         + "1200 (a minute) by default.");
 
+        // ── how quickly it reacts ──
+        header(body, "How fast it acts");
+        body.addChild(new StringWidget(W, LABEL_H, Component.literal(
+                "§7One setting for every pause the mod adds — step delays, head-turn speed,"), this.font));
+        body.addChild(new StringWidget(W, LABEL_H, Component.literal(
+                "§7how often it re-thinks, and how much script it runs per tick."), this.font));
+        reactionSpeedButton = body.addChild(CycleButton.<String>builder(
+                        Component::literal, tempoLabelOf(pReactionSpeed))
+                .withValues(java.util.List.of(TEMPO_INSTANT, TEMPO_FAST, TEMPO_HUMAN))
+                .create(0, 0, W, FIELD_H, Component.literal("Reaction speed"),
+                        (btn, val) -> pReactionSpeed = tempoIdOf(val)));
+        reactionSpeedButton.setTooltip(Tooltip.create(Component.literal(
+                "Fast is the default: snappy, but it still turns its head believably. Instant removes "
+                        + "every invented pause and mines at double speed — quickest, least lifelike. "
+                        + "Human is the older, more deliberate feel.")));
+
+        // ── fighting ──
+        header(body, "Fighting");
+        combatSkillButton = body.addChild(CycleButton.<String>builder(
+                        Component::literal, skillLabelOf(pCombatSkill))
+                .withValues(java.util.List.of(SKILL_BASIC, SKILL_SKILLED, SKILL_EXPERT))
+                .create(0, 0, W, FIELD_H, Component.literal("Combat skill"),
+                        (btn, val) -> pCombatSkill = skillIdOf(val)));
+        combatSkillButton.setTooltip(Tooltip.create(Component.literal(
+                "Basic swings when in range. Skilled holds a distance, circles, raises a shield and "
+                        + "backs off when hurt. Expert adds crit timing and bow work.")));
+        allowPvpButton = bodyToggle(body, "May fight players", pAllowPvp,
+                "OFF by default. Even when on, a companion only fights someone who attacked it or its "
+                        + "owner in the last ten seconds, or who its owner named with /ai attack — and never "
+                        + "its owner or anyone they trust. A server with PvP disabled overrides this anyway.");
+
+        // ── learning by watching ──
+        header(body, "Learning by watching (PVT)");
+        body.addChild(new StringWidget(W, LABEL_H, Component.literal(
+                pvtHasPolicy ? "§a✔ A trained policy is loaded."
+                             : "§7No policy trained yet — /ai pvt watch on, play, /ai pvt train."), this.font));
+        pvtEnabledButton = bodyToggle(body, "Enable PVT", pPvtEnabled,
+                "The whole pre-video-training layer: recording play, training a policy from it, and letting "
+                        + "companions be driven by what they learned. Recording is always opt-in per player.");
+        pvtAutoRecordButton = bodyToggle(body, "Record opted-in players on join", pPvtAutoRecord,
+                "Start recording automatically when somebody who has already said yes (/ai pvt watch on) "
+                        + "joins. This never opts anybody in by itself.");
+        pvtConfidenceSlider = bodySlider(body, "Confidence needed to drive (%)", 0, 100,
+                (int) Math.round(pPvtConfidence * 100), true,
+                "How sure the learned policy must be before it takes the controls. Below this it hands the "
+                        + "tick back to the thinking brain. 30% by default.");
+        pvtHiddenSlider = bodySlider(body, "Network width", 32, 512, pPvtHiddenSize, true,
+                "Neurons per hidden layer. Wider learns more nuance and costs more per tick to run.");
+        pvtEpochsSlider = bodySlider(body, "Training passes", 1, 200, pPvtEpochs, true,
+                "How many times training goes over the recordings. It stops early anyway once the "
+                        + "held-out score stops improving.");
+        pvtLearningRateSlider = bodySlider(body, "Learning rate (÷10000)", 1, 1000,
+                (int) Math.round(pPvtLearningRate * 10000), true,
+                "Adam step size — 20 here means 0.002, the default. Larger learns faster and less stably.");
+        pvtFramesSlider = bodySlider(body, "Frames kept (thousands)", 1, 2000,
+                Math.max(1, pPvtMaxFrames / 1000), true,
+                "How much recorded play to keep on disk. A frame is about 300 bytes, so 200 (thousand) is "
+                        + "roughly 60 MB and three hours of play. The oldest sessions are dropped first.");
+
         // ── the Growth village game ──
         header(body, "Growth village");
         villageStartSlider = bodySlider(body, "Villagers at the start", 1, 20, pVillageStart, true,
@@ -397,9 +481,55 @@ public class AiConfigScreen extends Screen {
         debugButton = bodyToggle(body, "Debug logging", pDebug, "Verbose logging to the game log for troubleshooting.");
     }
 
-    /** Labels for the thinking-style cycler (the value is mapped back to code/plan). */
+    /** Labels for the thinking-style cycler (mapped back to the stored id). */
     private static final String LOGIC_CODE = "Look at the world and write code";
     private static final String LOGIC_PLAN = "Classic action plan (JSON)";
+    private static final String LOGIC_PVT = "Act on what it learned by watching";
+
+    private static String logicLabelOf(String id) {
+        if ("plan".equalsIgnoreCase(id)) return LOGIC_PLAN;
+        if ("pvt".equalsIgnoreCase(id)) return LOGIC_PVT;
+        return LOGIC_CODE;
+    }
+
+    private static String logicIdOf(String label) {
+        if (LOGIC_PLAN.equals(label)) return "plan";
+        if (LOGIC_PVT.equals(label)) return "pvt";
+        return "code";
+    }
+
+    // ── labels for the speed and combat cyclers ──
+    private static final String TEMPO_INSTANT = "Instant — no waiting at all";
+    private static final String TEMPO_FAST = "Fast — snappy but believable";
+    private static final String TEMPO_HUMAN = "Human — deliberate reactions";
+
+    private static String tempoLabelOf(String id) {
+        if ("instant".equalsIgnoreCase(id)) return TEMPO_INSTANT;
+        if ("human".equalsIgnoreCase(id)) return TEMPO_HUMAN;
+        return TEMPO_FAST;
+    }
+
+    private static String tempoIdOf(String label) {
+        if (TEMPO_INSTANT.equals(label)) return "instant";
+        if (TEMPO_HUMAN.equals(label)) return "human";
+        return "fast";
+    }
+
+    private static final String SKILL_BASIC = "Basic — swing when in range";
+    private static final String SKILL_SKILLED = "Skilled — circle, shield, disengage";
+    private static final String SKILL_EXPERT = "Expert — crits, bow, potions";
+
+    private static String skillLabelOf(String id) {
+        if ("basic".equalsIgnoreCase(id)) return SKILL_BASIC;
+        if ("expert".equalsIgnoreCase(id)) return SKILL_EXPERT;
+        return SKILL_SKILLED;
+    }
+
+    private static String skillIdOf(String label) {
+        if (SKILL_BASIC.equals(label)) return "basic";
+        if (SKILL_EXPERT.equals(label)) return "expert";
+        return "skilled";
+    }
 
     private void buildAiTab(LinearLayout body) {
         // ── the ONE connection ──
@@ -758,6 +888,16 @@ public class AiConfigScreen extends Screen {
         if (actionDelaySlider != null) pActionDelay = (int) Math.round(actionDelaySlider.current());
         if (maxTaskSlider != null) pMaxTask = (int) Math.round(maxTaskSlider.current());
         if (fleeSlider != null) pFlee = fleeSlider.current();
+        if (reactionSpeedButton != null) pReactionSpeed = tempoIdOf(reactionSpeedButton.getValue());
+        if (combatSkillButton != null) pCombatSkill = skillIdOf(combatSkillButton.getValue());
+        if (allowPvpButton != null) pAllowPvp = allowPvpButton.getValue();
+        if (pvtEnabledButton != null) pPvtEnabled = pvtEnabledButton.getValue();
+        if (pvtAutoRecordButton != null) pPvtAutoRecord = pvtAutoRecordButton.getValue();
+        if (pvtHiddenSlider != null) pPvtHiddenSize = (int) Math.round(pvtHiddenSlider.current());
+        if (pvtEpochsSlider != null) pPvtEpochs = (int) Math.round(pvtEpochsSlider.current());
+        if (pvtFramesSlider != null) pPvtMaxFrames = (int) Math.round(pvtFramesSlider.current()) * 1000;
+        if (pvtLearningRateSlider != null) pPvtLearningRate = pvtLearningRateSlider.current() / 10000.0;
+        if (pvtConfidenceSlider != null) pPvtConfidence = pvtConfidenceSlider.current() / 100.0;
     }
 
     private ConfigData buildData() {
@@ -773,7 +913,10 @@ public class AiConfigScreen extends Screen {
                 pMcpPort, pMcpRemote, pMcpRequireToken, mcpRunning,
                 pVisionWidth, pVisionHeight, pVisionRange, pScriptMaxTicks,
                 pPreferSurvival, pHumanize, pFreeApiUrl, pFreeModel, pPlayer2LocalUrl,
-                pVillageTarget, pVillageStart);
+                pVillageTarget, pVillageStart,
+                pReactionSpeed, pCombatSkill, pAllowPvp,
+                pPvtEnabled, pPvtAutoRecord, pPvtHiddenSize, pPvtEpochs,
+                pPvtLearningRate, pPvtMaxFrames, pPvtConfidence, pvtHasPolicy);
     }
 
     private Component tokenStatusText() {

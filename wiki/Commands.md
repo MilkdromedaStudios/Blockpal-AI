@@ -48,6 +48,14 @@ All commands are under `/ai`. Type `/ai help` in-game for the live list.
 | `/ai admin …` | *(ops only)* Admin panel — see below |
 | `/ai mcp status\|token\|newtoken\|port <n>\|remote on\|off\|start\|stop` | *(ops)* MCP server details and controls |
 | `/ai <task>` | Give a natural-language task |
+| `/ai queue <task>` | Add a job to its list (16 deep, survives logging off) |
+| `/ai queue list` / `clear` | Show / empty the list |
+| `/ai speed [instant\|fast\|human]` | How quickly it reacts — see [Speed & Combat](Speed-and-Combat) |
+| `/ai combat [basic\|skilled\|expert]` | How well it fights |
+| `/ai attack <player>` | **(owner)** Point it at someone — needs `allowPvp`, and only ever someone who started it |
+| `/ai pvt` / `/ai pvt status` | How [learning by watching](PVT-Learning-By-Watching) is going |
+| `/ai pvt watch on\|off` | Opt **your own** play in or out of being learned from |
+| `/ai pvt record start\|stop` | Start/stop a recording session by hand |
 
 > **No setting commands (3.4.0).** The old `/ai settings`, `/ai token`, `/ai listen`,
 > `/ai active` and `/ai commands` were removed — they were too fiddly. **Configure
@@ -55,6 +63,12 @@ All commands are under `/ai`. Type `/ai help` in-game for the live list.
 > (`adminPermissionLevel`, default 2 = ops). Everyday commands above stay open to all
 > players. Ops on a **vanilla** client can still configure via the text `/ai admin …`
 > tree (and the `BLOCKPAL_API_TOKEN` environment variable for the shared key).
+
+## Teaching it by example (PVT)
+
+`/ai pvt watch on` lets your companion learn from **how you play** — it is off until
+you say so, and `off` stops it immediately. An operator then runs `/ai pvt train` and
+`/ai pvt use on`. Full detail on **[PVT — learning by watching](PVT-Learning-By-Watching)**.
 
 ## Who can command a bot
 
@@ -88,6 +102,17 @@ permission level. See **[Admin Menu](Admin-Menu)** for the full guide.
 | `/ai admin voice on\|off` | Allow / deny agent voice (push-to-talk + speech) — see [Voice](Voice) |
 | `/ai admin keylist add\|remove\|list <player>` | Who may use the shared key when BYOK is on |
 | `/ai admin models add\|remove\|list <id>` | Curate the models players may pick |
+
+### PvP and training (ops)
+
+| Command | Effect |
+|---------|--------|
+| `/ai admin pvp on\|off` | May companions ever raise a hand to a **player**? Off by default. Even on, only against someone who attacked them or their owner in the last ten seconds, or whom their owner named — never the owner or anyone trusted. |
+| `/ai pvt train` | Train a policy from the play people have opted to share |
+| `/ai pvt use on\|off` | Let companions act on what they learned |
+| `/ai pvt clear` | Delete every recording (the trained policy is kept) |
+| `/ai speed <tempo>` | Set the server-wide reaction speed |
+| `/ai combat <skill>` | Set the server-wide combat skill |
 
 ## Party commands
 

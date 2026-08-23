@@ -4,6 +4,124 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.26.0
+
+### It learns by watching you play (PVT)
+
+**PVT** is pre-video training: your companion learns how to *act* from watching
+people play, instead of asking a language model what to do next. It follows
+OpenAI's VPT — the work that learned Minecraft from unlabelled video — adapted to
+what a mod can observe from inside the game.
+
+```
+/ai pvt watch on      # let it learn from how you play (off by default)
+   ... just play ...
+/ai pvt train         # (ops) train it on what people have played
+/ai pvt use on        # (ops) let companions act on what they learned
+```
+
+Why it matters: a language model round trip takes seconds. A learned policy takes
+tens of microseconds, so the bot reacts **within a tick** of something happening
+in front of it — with no API key, no internet and no cost. It is also shallower:
+it reproduces what it saw and nothing else. So the two work together. The learned
+policy handles moment-to-moment movement and reaction; when it isn't confident it
+hands the tick back and the model decides what to actually go and do.
+
+**Recording is opt-in, per player, always.** Nobody is recorded until they run
+`/ai pvt watch on` themselves. What's stored is which way somebody walked and
+what was roughly in front of them — no chat, no names, no coordinates, no
+inventory. Moments a walking companion could never reproduce (creative flight,
+riding, spectating) are dropped rather than learned from. `/ai pvt watch off`
+stops it immediately and `/ai pvt clear` deletes the lot.
+
+Full detail: the **PVT — learning by watching** wiki page.
+
+### It's much faster
+
+*"Its actions are too slow"* — they were, and it wasn't one thing. A dozen
+separate invented delays had accumulated: a pause between plan steps, a
+randomised reaction jitter, a head that could only turn 22° a tick, a five-second
+gap between thoughts, a rate limit on looking. Worst of all, the think cooldown
+was measured from when the **previous** round started, so a bot that finished its
+script in a second then stood still for four.
+
+They all come from one setting now:
+
+- **Instant** — no waiting at all. Turns on a dime, re-plans the moment it
+  finishes, mines at double speed. Quickest, least lifelike.
+- **Fast** *(new default)* — snappy, but still turns its head believably.
+- **Human** — the old, deliberate feel, if you liked it.
+
+```
+/ai speed fast
+```
+
+Nothing here makes the bot cheat: mining still costs real block-hardness time at
+Fast and Human, and reach, tool speed and pathfinding are untouched. Existing
+worlds are moved to Fast automatically unless you had deliberately raised the
+delay yourself, in which case your value is kept.
+
+### It can actually fight
+
+The old behaviour was "notice a monster, walk at it, swing". Now it holds a range
+instead of standing inside the enemy's swing, circles on an irregular beat,
+raises a shield between its own swings, times crits, uses a bow at range, and
+backs off and eats when it's losing. Three levels: `basic` (the old behaviour),
+`skilled` (default), `expert`.
+
+```
+/ai combat expert
+```
+
+**Fighting players is off by default and narrow when on.** Even with
+`/ai admin pvp on`, a companion only fights someone who attacked it or its owner
+in the last ten seconds, or who its owner named with `/ai attack <player>` — and
+never its owner or anyone they trust, never someone in creative or spectator. A
+server with PvP disabled overrides all of it anyway. There is no setting under
+which a companion picks a fight.
+
+### 24 new things it can do
+
+The script language its AI writes went from 62 verbs to 86:
+
+- **Real crafting** — `craft("stick", 8)` uses the server's own recipe book, so
+  data-pack and modded recipes work too. Anything bigger than 2×2 needs a
+  crafting table within reach, exactly as it would for you.
+- **Proper jobs** — `tunnel(20)` digs a corridor, `stairsDown(15)` digs a
+  staircase (and checks for liquid behind each block before breaking it, rather
+  than dropping you into lava), `bridge(12)` walks forward laying blocks across a
+  gap, `pillarUp(10)` jump-places upward, `mineVein(x,y,z)` follows a seam of ore
+  instead of taking one block out of it.
+- **Farming** — `harvest(radius)` breaks every fully grown crop nearby,
+  `plant(radius)` sows seeds on empty farmland.
+- **A memory** — `remember`/`recall`/`forget` and named waypoints, kept when the
+  world is saved. Your companion can be told where home is and go back to it.
+- **More senses** — inventory, nearest player, weather, time of day, dimension,
+  armour, line of sight.
+- **`defend(ticks)`**, **`sleep()`**, **`torch()`**.
+
+All still done by hand: real break progress, real blocks out of the backpack, and
+bridging that stops when they run out.
+
+### A queue
+
+```
+/ai queue chop the oaks by the river
+/ai queue build a wall along the north side
+/ai queue list
+```
+
+Line up an afternoon's work instead of standing there feeding it one order at a
+time. The list survives logging off.
+
+### Also
+
+- Every new setting is in the panel (**Settings → Behavior**), not just the
+  config file.
+- Outside AI apps connected over MCP get `pvt_status`, `pvt_train`,
+  `combat_status` and `queue_task`.
+- Config schema 13 → 14. Upgrading keeps everything, and never turns PvP on.
+
 ## 3.25.3
 - **Bedrock add-on 1.1.0 — the real reason nothing worked.** 1.0.1 fixed a crash, but the
   add-on still did nothing *and produced no logs at all*, which turned out to be a second,

@@ -110,6 +110,30 @@ list, and the Ollama model pool — are still managed with commands
 (`/ai admin models|keylist|ollama models add|remove|list`), since they're add/remove
 lists rather than single values.
 
+## How fast it acts, and how it fights (3.26.0)
+
+On **Settings → Behavior**:
+
+| Setting | Default | What it does |
+|---------|---------|--------------|
+| `reactionSpeed` | `fast` | One setting for every pause the mod adds — step delay, head-turn rate, how often it re-thinks, vision rate, script budget. `instant` / `fast` / `human`. |
+| `combatSkill` | `skilled` | `basic` (walk in and swing), `skilled` (range, circling, shield, disengage), `expert` (crits, bow). |
+| `allowPvp` | **off** | May a companion fight a **player** at all. Even on, provoked-only and never the owner or anyone trusted. |
+
+`actionTickDelay` still exists on the Developer tab but is now a **floor**: raise it
+above 2 deliberately and it is honoured, otherwise `reactionSpeed` decides.
+See **[Speed & Combat](Speed-and-Combat)**.
+
+## Learning by watching — PVT (3.26.0)
+
+Also on **Settings → Behavior**. `pvtEnabled`, `pvtAutoRecord`, `pvtConfidence`,
+`pvtHiddenSize`, `pvtEpochs`, `pvtLearningRate`, `pvtMaxFrames`. Recording is opt-in
+per player and never enabled by a setting — see
+**[PVT — learning by watching](PVT-Learning-By-Watching)**.
+
+The **Thinking style** cycler gains a third option, *"Act on what it learned by
+watching"* (`aiLogicMode = pvt`).
+
 ## AI provider presets (3.24.0)
 
 Blockpal talks to any **OpenAI-compatible** chat-completions endpoint, so switching

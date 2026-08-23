@@ -36,8 +36,13 @@ import java.util.Deque;
  */
 public class BotBrain {
 
-    /** Minimum ticks between two thinking rounds — one look/plan every few seconds. */
-    private static final int THINK_INTERVAL = 100;   // 5 s
+    /**
+      * Minimum ticks between two thinking rounds, from {@link Tempo}. This used to be a
+      * flat 100 ticks measured from when a round <i>started</i>, so a bot that finished
+      * its script in one second then stood still for four.
+      */
+    private static int thinkInterval() { return Tempo.current().thinkInterval(); }
+
     /** Extra pause after a failed round, so a broken model can't be asked 20×/second. */
     private static final int ERROR_BACKOFF = 200;    // 10 s
 
@@ -46,10 +51,15 @@ public class BotBrain {
     private final AiAssistantEntity bot;
     private final BotInput input = new BotInput();
     private final SurvivalBrain survival = new SurvivalBrain();
+    private final com.milkdromeda.blockpal.combat.CombatBrain combat =
+            new com.milkdromeda.blockpal.combat.CombatBrain();
     /** Recent outcomes, fed back to the model so it can see whether its last idea worked. */
     private final Deque<String> journal = new ArrayDeque<>();
 
     private ScriptRunner runner;
+    /** The learned policy driving this bot, when aiLogicMode is "pvt". Built on demand. */
+    private com.milkdromeda.blockpal.pvt.PvtBrain pvt;
+    private boolean pvtChecked;
     private String goal = "";
     private String lastThought = "";
     private int thinkCooldown = 40;
@@ -124,9 +134,10 @@ public class BotBrain {
         releaseControls();
     }
 
-    /** Full stop: script, goal and pending thought. */
+    /** Full stop: script, goal, pending thought and any fight. */
     public void stop() {
         goal = "";
+        combat.disengage(bot, input);
         stopScript();
     }
 
@@ -146,7 +157,9 @@ public class BotBrain {
             if (done) {
                 String log = runner.logText();
                 note("I ran a script: " + log);
-                if (runner.failed()) thinkCooldown = Math.max(thinkCooldown, 20);
+                // Finishing is itself the cue to think again. Waiting out a cooldown that
+                // started when the *last* round began is what made a busy bot look idle.
+                thinkCooldown = runner.failed() ? Math.max(thinkCooldown, 20) : 0;
                 runner = null;
                 input.releaseAll();
                 releaseControls();
@@ -160,11 +173,55 @@ public class BotBrain {
             input.tick(bot, level);
             return;
         }
+
+        // A fight outranks both learning and thinking: whatever the bot meant to be
+        // doing, the thing swinging at it is the more pressing matter.
+        if (combat.tick(bot, level, input)) {
+            takeControls();
+            input.tick(bot, level);
+            return;
+        }
+
+        // Then the learned policy, if this bot is running on one. It yields the tick back
+        // when it isn't confident, so the thinking brain below still gets its turn.
+        if (pvtDriving(level, input)) {
+            takeControls();
+            input.tick(bot, level);
+            return;
+        }
         releaseControls();
 
         if (thinkCooldown > 0) thinkCooldown--;
         else maybeThink(level);
     }
+
+    /**
+     * Runs the pre-video-trained policy for a tick, if there is one and this bot is set
+     * to use it. Cached per bot, and re-checked whenever a fresh policy is trained.
+     */
+    private boolean pvtDriving(ServerLevel level, BotInput input) {
+        ModConfig cfg = ModConfig.get();
+        if (!cfg.pvtEnabled || !"pvt".equalsIgnoreCase(cfg.aiLogicMode)) return false;
+        if (!pvtChecked) {
+            pvtChecked = true;
+            pvt = com.milkdromeda.blockpal.pvt.PvtBrain.create();
+        }
+        return pvt != null && pvt.tick(bot, level, input);
+    }
+
+    /** Forgets the cached policy so a newly trained one is picked up. */
+    public void reloadPolicy() {
+        pvtChecked = false;
+        pvt = null;
+    }
+
+    /** What the learned policy is doing right now, for status readouts. */
+    public String pvtStatus() {
+        return pvt == null ? "" : pvt.describe();
+    }
+
+    /** The combat controller, so commands can order or call off a fight. */
+    public com.milkdromeda.blockpal.combat.CombatBrain combat() { return combat; }
 
     /**
      * While the brain drives, the vanilla goal system must not fight it for the same
@@ -188,16 +245,28 @@ public class BotBrain {
     private void maybeThink(ServerLevel level) {
         if (thinking) return;
         ModConfig cfg = ModConfig.get();
-        if (!"code".equalsIgnoreCase(cfg.aiLogicMode)) return;          // classic planner instead
+        // "pvt" still thinks: the learned policy handles reflexes, the model handles
+        // intent, and whichever is unsure defers to the other.
+        if (!"code".equalsIgnoreCase(cfg.aiLogicMode)
+                && !"pvt".equalsIgnoreCase(cfg.aiLogicMode)) return;    // classic planner instead
         AiConnection connection = cfg.connection();
         if (!connection.usesModel()) return;                            // MCP / off: not our job
+        // Finished the last job? Take the next one off the queue before deciding there
+        // is nothing to do.
+        if (goal.isEmpty()) {
+            String queued = bot.pollTask();
+            if (queued != null) {
+                setGoal(queued);
+                bot.broadcastMessage("Next up: " + queued);
+            }
+        }
         if (!bot.isAutonomous() && goal.isEmpty()) return;              // told to stand still
         if (com.milkdromeda.blockpal.EmergencyState.isDisabled()) return;
 
         HuggingFaceClient.ApiAuth auth = bot.resolveAuth();
         if (auth == null || !auth.usable()) return;
 
-        thinkCooldown = THINK_INTERVAL;
+        thinkCooldown = thinkInterval();
         thinking = true;
 
         BotVision.Snapshot look = bot.look();
