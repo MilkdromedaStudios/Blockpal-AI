@@ -51,8 +51,11 @@ import java.util.List;
  * bot is <i>slower and clumsier</i> than the old "teleport-and-setblock" planner — that
  * is the trade the design makes on purpose.
  *
- * <p><b>It never attacks players.</b> A companion swinging at people is a griefing tool,
- * so player targets are skipped no matter what a script asks for.
+ * <p><b>It will not attack a player unless the server has allowed it and that player
+ * started the fight.</b> A companion swinging at people is a griefing tool, so the one
+ * decision is made in {@link com.milkdromeda.blockpal.combat.PvpRules} — off by default,
+ * ops-only to enable, and provoked-only even then. Nothing here, and no script, can route
+ * around it.
  */
 public class BotInput {
 
@@ -404,15 +407,21 @@ public class BotInput {
 
     /**
      * The nearest creature the crosshair line passes through, within reach.
-     * Players are never returned — a companion must not be usable as a weapon.
+     *
+     * <p>A player is only ever returned when
+     * {@link com.milkdromeda.blockpal.combat.PvpRules#mayAttack} says so, which is the
+     * single place that decision is made. Every path that can produce a swing — a script
+     * calling {@code attack()}, the combat brain, a learned policy pressing the button —
+     * comes through here, so there is exactly one gate rather than one per caller.
      */
     public static LivingEntity entityInCrosshair(AiAssistantEntity bot, ServerLevel level) {
         Vec3 eye = bot.getEyePosition();
         Vec3 end = eye.add(bot.getViewVector(1.0f).scale(REACH));
         AABB search = new AABB(eye, end).inflate(1.0);
         List<Entity> candidates = level.getEntities(bot, search,
-                e -> e.isAlive() && e instanceof LivingEntity && !(e instanceof Player)
-                        && !(e instanceof ItemEntity));
+                e -> e.isAlive() && e instanceof LivingEntity && !(e instanceof ItemEntity)
+                        && (!(e instanceof Player p)
+                            || com.milkdromeda.blockpal.combat.PvpRules.mayAttack(bot, p)));
         LivingEntity best = null;
         double bestDist = Double.MAX_VALUE;
         for (Entity e : candidates) {

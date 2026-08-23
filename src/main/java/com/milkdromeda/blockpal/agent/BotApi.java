@@ -124,6 +124,37 @@ public final class BotApi {
         fn("takeall", 0, 0);
         fn("put", 1, 2);
         fn("putall", 0, 1);
+        // ── knowing more about the world ──
+        fn("inventorylist", 0, 0);
+        fn("hasspace", 0, 0);
+        fn("nearestplayer", 0, 1);
+        fn("playername", 0, 1);
+        fn("isday", 0, 0);
+        fn("israining", 0, 0);
+        fn("dimension", 0, 0);
+        fn("armor", 0, 0);
+        fn("cansee", 3, 3);
+        // ── remembering things between sessions ──
+        fn("remember", 2, 2);
+        fn("recall", 1, 1);
+        fn("forget", 1, 1);
+        fn("setwaypoint", 1, 1);
+        fn("waypoint", 1, 1);
+        fn("waypoints", 0, 0);
+        fn("gotowaypoint", 1, 1);
+        // ── making things ──
+        fn("craft", 1, 2);
+        fn("torch", 0, 0);
+        // ── bigger jobs ──
+        fn("tunnel", 1, 1);
+        fn("bridge", 1, 1);
+        fn("pillarup", 1, 1);
+        fn("stairsdown", 1, 1);
+        fn("minevein", 3, 3);
+        fn("harvest", 0, 1);
+        fn("plant", 0, 1);
+        fn("defend", 0, 1);
+        fn("sleep", 0, 0);
     }
 
     public static boolean isFunction(String name) {
@@ -206,6 +237,41 @@ public final class BotApi {
               put("raw_iron", 8) putAll()  move items out of my backpack (furnace fuel
                                            and inputs go to the right slot automatically)
               closeContainer()
+
+            KNOWING MORE
+              inventoryList()              everything I'm carrying, as text
+              hasSpace()                   is there room in my backpack
+              nearestPlayer(radius)        -> "x,y,z" of the closest person
+              playerName(radius)           their name
+              isDay() isRaining()          weather and time of day
+              dimension()                  "overworld", "the_nether", ...
+              armor()                      my armour points
+              canSee(x, y, z)              is there a clear line to that block
+
+            REMEMBERING (kept when the world is saved)
+              remember("key", "value")     write a note to myself
+              recall("key")                read it back  ("" if I never wrote it)
+              forget("key")
+              setWaypoint("home")          note where I'm standing
+              waypoint("home")             -> "x,y,z"    waypoints() lists them
+              goToWaypoint("home")         walk back there
+
+            MAKING THINGS
+              craft("stick", 8)            real recipes, from my own ingredients;
+                                           anything bigger than 2x2 needs a crafting
+                                           table within reach, like it would for you
+              torch()                      put down a light where I'm standing
+
+            BIGGER JOBS (these take a while — I keep at them)
+              tunnel(20)                   dig a corridor two blocks high ahead of me
+              stairsDown(15)               dig down as a staircase, checking for liquid
+              bridge(12)                   walk forward laying blocks across a gap
+              pillarUp(10)                 jump-and-place my way upwards
+              mineVein(x, y, z)            follow a seam of ore, not just one block
+              harvest(radius)              break every fully grown crop nearby
+              plant(radius)                sow my seeds on empty farmland
+              defend(ticks)                fight what's attacking us
+              sleep()                      find a bed and get in it
 
             LANGUAGE
               let n = 3                    variables
@@ -308,8 +374,80 @@ public final class BotApi {
             case "putall" -> (double) moveItems(bot, runner, level,
                     args.isEmpty() ? "" : str(args, 0), 64 * 64, false);
 
+            // ── knowing more about the world ──
+            case "inventorylist" -> BotSkills.inventoryList(bot);
+            case "hasspace" -> BotSkills.hasSpace(bot);
+            case "nearestplayer" -> BotSkills.nearestPlayer(bot, level,
+                    args.isEmpty() ? 24 : num(args, 0));
+            case "playername" -> BotSkills.nearestPlayerName(bot, level,
+                    args.isEmpty() ? 24 : num(args, 0));
+            case "isday" -> BotSkills.isDay(level);
+            case "israining" -> level.isRaining();
+            case "dimension" -> BotSkills.dimensionName(level);
+            case "armor" -> (double) bot.getArmorValue();
+            case "cansee" -> BotSkills.canSee(bot, level, pos(args, 0));
+
+            // ── remembering things between sessions ──
+            case "remember" -> { bot.remember(str(args, 0), str(args, 1)); yield null; }
+            case "recall" -> bot.recall(str(args, 0));
+            case "forget" -> bot.forget(str(args, 0));
+            case "setwaypoint" -> BotSkills.setWaypoint(bot, str(args, 0));
+            case "waypoint" -> BotSkills.getWaypoint(bot, str(args, 0));
+            case "waypoints" -> BotSkills.waypointList(bot);
+            case "gotowaypoint" -> goToWaypoint(bot, str(args, 0), runner);
+
+            // ── making things ──
+            case "craft" -> craft(bot, level, runner, str(args, 0),
+                    args.size() > 1 ? (int) num(args, 1) : 1);
+            case "torch" -> { runner.log(BotSkills.placeTorch(bot, level, input)); yield null; }
+
+            // ── bigger jobs ──
+            case "tunnel" -> new BotSkills.TunnelTask(bot, (int) num(args, 0));
+            case "bridge" -> new BotSkills.BridgeTask(bot, (int) num(args, 0));
+            case "pillarup" -> new BotSkills.PillarTask((int) num(args, 0));
+            case "stairsdown" -> new BotSkills.StairsDownTask(bot, (int) num(args, 0));
+            case "minevein" -> new BotSkills.MineVeinTask(pos(args, 0));
+            case "harvest" -> new BotSkills.HarvestTask(args.isEmpty() ? 8 : num(args, 0));
+            case "plant" -> new BotSkills.PlantTask(args.isEmpty() ? 8 : num(args, 0));
+            case "defend" -> new BotSkills.DefendTask(args.isEmpty() ? 200 : ticks(args, 0));
+            case "sleep" -> new BotSkills.SleepTask();
+
             default -> throw new AgentScript.ScriptException("no action called '" + name + "'");
         };
+    }
+
+    /** Walks to a named waypoint, or logs that there isn't one. */
+    private static Object goToWaypoint(AiAssistantEntity bot, String name, ScriptRunner runner) {
+        String at = BotSkills.getWaypoint(bot, name);
+        if (at.isBlank()) {
+            runner.log("I don't have a waypoint called '" + name + "'");
+            return false;
+        }
+        return goToTask(coordFrom(at, 0), coordFrom(at, 1), coordFrom(at, 2), 600);
+    }
+
+    /** Crafts, and puts the outcome in the script log either way. */
+    private static Object craft(AiAssistantEntity bot, ServerLevel level, ScriptRunner runner,
+                                String what, int count) {
+        BotCrafting.Result result = BotCrafting.craft(bot, level, what, count);
+        runner.log(result.message());
+        return (double) result.crafted();
+    }
+
+    // ── held actions, as building blocks for bigger jobs ────────────────────────
+
+    /**
+     * The single-block actions, exposed so {@link BotSkills} can compose jobs out of
+     * them rather than reimplementing walking-into-reach-and-mining for every skill.
+     */
+    public static Task mineAtTask(BlockPos target) { return new MineAtTask(target); }
+
+    public static Task useAtTask(BlockPos target, boolean place) {
+        return new UseAtTask(target, place);
+    }
+
+    public static Task goToTask(double x, double y, double z, int maxTicks) {
+        return new GoToTask(x, y, z, maxTicks);
     }
 
     // ── held action implementations ─────────────────────────────────────────────

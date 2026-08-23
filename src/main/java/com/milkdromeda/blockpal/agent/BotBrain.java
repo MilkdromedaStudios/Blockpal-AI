@@ -51,6 +51,8 @@ public class BotBrain {
     private final AiAssistantEntity bot;
     private final BotInput input = new BotInput();
     private final SurvivalBrain survival = new SurvivalBrain();
+    private final com.milkdromeda.blockpal.combat.CombatBrain combat =
+            new com.milkdromeda.blockpal.combat.CombatBrain();
     /** Recent outcomes, fed back to the model so it can see whether its last idea worked. */
     private final Deque<String> journal = new ArrayDeque<>();
 
@@ -132,9 +134,10 @@ public class BotBrain {
         releaseControls();
     }
 
-    /** Full stop: script, goal and pending thought. */
+    /** Full stop: script, goal, pending thought and any fight. */
     public void stop() {
         goal = "";
+        combat.disengage(bot, input);
         stopScript();
     }
 
@@ -166,6 +169,14 @@ public class BotBrain {
 
         // Nothing scripted: keep-alive reflexes get a look in.
         if (ModConfig.get().survivalBrain && survival.tick(bot, level, input)) {
+            takeControls();
+            input.tick(bot, level);
+            return;
+        }
+
+        // A fight outranks both learning and thinking: whatever the bot meant to be
+        // doing, the thing swinging at it is the more pressing matter.
+        if (combat.tick(bot, level, input)) {
             takeControls();
             input.tick(bot, level);
             return;
@@ -208,6 +219,9 @@ public class BotBrain {
     public String pvtStatus() {
         return pvt == null ? "" : pvt.describe();
     }
+
+    /** The combat controller, so commands can order or call off a fight. */
+    public com.milkdromeda.blockpal.combat.CombatBrain combat() { return combat; }
 
     /**
      * While the brain drives, the vanilla goal system must not fight it for the same
