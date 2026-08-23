@@ -107,6 +107,29 @@ public final class McpTools {
                 "What the companion is wearing, holding and carrying.",
                 props().add("bot", "string", "Which companion (optional).", false)));
 
+        tools.add(tool("pvt_status",
+                "How pre-video training is going: whether a learned policy exists, how much "
+                        + "recorded play has been banked, and whether training is running. PVT is the "
+                        + "layer that learns to act from watching people play, so a companion can act "
+                        + "reflexively without asking a model anything.",
+                props()));
+
+        tools.add(tool("pvt_train",
+                "Train (or retrain) the policy on the play recorded so far. Runs in the background "
+                        + "on the server and returns immediately — poll pvt_status for progress.",
+                props()));
+
+        tools.add(tool("combat_status",
+                "What the companion is fighting, how skilled it is, and whether this server lets "
+                        + "companions fight players at all.",
+                props().add("bot", "string", "Which companion (optional).", false)));
+
+        tools.add(tool("queue_task",
+                "Add a job to a companion's list. It works through them in order once whatever it "
+                        + "is doing now is finished.",
+                props().add("task", "string", "What to do, in plain language.", true)
+                       .add("bot", "string", "Which companion (optional).", false)));
+
         return tools;
     }
 
@@ -129,6 +152,32 @@ public final class McpTools {
                     return bot == null ? noBot() : text(observe(bot), false);
                 });
                 case "api_reference" -> text(BotApi.reference(), false);
+                case "pvt_status" -> text(com.milkdromeda.blockpal.pvt.PvtManager.status(), false);
+                case "pvt_train" -> {
+                    boolean started = com.milkdromeda.blockpal.pvt.PvtManager.train(server, null);
+                    yield text(started
+                            ? "Training started in the background. Poll pvt_status for progress."
+                            : "Training is already running — poll pvt_status.", false);
+                }
+                case "combat_status" -> onServer(server, () -> {
+                    AiAssistantEntity bot = resolve(server, str(args, "bot"));
+                    if (bot == null) return noBot();
+                    return text(bot.brain().combat().describe()
+                            + "\nSkill: " + com.milkdromeda.blockpal.combat.CombatSkill.current().label()
+                            + "\nMay fight players: "
+                            + (com.milkdromeda.blockpal.config.ModConfig.get().allowPvp
+                                    ? "yes, but only someone who started it" : "no"), false);
+                });
+                case "queue_task" -> onServer(server, () -> {
+                    AiAssistantEntity bot = resolve(server, str(args, "bot"));
+                    if (bot == null) return noBot();
+                    String task = str(args, "task");
+                    if (!bot.queueTask(task)) {
+                        return text("Its list is full — it can hold 16 jobs.", true);
+                    }
+                    return text("Queued. " + bot.getAssistantName() + " has "
+                            + bot.taskQueue().size() + " job(s) waiting.", false);
+                });
                 case "run_code" -> runCode(server, str(args, "bot"), str(args, "code"),
                         (int) num(args, "wait_seconds", 20));
                 case "script_status" -> onServer(server, () -> {

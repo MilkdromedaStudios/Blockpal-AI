@@ -884,6 +884,7 @@ public class AiAssistantEntity extends PathfinderMob {
         if (!trusted.isEmpty()) output.store("Trusted", TrustEntry.LIST_CODEC, trustedEntries());
         if (pendingTask != null) output.putString("PendingTask", pendingTask);
         if (!memory.isEmpty()) output.putString("Memory", memoryToString());
+        if (!taskQueue.isEmpty()) output.putString("TaskQueue", queueToString());
         output.putBoolean("AutonomousMode", autonomousMode);
         ContainerHelper.saveAllItems(output.child("Inventory"), inventorySnapshot());
     }
@@ -902,6 +903,7 @@ public class AiAssistantEntity extends PathfinderMob {
         input.read("OwnerUuid", UUIDUtil.STRING_CODEC).ifPresent(uuid -> ownerUuid = uuid);
         ownerName = input.getStringOr("OwnerName", "");
         memoryFromString(input.getStringOr("Memory", ""));
+        queueFromString(input.getStringOr("TaskQueue", ""));
         trusted.clear();
         input.read("Trusted", TrustEntry.LIST_CODEC).ifPresent(list -> {
             for (TrustEntry e : list) {
@@ -1119,6 +1121,50 @@ public class AiAssistantEntity extends PathfinderMob {
             int eq = line.indexOf('=');
             if (eq <= 0) continue;
             remember(line.substring(0, eq), line.substring(eq + 1));
+        }
+    }
+
+    // ── a queue of things to do ─────────────────────────────────────────────────
+
+    /**
+     * Jobs lined up for when the current one finishes. Without this, telling a companion
+     * to do three things means standing there and telling it the second one at the right
+     * moment; with it, you queue the afternoon's work and walk away.
+     *
+     * <p>Persisted, because "chop wood then build the wall" should survive logging off.
+     */
+    private final java.util.ArrayList<String> taskQueue = new java.util.ArrayList<>();
+
+    private static final int QUEUE_LIMIT = 16;
+
+    /** @return false when the queue is full */
+    public boolean queueTask(String task) {
+        if (task == null || task.isBlank()) return false;
+        if (taskQueue.size() >= QUEUE_LIMIT) return false;
+        taskQueue.add(task.trim());
+        return true;
+    }
+
+    /** Takes the next job off the queue, or null when there's nothing waiting. */
+    public String pollTask() {
+        return taskQueue.isEmpty() ? null : taskQueue.remove(0);
+    }
+
+    public java.util.List<String> taskQueue() { return java.util.List.copyOf(taskQueue); }
+
+    public int clearQueue() {
+        int n = taskQueue.size();
+        taskQueue.clear();
+        return n;
+    }
+
+    private String queueToString() { return String.join("\n", taskQueue); }
+
+    private void queueFromString(String raw) {
+        taskQueue.clear();
+        if (raw == null || raw.isBlank()) return;
+        for (String line : raw.split("\n")) {
+            if (!line.isBlank()) queueTask(line);
         }
     }
 

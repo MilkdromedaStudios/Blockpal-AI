@@ -76,7 +76,19 @@ public record ConfigData(
         String freeModel,
         String player2LocalUrl,
         int villageTargetPopulation,
-        int villageStartPopulation
+        int villageStartPopulation,
+        // ── how fast it acts, how it fights, and what it learned (3.26.0) ──
+        String reactionSpeed,   // agent/Tempo id: instant | fast | human
+        String combatSkill,     // combat/CombatSkill id: basic | skilled | expert
+        boolean allowPvp,       // may a companion fight a PLAYER at all (provoked only)
+        boolean pvtEnabled,
+        boolean pvtAutoRecord,
+        int pvtHiddenSize,
+        int pvtEpochs,
+        double pvtLearningRate,
+        int pvtMaxFrames,
+        double pvtConfidence,
+        boolean pvtHasPolicy    // display-only: is there a trained policy on disk?
 ) {
     public static final StreamCodec<FriendlyByteBuf, ConfigData> STREAM_CODEC =
             StreamCodec.of(ConfigData::write, ConfigData::read);
@@ -136,7 +148,18 @@ public record ConfigData(
                 c.freeModel,
                 c.player2Url,
                 c.villageTargetPopulation,
-                c.villageStartPopulation);
+                c.villageStartPopulation,
+                c.reactionSpeed,
+                c.combatSkill,
+                c.allowPvp,
+                c.pvtEnabled,
+                c.pvtAutoRecord,
+                c.pvtHiddenSize,
+                c.pvtEpochs,
+                c.pvtLearningRate,
+                c.pvtMaxFrames,
+                c.pvtConfidence,
+                com.milkdromeda.blockpal.pvt.PvtManager.hasPolicy());
     }
 
     /** Applies this snapshot onto the live config, clamping and keeping blanks. */
@@ -211,6 +234,22 @@ public record ConfigData(
         if (notBlank(player2LocalUrl)) c.player2Url = player2LocalUrl.trim();
         c.villageTargetPopulation = (int) clamp(villageTargetPopulation, 2, 200);
         c.villageStartPopulation = (int) clamp(villageStartPopulation, 1, 50);
+        // Clamped to exactly what ModConfig.normalize() would enforce, so the panel can
+        // never write a value the next load would silently correct behind the player.
+        if (com.milkdromeda.blockpal.agent.Tempo.byId(reactionSpeed) != null) {
+            c.reactionSpeed = reactionSpeed.trim().toLowerCase(java.util.Locale.ROOT);
+        }
+        if (com.milkdromeda.blockpal.combat.CombatSkill.byId(combatSkill) != null) {
+            c.combatSkill = combatSkill.trim().toLowerCase(java.util.Locale.ROOT);
+        }
+        c.allowPvp = allowPvp;
+        c.pvtEnabled = pvtEnabled;
+        c.pvtAutoRecord = pvtAutoRecord;
+        c.pvtHiddenSize = (int) clamp(pvtHiddenSize, 32, 512);
+        c.pvtEpochs = (int) clamp(pvtEpochs, 1, 200);
+        c.pvtLearningRate = clamp(pvtLearningRate, 0.00001, 0.1);
+        c.pvtMaxFrames = (int) clamp(pvtMaxFrames, 1000, 5_000_000);
+        c.pvtConfidence = clamp(pvtConfidence, 0, 1);
     }
 
     private static boolean notBlank(String s) {
@@ -274,6 +313,17 @@ public record ConfigData(
         buf.writeUtf(d.player2LocalUrl == null ? "" : d.player2LocalUrl);
         buf.writeInt(d.villageTargetPopulation);
         buf.writeInt(d.villageStartPopulation);
+        buf.writeUtf(d.reactionSpeed == null ? "fast" : d.reactionSpeed);
+        buf.writeUtf(d.combatSkill == null ? "skilled" : d.combatSkill);
+        buf.writeBoolean(d.allowPvp);
+        buf.writeBoolean(d.pvtEnabled);
+        buf.writeBoolean(d.pvtAutoRecord);
+        buf.writeInt(d.pvtHiddenSize);
+        buf.writeInt(d.pvtEpochs);
+        buf.writeDouble(d.pvtLearningRate);
+        buf.writeInt(d.pvtMaxFrames);
+        buf.writeDouble(d.pvtConfidence);
+        buf.writeBoolean(d.pvtHasPolicy);
     }
 
     private static ConfigData read(FriendlyByteBuf buf) {
@@ -329,6 +379,17 @@ public record ConfigData(
                 buf.readUtf(),       // freeModel
                 buf.readUtf(),       // player2LocalUrl
                 buf.readInt(),       // villageTargetPopulation
-                buf.readInt());      // villageStartPopulation
+                buf.readInt(),       // villageStartPopulation
+                buf.readUtf(),       // reactionSpeed
+                buf.readUtf(),       // combatSkill
+                buf.readBoolean(),   // allowPvp
+                buf.readBoolean(),   // pvtEnabled
+                buf.readBoolean(),   // pvtAutoRecord
+                buf.readInt(),       // pvtHiddenSize
+                buf.readInt(),       // pvtEpochs
+                buf.readDouble(),    // pvtLearningRate
+                buf.readInt(),       // pvtMaxFrames
+                buf.readDouble(),    // pvtConfidence
+                buf.readBoolean());  // pvtHasPolicy
     }
 }

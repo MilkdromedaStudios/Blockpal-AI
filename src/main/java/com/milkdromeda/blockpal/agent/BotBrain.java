@@ -251,6 +251,15 @@ public class BotBrain {
                 && !"pvt".equalsIgnoreCase(cfg.aiLogicMode)) return;    // classic planner instead
         AiConnection connection = cfg.connection();
         if (!connection.usesModel()) return;                            // MCP / off: not our job
+        // Finished the last job? Take the next one off the queue before deciding there
+        // is nothing to do.
+        if (goal.isEmpty()) {
+            String queued = bot.pollTask();
+            if (queued != null) {
+                setGoal(queued);
+                bot.broadcastMessage("Next up: " + queued);
+            }
+        }
         if (!bot.isAutonomous() && goal.isEmpty()) return;              // told to stand still
         if (com.milkdromeda.blockpal.EmergencyState.isDisabled()) return;
 

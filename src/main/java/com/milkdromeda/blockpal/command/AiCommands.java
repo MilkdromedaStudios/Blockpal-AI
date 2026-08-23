@@ -162,6 +162,45 @@ public class AiCommands {
                         // Configuration lives in the in-game panel now — no confusing
                         // per-setting commands. /ai menu (or /ai panel) opens it;
                         // /ai tutorial walks new players through everything.
+                        // ── PVT: learning to act by watching ─────────────────────────
+                        .then(Commands.literal("pvt")
+                                .executes(AiCommands::pvtStatus)
+                                .then(Commands.literal("status").executes(AiCommands::pvtStatus))
+                                .then(Commands.literal("watch")
+                                        .then(Commands.literal("on").executes(ctx -> pvtWatch(ctx, true)))
+                                        .then(Commands.literal("off").executes(ctx -> pvtWatch(ctx, false))))
+                                .then(Commands.literal("record")
+                                        .then(Commands.literal("start").executes(ctx -> pvtRecord(ctx, true)))
+                                        .then(Commands.literal("stop").executes(ctx -> pvtRecord(ctx, false))))
+                                .then(Commands.literal("train").executes(AiCommands::pvtTrain))
+                                .then(Commands.literal("clear").executes(AiCommands::pvtClear))
+                                .then(Commands.literal("use")
+                                        .then(Commands.literal("on").executes(ctx -> pvtUse(ctx, true)))
+                                        .then(Commands.literal("off").executes(ctx -> pvtUse(ctx, false)))))
+
+                        // ── how fast it acts, and how well it fights ─────────────────
+                        .then(Commands.literal("speed")
+                                .executes(AiCommands::speedShow)
+                                .then(Commands.argument("tempo", StringArgumentType.word())
+                                        .executes(AiCommands::speedSet)))
+
+                        .then(Commands.literal("combat")
+                                .executes(AiCommands::combatShow)
+                                .then(Commands.argument("skill", StringArgumentType.word())
+                                        .executes(AiCommands::combatSet)))
+
+                        .then(Commands.literal("attack")
+                                .then(Commands.argument("player", StringArgumentType.word())
+                                        .executes(AiCommands::attackPlayer)))
+
+                        // ── lining up work ───────────────────────────────────────────
+                        .then(Commands.literal("queue")
+                                .executes(AiCommands::queueList)
+                                .then(Commands.literal("list").executes(AiCommands::queueList))
+                                .then(Commands.literal("clear").executes(AiCommands::queueClear))
+                                .then(Commands.argument("task", StringArgumentType.greedyString())
+                                        .executes(AiCommands::queueAdd)))
+
                         .then(Commands.literal("menu").executes(AiCommands::openMenu))
                         .then(Commands.literal("config").executes(AiCommands::openMenu))
                         .then(Commands.literal("tutorial").executes(AiCommands::openTutorial))
@@ -217,6 +256,9 @@ public class AiCommands {
                                         .then(Commands.argument("count", IntegerArgumentType.integer(0, 50))
                                                 .executes(ctx -> adminMaxBots(ctx,
                                                         IntegerArgumentType.getInteger(ctx, "count")))))
+                                .then(Commands.literal("pvp")
+                                        .then(Commands.literal("on").executes(ctx -> adminPvp(ctx, true)))
+                                        .then(Commands.literal("off").executes(ctx -> adminPvp(ctx, false))))
                                 .then(Commands.literal("requirekey")
                                         .then(Commands.literal("on").executes(ctx -> adminRequireKey(ctx, true)))
                                         .then(Commands.literal("off").executes(ctx -> adminRequireKey(ctx, false))))
@@ -322,6 +364,11 @@ public class AiCommands {
                 "§f/ai trust <player> §7· §funtrust <player> §7— let friends command this bot\n" +
                 "§f/ai voice §7— hold §fV§7 to TALK to it; share/link voices, pick its voice\n" +
                 "§f/ai <task> §7— tell it what to do (e.g. /ai build a 5x5 floor)\n" +
+                "§f/ai queue <task> §7— line jobs up; it works through them in order\n" +
+                "§f/ai speed [instant|fast|human] §7— how quickly it reacts\n" +
+                "§f/ai combat [basic|skilled|expert] §7— how well it fights\n" +
+                "§f/ai attack <player> §7— (owner) point it at someone, if this server allows it\n" +
+                "§f/ai pvt §7— teach it by letting it watch you play (see below)\n" +
                 "§f/ai dismiss §7— send it away\n" +
                 "§f/ai minigame [start <mode>|list|stop] §7— play a game mode with your party & bot\n" +
                 "§f/village start §7— play §fGrowth§7: an AI village that grows on its own (also §f/ai minigame start growth§7)\n" +
@@ -332,7 +379,13 @@ public class AiCommands {
                 "§f/ai mcp §7— connect Claude, ChatGPT, Grok or Gemini to this world\n" +
                 "§f/ai mykey <token>§7 · §f/ai model <id>§7 · §f/ai mymenu §7— your own API key & model\n" +
                 "§f/ai tutorial §7— a quick walkthrough of how to use Blockpal\n" +
-                "§f/ai admin §7— (ops) admin panel & global controls"
+                "§f/ai admin §7— (ops) admin panel & global controls\n" +
+                "§6\n" +
+                "§eTeach it by example (PVT — it learns from watching you play):\n" +
+                "§f/ai pvt watch on §7— let it learn from how YOU play (opt-in, off by default)\n" +
+                "§f/ai pvt status §7— what it has banked and whether it has learned anything yet\n" +
+                "§f/ai pvt train §7— (ops) train a policy from what people have played\n" +
+                "§f/ai pvt use on §7— (ops) let companions act on what they learned"
         ));
         return 1;
     }
@@ -1411,6 +1464,254 @@ public class AiCommands {
         ctx.getSource().sendSuccess(() -> Component.literal(
                 "§a[Blockpal] Players must use their own API key: " + (on ? "§eON" : "§7off")
                         + (on ? " §7(exempt trusted players with §f/ai admin keylist add <player>§7)" : "")), false);
+        return 1;
+    }
+
+    // ── PVT: pre-video training ───────────────────────────────────────────────
+
+    private static int pvtStatus(CommandContext<CommandSourceStack> ctx) {
+        String status = com.milkdromeda.blockpal.pvt.PvtManager.status();
+        for (String line : status.split("\n")) {
+            ctx.getSource().sendSuccess(() -> Component.literal("§b" + line), false);
+        }
+        ServerPlayer player = ctx.getSource().getPlayer();
+        if (player != null) {
+            boolean watching = com.milkdromeda.blockpal.pvt.PvtManager.hasConsented(player.getUUID());
+            ctx.getSource().sendSuccess(() -> Component.literal(
+                    "§7Your play is " + (watching ? "§abeing recorded§7 for training"
+                            : "§7not recorded") + ". Change it with §f/ai pvt watch on|off§7."), false);
+        }
+        return 1;
+    }
+
+    /** A player opting their OWN play in or out. Never usable on anybody else. */
+    private static int pvtWatch(CommandContext<CommandSourceStack> ctx, boolean on) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        if (!ModConfig.get().pvtEnabled) {
+            player.sendSystemMessage(Component.literal(
+                    "§cPVT is switched off on this server."));
+            return 0;
+        }
+        com.milkdromeda.blockpal.pvt.PvtManager.setConsent(player.getUUID(), on);
+        if (on) {
+            com.milkdromeda.blockpal.pvt.PvtManager.startRecording(player);
+            player.sendSystemMessage(Component.literal(
+                    "§a[Blockpal] Watching how you play. What gets stored is which way you "
+                            + "walked and where you looked \u2014 nothing else, and only while this is on. "
+                            + "Turn it off any time with §f/ai pvt watch off§a."));
+        } else {
+            com.milkdromeda.blockpal.pvt.PvtManager.stopRecording(player.getUUID());
+            player.sendSystemMessage(Component.literal(
+                    "§7[Blockpal] No longer recording your play. What was already banked stays "
+                            + "\u2014 an operator can delete it with §f/ai pvt clear§7."));
+        }
+        return 1;
+    }
+
+    private static int pvtRecord(CommandContext<CommandSourceStack> ctx, boolean start) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        if (start) {
+            if (!com.milkdromeda.blockpal.pvt.PvtManager.hasConsented(player.getUUID())) {
+                player.sendSystemMessage(Component.literal(
+                        "§eSay it's alright first: §f/ai pvt watch on§e."));
+                return 0;
+            }
+            String problem = com.milkdromeda.blockpal.pvt.PvtManager.startRecording(player);
+            player.sendSystemMessage(Component.literal(problem.isEmpty()
+                    ? "§a[Blockpal] Recording. Just play normally."
+                    : "§e" + problem));
+        } else {
+            String summary = com.milkdromeda.blockpal.pvt.PvtManager.stopRecording(player.getUUID());
+            player.sendSystemMessage(Component.literal(summary.isEmpty()
+                    ? "§7Nothing was being recorded." : "§a[Blockpal] " + summary));
+        }
+        return 1;
+    }
+
+    private static int pvtTrain(CommandContext<CommandSourceStack> ctx) {
+        if (!requireAdmin(ctx)) return 0;
+        MinecraftServer server = ctx.getSource().getServer();
+        CommandSourceStack source = ctx.getSource();
+        boolean started = com.milkdromeda.blockpal.pvt.PvtManager.train(server, trainer -> {
+            String message = trainer.error().isEmpty()
+                    ? "§a[Blockpal] " + trainer.result()
+                    : "§c[Blockpal] Training stopped: " + trainer.error();
+            server.getPlayerList().broadcastSystemMessage(Component.literal(message), false);
+        });
+        source.sendSuccess(() -> Component.literal(started
+                ? "§a[Blockpal] Training on what people have played. This runs in the "
+                        + "background \u2014 the server keeps going. §7/ai pvt status§a for progress."
+                : "§eTraining is already running. §7/ai pvt status"), false);
+        return 1;
+    }
+
+    private static int pvtClear(CommandContext<CommandSourceStack> ctx) {
+        if (!requireAdmin(ctx)) return 0;
+        int removed = com.milkdromeda.blockpal.pvt.PvtManager.clearRecordings();
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§a[Blockpal] Deleted " + removed + " recording file(s). The trained policy is "
+                        + "kept \u2014 delete pvt/policy.bpn to drop that too."), false);
+        return 1;
+    }
+
+    private static int pvtUse(CommandContext<CommandSourceStack> ctx, boolean on) {
+        if (!requireAdmin(ctx)) return 0;
+        if (on && !com.milkdromeda.blockpal.pvt.PvtManager.hasPolicy()) {
+            ctx.getSource().sendSuccess(() -> Component.literal(
+                    "§eThere's no trained policy yet. Record some play "
+                            + "(§f/ai pvt watch on§e), then §f/ai pvt train§e."), false);
+            return 0;
+        }
+        ModConfig.get().aiLogicMode = on ? "pvt" : "code";
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(on
+                ? "§a[Blockpal] Companions now act from what they learned by watching, and "
+                        + "still think with the model when they're unsure."
+                : "§a[Blockpal] Back to look-think-write-a-script."), false);
+        return 1;
+    }
+
+    // ── speed and fighting ────────────────────────────────────────────────────
+
+    private static int speedShow(CommandContext<CommandSourceStack> ctx) {
+        com.milkdromeda.blockpal.agent.Tempo t = com.milkdromeda.blockpal.agent.Tempo.current();
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§b[Blockpal] Reaction speed: §f" + t.label() + "§7 (" + t.id() + ")\n"
+                        + "§7Options: " + com.milkdromeda.blockpal.agent.Tempo.idList()
+                        + " \u2014 set with §f/ai speed <one of those>"), false);
+        return 1;
+    }
+
+    private static int speedSet(CommandContext<CommandSourceStack> ctx) {
+        if (!requireAdmin(ctx)) return 0;
+        String id = StringArgumentType.getString(ctx, "tempo");
+        com.milkdromeda.blockpal.agent.Tempo t = com.milkdromeda.blockpal.agent.Tempo.byId(id);
+        if (t == null) {
+            ctx.getSource().sendSuccess(() -> Component.literal(
+                    "§cNo such speed. Try: " + com.milkdromeda.blockpal.agent.Tempo.idList()), false);
+            return 0;
+        }
+        ModConfig.get().reactionSpeed = t.id();
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§a[Blockpal] Reaction speed: §f" + t.label()), false);
+        return 1;
+    }
+
+    private static int combatShow(CommandContext<CommandSourceStack> ctx) {
+        com.milkdromeda.blockpal.combat.CombatSkill s =
+                com.milkdromeda.blockpal.combat.CombatSkill.current();
+        boolean pvp = ModConfig.get().allowPvp;
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§b[Blockpal] Combat skill: §f" + s.label() + "§7 (" + s.id() + ")\n"
+                        + "§7Options: " + com.milkdromeda.blockpal.combat.CombatSkill.idList() + "\n"
+                        + "§7Fighting players: " + (pvp ? "§eallowed §7(and only ever someone who "
+                        + "started it)" : "§aoff")), false);
+        return 1;
+    }
+
+    private static int combatSet(CommandContext<CommandSourceStack> ctx) {
+        if (!requireAdmin(ctx)) return 0;
+        String id = StringArgumentType.getString(ctx, "skill");
+        com.milkdromeda.blockpal.combat.CombatSkill skill =
+                com.milkdromeda.blockpal.combat.CombatSkill.byId(id);
+        if (skill == null) {
+            ctx.getSource().sendSuccess(() -> Component.literal("§cNo such skill level. Try: "
+                    + com.milkdromeda.blockpal.combat.CombatSkill.idList()), false);
+            return 0;
+        }
+        ModConfig.get().combatSkill = skill.id();
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§a[Blockpal] Combat skill: §f" + skill.label()), false);
+        return 1;
+    }
+
+    private static int adminPvp(CommandContext<CommandSourceStack> ctx, boolean on) {
+        ModConfig.get().allowPvp = on;
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(on
+                ? "§e[Blockpal] Companions may now fight players \u2014 but only someone who "
+                        + "attacked them or their owner in the last ten seconds, or who their "
+                        + "owner named with §f/ai attack§e. Never their owner or anyone trusted."
+                : "§a[Blockpal] Companions will not raise a hand to a player."), false);
+        return 1;
+    }
+
+    /** Points a companion at a specific person. Owner-only, and it still has to be allowed. */
+    private static int attackPlayer(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        AiAssistantEntity ai = AiAssistantEntity.findFor(player, 64);
+        if (ai == null) return noAi(player);
+        // Ordering violence is a management decision, not an everyday command.
+        if (!ensureCanManage(player, ai)) return 0;
+
+        String name = StringArgumentType.getString(ctx, "player");
+        ServerPlayer target = ctx.getSource().getServer().getPlayerList().getPlayerByName(name);
+        if (target == null) {
+            player.sendSystemMessage(Component.literal("§cI can't see anyone called " + name + "."));
+            return 0;
+        }
+        String refusal = com.milkdromeda.blockpal.combat.PvpRules.refusalReason(ai, target);
+        if (!refusal.isEmpty()) {
+            player.sendSystemMessage(Component.literal(
+                    "§b" + ai.getAssistantName() + ": §f\"No \u2014 " + refusal + "\""));
+            return 0;
+        }
+        ai.setCombatOrder(target.getUUID());
+        ai.broadcastMessage("Alright. Watching " + target.getName().getString() + ".");
+        return 1;
+    }
+
+    // ── the work queue ────────────────────────────────────────────────────────
+
+    private static int queueAdd(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        AiAssistantEntity ai = AiAssistantEntity.findFor(player, 64);
+        if (ai == null) return noAi(player);
+        if (!ensureCanCommand(player, ai)) return 0;
+        String task = StringArgumentType.getString(ctx, "task");
+        if (!ai.queueTask(task)) {
+            player.sendSystemMessage(Component.literal(
+                    "§eIts list is full \u2014 §f/ai queue clear§e first."));
+            return 0;
+        }
+        ai.broadcastMessage("Added to my list (" + ai.taskQueue().size() + " waiting): " + task);
+        return 1;
+    }
+
+    private static int queueList(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        AiAssistantEntity ai = AiAssistantEntity.findFor(player, 64);
+        if (ai == null) return noAi(player);
+        List<String> queue = ai.taskQueue();
+        if (queue.isEmpty()) {
+            player.sendSystemMessage(Component.literal(
+                    "§7Nothing lined up. Add something with §f/ai queue <what to do>§7."));
+            return 1;
+        }
+        player.sendSystemMessage(Component.literal("§b" + ai.getAssistantName() + "'s list:"));
+        for (int i = 0; i < queue.size(); i++) {
+            int n = i + 1;
+            String job = queue.get(i);
+            player.sendSystemMessage(Component.literal("§7 " + n + ". §f" + job));
+        }
+        return 1;
+    }
+
+    private static int queueClear(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = getPlayer(ctx);
+        if (player == null) return 0;
+        AiAssistantEntity ai = AiAssistantEntity.findFor(player, 64);
+        if (ai == null) return noAi(player);
+        if (!ensureCanCommand(player, ai)) return 0;
+        int n = ai.clearQueue();
+        player.sendSystemMessage(Component.literal("§a[Blockpal] Cleared " + n + " queued job(s)."));
         return 1;
     }
 
