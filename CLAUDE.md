@@ -1115,6 +1115,10 @@ share code or versioning with the Java mod. Source in `bedrock/`, packaged artif
   connection and its aliases, schema-15 migration leaving free-service servers alone, garbage
   clamped, and the forged-consent packet being ignored). The 70-field `ConfigData` codec
   still round-trips.
+- **The jar is in `builds/`.** CI's `build` job ran the full `./gradlew build` on the pushed
+  commit and passed, so Loom packaging is verified too. `builds/blockpal-3.27.0.jar` is that
+  artifact, checked before committing: id/version/entrypoints correct, all six new
+  `localai/`+`LocalModel` classes present, 227 classes, zip intact, no key baked in.
 - *Not verified here:* there is no GPU in this environment, so the download, unpack, backend
   selection and `llama-server` process management are tested as far as they can be without
   one — what nobody has yet done is watch it answer a companion's question on a real card.
