@@ -88,7 +88,15 @@ public record ConfigData(
         double pvtLearningRate,
         int pvtMaxFrames,
         double pvtConfidence,
-        boolean pvtHasPolicy    // display-only: is there a trained policy on disk?
+        boolean pvtHasPolicy,   // display-only: is there a trained policy on disk?
+        // ── the local model that runs on this machine's GPU (3.27.0) ──
+        String localModelId,
+        int localPort,
+        int localGpuLayers,
+        int localContext,
+        boolean localAutoStart,
+        boolean localConsented, // display-only: consent is NEVER granted from a packet
+        String localState       // display-only: what the local model is doing right now
 ) {
     public static final StreamCodec<FriendlyByteBuf, ConfigData> STREAM_CODEC =
             StreamCodec.of(ConfigData::write, ConfigData::read);
@@ -159,7 +167,15 @@ public record ConfigData(
                 c.pvtLearningRate,
                 c.pvtMaxFrames,
                 c.pvtConfidence,
-                com.milkdromeda.blockpal.pvt.PvtManager.hasPolicy());
+                com.milkdromeda.blockpal.pvt.PvtManager.hasPolicy(),
+                c.localModelId,
+                c.localPort,
+                c.localGpuLayers,
+                c.localContext,
+                c.localAutoStart,
+                c.localConsented,
+                com.milkdromeda.blockpal.localai.LocalAiManager.state().name()
+                        .toLowerCase(java.util.Locale.ROOT));
     }
 
     /** Applies this snapshot onto the live config, clamping and keeping blanks. */
@@ -250,6 +266,18 @@ public record ConfigData(
         c.pvtLearningRate = clamp(pvtLearningRate, 0.00001, 0.1);
         c.pvtMaxFrames = (int) clamp(pvtMaxFrames, 1000, 5_000_000);
         c.pvtConfidence = clamp(pvtConfidence, 0, 1);
+
+        if (com.milkdromeda.blockpal.ai.LocalModel.byId(localModelId) != null) {
+            c.localModelId = localModelId.trim().toLowerCase(java.util.Locale.ROOT);
+        }
+        c.localPort = (int) clamp(localPort, 1024, 65535);
+        c.localGpuLayers = (int) clamp(localGpuLayers, -1, 999);
+        c.localContext = (int) clamp(localContext, 512, 32768);
+        c.localAutoStart = localAutoStart;
+        // localConsented is deliberately NOT applied. Agreeing to a two-gigabyte download
+        // is a decision someone makes at a prompt that tells them the size, not something
+        // a settings packet can flip — a modified client must not be able to start a
+        // download on the server by sending a boolean.
     }
 
     private static boolean notBlank(String s) {
@@ -324,6 +352,13 @@ public record ConfigData(
         buf.writeInt(d.pvtMaxFrames);
         buf.writeDouble(d.pvtConfidence);
         buf.writeBoolean(d.pvtHasPolicy);
+        buf.writeUtf(d.localModelId == null ? "qwen3b" : d.localModelId);
+        buf.writeInt(d.localPort);
+        buf.writeInt(d.localGpuLayers);
+        buf.writeInt(d.localContext);
+        buf.writeBoolean(d.localAutoStart);
+        buf.writeBoolean(d.localConsented);
+        buf.writeUtf(d.localState == null ? "off" : d.localState);
     }
 
     private static ConfigData read(FriendlyByteBuf buf) {
@@ -390,6 +425,13 @@ public record ConfigData(
                 buf.readDouble(),    // pvtLearningRate
                 buf.readInt(),       // pvtMaxFrames
                 buf.readDouble(),    // pvtConfidence
-                buf.readBoolean());  // pvtHasPolicy
+                buf.readBoolean(),   // pvtHasPolicy
+                buf.readUtf(),       // localModelId
+                buf.readInt(),       // localPort
+                buf.readInt(),       // localGpuLayers
+                buf.readInt(),       // localContext
+                buf.readBoolean(),   // localAutoStart
+                buf.readBoolean(),   // localConsented
+                buf.readUtf());      // localState
     }
 }

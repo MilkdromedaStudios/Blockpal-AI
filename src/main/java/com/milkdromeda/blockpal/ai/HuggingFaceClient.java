@@ -81,6 +81,15 @@ public class HuggingFaceClient {
                     yield new ApiAuth(player2LocalKey(cfg.player2Url), cfg.player2Model,
                             cfg.player2Url, false, true);
                 }
+                case LOCAL -> {
+                    // A model running on this machine, managed by Blockpal itself. No key,
+                    // and flagged local so it counts as usable while llama-server is still
+                    // loading — the request simply waits rather than the bot deciding it
+                    // has no AI at all. The model name is whatever llama-server loaded;
+                    // it ignores the field, but sending something readable helps the logs.
+                    yield new ApiAuth("", com.milkdromeda.blockpal.localai.LocalAiManager.model().id(),
+                            com.milkdromeda.blockpal.localai.LocalAiManager.endpoint(), false, true);
+                }
                 case OLLAMA -> new ApiAuth("", cfg.ollamaModel, cfg.ollamaUrl, false, true);
                 case FREE -> new ApiAuth("", cfg.freeModel, cfg.freeApiUrl, true, false);
                 case MCP, OFF -> new ApiAuth("", cfg.hfModel, cfg.apiUrl, false, false);

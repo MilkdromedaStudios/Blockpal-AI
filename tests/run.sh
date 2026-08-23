@@ -42,7 +42,9 @@ run "PVT network and action space" NetTest
 run "PVT data pipeline" PipelineTest
 run "ConfigData codec round-trip" ConfigCodecTest
 run "Script API consistency" ApiConsistency
-run "Config schema 14" ConfigTest
+run "Config schema" ConfigTest
+run "Archive extraction + zip-slip" ArchiveTest
+run "Local AI: 3 GB rule + consent" LocalAiTest
 
 rm -rf "$OUT"
 echo

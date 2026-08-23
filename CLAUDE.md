@@ -85,6 +85,43 @@ can do and how it evolved.
   picker (writes `defaultPersonality`). Config schema → v6 (upgrading installs default
   `allowCustomPersonality` true).
 
+### Local AI on this machine's GPU — the keyless option (3.27.0)
+- **`AiConnection.LOCAL` replaces `FREE` as the no-key connection.** Blockpal downloads a
+  GGUF model and runs llama.cpp's `llama-server` on loopback; because that speaks the same
+  OpenAI-compatible API, `ApiAuth.resolveFor` just points at
+  `http://127.0.0.1:<localPort>/v1/chat/completions` and nothing else in the mod changes.
+  `FREE` is kept (marked legacy) so servers already on it keep working — **migration does
+  not move them**, since that would mean a surprise 2 GB download on someone else's box.
+- **`ai/LocalModel`** is the catalogue, and **nothing is over 3 GB** (`MAX_BYTES`, asserted
+  by a test): `qwen3b` (1.8 GB, default), `coder3b` (1.8), `llama3b` (1.9), `qwen1.5b`
+  (0.9). Sizes are the real `Content-Length` checked against HuggingFace, because the
+  number is shown to a player before they agree to the download.
+- **Consent is a first-class step.** `/ai local setup` resolves a `Plan` (model + runtime +
+  what it will run on + total bytes + where it lands) and shows it; **`/ai local accept` is
+  the only thing that starts a download**. Not switching connection, not server start, not
+  the panel. `ConfigData.applyTo` deliberately **does not apply `localConsented`** — a
+  modified client must not be able to start a 2 GB download by sending a boolean, and
+  there is a test for exactly that.
+- **`localai/LlamaRelease`** resolves the right asset from the GitHub release listing at
+  runtime (like `TunnelManager` does for playit) rather than pinning a filename. Verified
+  against llama.cpp's own release workflow: Windows CUDA needs its separate `cudart-`
+  companion; the Windows CPU backend is already merged into the other Windows zips; and
+  **there is no Linux CUDA release**, so Linux GPU is Vulkan even on NVIDIA.
+  `localai/GpuProbe` shells `nvidia-smi` (cached, 4 s timeout) purely as a *hint* — every
+  path still falls back to a CPU build, so a wrong answer costs speed, never correctness.
+- **`localai/Archives`** unpacks zip and tar.gz. The JDK has no tar reader, so there is a
+  small one (same trade as the hand-rolled PNG encoder). Every entry goes through
+  `safeResolve` first — **zip-slip**: an entry named `../../mods/evil.jar` would otherwise
+  escape. `localai/Downloader` streams with progress and only moves the `.part` file into
+  place when complete, so an interrupted download never looks like a working model.
+- **`localai/LocalAiManager`** is the state machine (OFF → NEEDS_CONSENT → DOWNLOADING →
+  STARTING → READY / FAILED), spawns `llama-server` bound to 127.0.0.1, waits up to three
+  minutes for `GET /v1/models` to answer (it loads gigabytes first), and is stopped on
+  `SERVER_STOPPING` — a stray llama-server holding a GPU after Minecraft exits is somebody's
+  next bug report.
+- Commands `/ai local [status|setup [model]|accept|cancel|start|stop|models|log]`; panel
+  section on **AI & API**. Config schema → **v15**. Wiki: `wiki/Local-AI-On-Your-GPU.md`.
+
 ### The AI connection — exactly one (3.25.0)
 - `ai/AiConnection` is an enum of the **mutually exclusive** ways a server gets its
   intelligence: **MCP** (an outside AI app drives), **API_KEY**, **PLAYER2**, **OLLAMA**,
@@ -574,6 +611,10 @@ having Blockpal. Code lives under `client/assist/` + two GUI screens.
 | `/ai connection [set <id>]` | The ONE AI connection: `mcp`/`key`/`player2`/`ollama`/`free`/`off` |
 | `/ai mcp` | **(ops)** Setup guide: connect Claude / ChatGPT / Grok / Gemini to your world |
 | `/ai mcp status\|start\|stop\|token\|newtoken\|port <n>\|remote on\|off` | **(ops)** MCP server controls |
+| `/ai local` | The model running on THIS machine's GPU — free, private, no key |
+| `/ai local setup [model]` | **(ops)** Show exactly what would be downloaded — downloads nothing |
+| `/ai local accept` / `cancel` | **(ops)** Agree to the download / drop it |
+| `/ai local start\|stop\|models\|log` | **(ops)** Run it, list the models, see what it printed |
 | `/ai speed [instant\|fast\|human]` | How quickly it reacts (one setting, every delay) |
 | `/ai combat [basic\|skilled\|expert]` | How well it fights |
 | `/ai attack <player>` | **(owner)** Point it at someone — needs `allowPvp`, provoked-only |
@@ -725,7 +766,8 @@ text-based `/ai admin …` tree (and the `BLOCKPAL_API_TOKEN` env var) to config
   writes a temp file and atomically moves it over `config.json` (never a
   half-written file), keeps the previous good file as `config.json.prev`, retries
   once on a transient IO failure, and is `synchronized`.
-- Full list of settings: `reactionSpeed`, `combatSkill`, `allowPvp`, `pvtEnabled`,
+- Full list of settings: `localModelId`, `localPort`, `localGpuLayers`, `localContext`,
+  `localConsented`, `localAutoStart`, `reactionSpeed`, `combatSkill`, `allowPvp`, `pvtEnabled`,
   `pvtAutoRecord`, `pvtHiddenSize`, `pvtEpochs`, `pvtLearningRate`, `pvtMaxFrames`,
   `pvtConfidence`, `aiConnection`, `mcpPort`, `mcpAllowRemote`, `mcpRequireToken`,
   `mcpTokenObf`, `aiLogicMode`, `visionEnabled`, `visionWidth`, `visionHeight`,
@@ -1040,6 +1082,42 @@ share code or versioning with the Java mod. Source in `bedrock/`, packaged artif
 ---
 
 ## Changelog
+
+### 3.27.0
+- **The free keyless internet service is replaced by a model that runs on the machine's own
+  GPU.** New `AiConnection.LOCAL`, `ai/LocalModel` (catalogue, everything **under 3 GB** —
+  `MAX_BYTES`, asserted), and a `localai/` package: `LlamaRelease` (picks the right
+  llama.cpp build), `GpuProbe` (nvidia-smi as a hint only), `Downloader` (streaming, .part
+  then atomic move), `Archives` (zip + a hand-rolled tar reader, zip-slip guarded), and
+  `LocalAiManager` (consent → download → spawn → health-check state machine). Because
+  `llama-server` is OpenAI-compatible, `ApiAuth.resolveFor` just points at loopback and the
+  rest of the mod is untouched.
+- **Consent is the design, not a checkbox.** `/ai local setup` shows model, size, backend,
+  VRAM and destination; `/ai local accept` is the only thing that downloads. `FREE` is kept
+  as legacy and **migration deliberately does not move existing installs onto LOCAL** — a
+  surprise 2 GB download on somebody's server is not an upgrade. `ConfigData.applyTo` does
+  not apply `localConsented`, so a forged settings packet cannot start a download; a test
+  forges one and proves it is ignored.
+- **Everything about the external world was verified, not guessed** (the 3.17.2 lesson).
+  llama.cpp's asset naming comes from reading its own `release.yml`, which is where three
+  facts came from that a guess would have got wrong: Windows CUDA needs a separate
+  `cudart-` archive, the Windows CPU backend is already merged into the other Windows zips,
+  and **there is no Linux CUDA release at all** (so Linux GPU is Vulkan). Model URLs and
+  sizes were confirmed with live HTTP HEADs against HuggingFace rather than estimated.
+  Asset names are still resolved at runtime rather than pinned.
+- **Config schema → v15.** New `localModelId`, `localPort`, `localGpuLayers`,
+  `localContext`, `localConsented`, `localAutoStart`; `ConfigData` is 70 fields.
+- **Verification.** Both source sets compile; all seven suites pass via `./tests/run.sh` —
+  the two new ones are **11 archive tests** (tar round-trip against archives built by the
+  system's own `tar`, awkward 511/512/513-byte files, and zip-slip refused both as raw
+  entry names and as a *real* malicious archive that wrote nothing outside its directory)
+  and **31 local-AI tests** (the 3 GB rule per model, catalogue/URL shape, the LOCAL
+  connection and its aliases, schema-15 migration leaving free-service servers alone, garbage
+  clamped, and the forged-consent packet being ignored). The 70-field `ConfigData` codec
+  still round-trips.
+- *Not verified here:* there is no GPU in this environment, so the download, unpack, backend
+  selection and `llama-server` process management are tested as far as they can be without
+  one — what nobody has yet done is watch it answer a companion's question on a real card.
 
 ### 3.26.0
 - **PVT — the companion learns to act by watching people play.** New `pvt/` package

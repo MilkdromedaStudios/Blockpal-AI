@@ -4,6 +4,65 @@ User-facing release notes for **Blockpal**. The section matching the current
 `mod_version` is published to Modrinth as that version's description, so keep the
 top entry written for players.
 
+## 3.27.0
+
+### The free AI is now a model that runs on your own graphics card
+
+Blockpal's "works without an API key" option used to be a small free service on the
+internet — shared with everybody, rate-limited, and occasionally just down. It has been
+replaced with something better: Blockpal downloads a small model and runs it **on your
+machine, on your GPU**.
+
+```
+/ai local setup      # shows exactly what it would download — downloads nothing
+/ai local accept     # the yes. Only this starts a download.
+```
+
+- **Free forever.** No key, no account, no bill, no rate limit.
+- **Private.** Prompts, and the pictures from your companion's eyes, never leave your
+  computer.
+- **Offline.** It works with the internet unplugged.
+- **Fast.** About a second, against several for a cloud round trip.
+
+**It asks first, every time.** `setup` tells you the model, its size, what it will run on
+and where it goes; `accept` is you agreeing. Nothing downloads when you switch
+connection, when the server starts, or when you open the settings panel — and a settings
+packet cannot agree on your behalf.
+
+### The models — all under 3 GB
+
+| Pick | Model | Size | Good for |
+|------|-------|-----:|----------|
+| `qwen3b` | Qwen2.5 3B Instruct | 1.8 GB | **Default.** Best all-rounder that fits a 4 GB card. |
+| `coder3b` | Qwen2.5 Coder 3B | 1.8 GB | Better at the bot's script language. |
+| `llama3b` | Llama 3.2 3B Instruct | 1.9 GB | Chatty and friendly. |
+| `qwen1.5b` | Qwen2.5 1.5B Instruct | 0.9 GB | Laptops and integrated graphics. |
+
+Three gigabytes is a hard ceiling, enforced by the build rather than by good intentions.
+
+### It picks the right build for your machine
+
+Under the hood it runs llama.cpp's `llama-server`, and which build you get is the whole
+difference between using your graphics card and grinding along on the CPU:
+
+- **Windows + NVIDIA** → CUDA, with its GPU runtime libraries
+- **Windows, other GPU** → Vulkan
+- **Linux** → Vulkan (there is no Linux CUDA release; NVIDIA's Vulkan driver handles it)
+- **Apple Silicon** → Metal, which is built into the standard macOS build
+- **Anything else** → CPU, and it tells you it will be slow
+
+### If you're already using the free service
+
+Nothing changes. Your server stays on it and it keeps working — switching you over would
+have meant a surprise two-gigabyte download on somebody else's connection. Move when you
+want to with `/ai connection set local`.
+
+### Also
+
+- `/ai local` for status, `start`, `stop`, `models`, `log`.
+- Settings → AI & API has the model picker, context window, GPU layers and port.
+- Config schema 14 → 15.
+
 ## 3.26.0
 
 ### It learns by watching you play (PVT)

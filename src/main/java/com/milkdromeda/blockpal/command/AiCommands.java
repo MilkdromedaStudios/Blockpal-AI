@@ -178,6 +178,22 @@ public class AiCommands {
                                         .then(Commands.literal("on").executes(ctx -> pvtUse(ctx, true)))
                                         .then(Commands.literal("off").executes(ctx -> pvtUse(ctx, false)))))
 
+                        // ── a model running on this machine's own GPU ────────────────
+                        .then(Commands.literal("local")
+                                .executes(AiCommands::localStatus)
+                                .then(Commands.literal("status").executes(AiCommands::localStatus))
+                                .then(Commands.literal("models").executes(AiCommands::localModels))
+                                .then(Commands.literal("log").executes(AiCommands::localLog))
+                                .then(Commands.literal("accept").executes(AiCommands::localAccept))
+                                .then(Commands.literal("cancel").executes(AiCommands::localCancel))
+                                .then(Commands.literal("start").executes(AiCommands::localStart))
+                                .then(Commands.literal("stop").executes(AiCommands::localStop))
+                                .then(Commands.literal("setup")
+                                        .executes(ctx -> localSetup(ctx, ""))
+                                        .then(Commands.argument("model", StringArgumentType.word())
+                                                .executes(ctx -> localSetup(ctx,
+                                                        StringArgumentType.getString(ctx, "model"))))))
+
                         // ── how fast it acts, and how well it fights ─────────────────
                         .then(Commands.literal("speed")
                                 .executes(AiCommands::speedShow)
@@ -377,6 +393,7 @@ public class AiCommands {
                 "§f/ai panel §7— the unified menu (tabs: Settings · Admin · My Settings)\n" +
                 "§f/ai connection §7— which ONE AI this server uses (only one at a time)\n" +
                 "§f/ai mcp §7— connect Claude, ChatGPT, Grok or Gemini to this world\n" +
+                "§f/ai local §7— run a small AI on THIS machine's GPU: free, private, no key\n" +
                 "§f/ai mykey <token>§7 · §f/ai model <id>§7 · §f/ai mymenu §7— your own API key & model\n" +
                 "§f/ai tutorial §7— a quick walkthrough of how to use Blockpal\n" +
                 "§f/ai admin §7— (ops) admin panel & global controls\n" +
@@ -1467,6 +1484,147 @@ public class AiCommands {
         return 1;
     }
 
+    // ── the local model (runs on this machine's GPU) ──────────────────────────
+
+    private static int localStatus(CommandContext<CommandSourceStack> ctx) {
+        for (String line : com.milkdromeda.blockpal.localai.LocalAiManager.status().split("\n")) {
+            ctx.getSource().sendSuccess(() -> Component.literal("§b" + line), false);
+        }
+        com.milkdromeda.blockpal.localai.LocalAiManager.Plan pending =
+                com.milkdromeda.blockpal.localai.LocalAiManager.pending();
+        if (pending != null) {
+            ctx.getSource().sendSuccess(() -> Component.literal(
+                    "§e A download is waiting on your say-so — §f/ai local accept§e to agree, "
+                            + "§f/ai local cancel§e to drop it."), false);
+        } else if (ModConfig.get().connection() != AiConnection.LOCAL) {
+            ctx.getSource().sendSuccess(() -> Component.literal(
+                    "§7 This server isn't using the local model. §f/ai connection set local§7 to switch."), false);
+        }
+        return 1;
+    }
+
+    private static int localModels(CommandContext<CommandSourceStack> ctx) {
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§6=== Models Blockpal can run here (all under 3 GB) ===\n§7"
+                        + com.milkdromeda.blockpal.ai.LocalModel.describeAll()
+                        + "§7Pick one with §f/ai local setup <id>"), false);
+        return 1;
+    }
+
+    private static int localLog(CommandContext<CommandSourceStack> ctx) {
+        if (!requireAdmin(ctx)) return 0;
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§7" + com.milkdromeda.blockpal.localai.LocalAiManager.log()), false);
+        return 1;
+    }
+
+    /**
+     * Shows exactly what would be downloaded and asks. This never downloads anything —
+     * that is the whole point of it being a separate step from {@code accept}.
+     */
+    private static int localSetup(CommandContext<CommandSourceStack> ctx, String modelId) {
+        if (!requireAdmin(ctx)) return 0;
+        com.milkdromeda.blockpal.ai.LocalModel model = modelId.isBlank()
+                ? com.milkdromeda.blockpal.localai.LocalAiManager.model()
+                : com.milkdromeda.blockpal.ai.LocalModel.byId(modelId);
+        if (model == null) {
+            ctx.getSource().sendSuccess(() -> Component.literal(
+                    "§cNo model called '" + modelId + "'. §7/ai local models§c lists them."), false);
+            return 0;
+        }
+        CommandSourceStack source = ctx.getSource();
+        source.sendSuccess(() -> Component.literal(
+                "§7Checking what's needed for " + model.display() + "…"), false);
+
+        MinecraftServer server = source.getServer();
+        // Resolving the plan asks GitHub which build fits this machine, so it must not
+        // happen on the server thread.
+        Thread probe = new Thread(() -> {
+            try {
+                com.milkdromeda.blockpal.localai.LocalAiManager.Plan plan =
+                        com.milkdromeda.blockpal.localai.LocalAiManager.plan(model);
+                server.execute(() -> {
+                    com.milkdromeda.blockpal.localai.LocalAiManager.setPending(plan);
+                    String text = plan.consentText(
+                            com.milkdromeda.blockpal.localai.LocalAiManager.root());
+                    for (String line : text.split("\n")) {
+                        source.sendSuccess(() -> Component.literal("§f" + line), false);
+                    }
+                    source.sendSuccess(() -> Component.literal(plan.needsDownload()
+                            ? "§a➤ §f/ai local accept§a to download and start it, "
+                                    + "§f/ai local cancel§a to forget it."
+                            : "§a➤ §f/ai local accept§a to start it."), false);
+                });
+            } catch (Exception e) {
+                server.execute(() -> source.sendSuccess(() -> Component.literal(
+                        "§cCouldn't work out what to download: " + e.getMessage()), false));
+            }
+        }, "blockpal-localai-plan");
+        probe.setDaemon(true);
+        probe.start();
+        return 1;
+    }
+
+    /** The yes. Only this starts a download, and only an operator can give it. */
+    private static int localAccept(CommandContext<CommandSourceStack> ctx) {
+        if (!requireAdmin(ctx)) return 0;
+        com.milkdromeda.blockpal.localai.LocalAiManager.Plan plan =
+                com.milkdromeda.blockpal.localai.LocalAiManager.pending();
+        if (plan == null) {
+            ctx.getSource().sendSuccess(() -> Component.literal(
+                    "§eNothing is waiting to be agreed to. Run §f/ai local setup§e first "
+                            + "so you can see what it would download."), false);
+            return 0;
+        }
+        MinecraftServer server = ctx.getSource().getServer();
+        boolean started = com.milkdromeda.blockpal.localai.LocalAiManager.accept(plan, server,
+                message -> server.execute(() -> server.getPlayerList().broadcastSystemMessage(
+                        Component.literal("§b[Blockpal] " + message), false)));
+        if (!started) {
+            ctx.getSource().sendSuccess(() -> Component.literal(
+                    "§eAlready working on it — §f/ai local§e for progress."), false);
+            return 0;
+        }
+        com.milkdromeda.blockpal.localai.LocalAiManager.clearPending();
+        // Agreeing to run it is also choosing it; otherwise the download finishes and
+        // nothing uses it, which reads as the feature not working.
+        ModConfig.get().setConnection(AiConnection.LOCAL);
+        ModConfig.save();
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§a[Blockpal] Downloading in the background — the server keeps running. "
+                        + "I'll say when it's ready."), false);
+        return 1;
+    }
+
+    private static int localCancel(CommandContext<CommandSourceStack> ctx) {
+        if (!requireAdmin(ctx)) return 0;
+        com.milkdromeda.blockpal.localai.LocalAiManager.clearPending();
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§7[Blockpal] Forgotten — nothing was downloaded."), false);
+        return 1;
+    }
+
+    private static int localStart(CommandContext<CommandSourceStack> ctx) {
+        if (!requireAdmin(ctx)) return 0;
+        MinecraftServer server = ctx.getSource().getServer();
+        boolean ok = com.milkdromeda.blockpal.localai.LocalAiManager.start(server,
+                message -> server.execute(() -> server.getPlayerList().broadcastSystemMessage(
+                        Component.literal("§b[Blockpal] " + message), false)));
+        ctx.getSource().sendSuccess(() -> Component.literal(ok
+                ? "§a[Blockpal] Starting the local model…"
+                : "§eIt isn't downloaded yet (or it's already running). §f/ai local setup"), false);
+        return 1;
+    }
+
+    private static int localStop(CommandContext<CommandSourceStack> ctx) {
+        if (!requireAdmin(ctx)) return 0;
+        com.milkdromeda.blockpal.localai.LocalAiManager.stop();
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§a[Blockpal] Local model stopped. The files are kept — §f/ai local start§a "
+                        + "brings it back with no download."), false);
+        return 1;
+    }
+
     // ── PVT: pre-video training ───────────────────────────────────────────────
 
     private static int pvtStatus(CommandContext<CommandSourceStack> ctx) {
@@ -1870,7 +2028,10 @@ public class AiCommands {
         ModConfig.save();
 
         MinecraftServer server = ctx.getSource().getServer();
-        if (server != null) com.milkdromeda.blockpal.mcp.McpServer.sync(server);
+        if (server != null) {
+            com.milkdromeda.blockpal.mcp.McpServer.sync(server);
+            com.milkdromeda.blockpal.localai.LocalAiManager.sync(server);
+        }
         if (connection == AiConnection.PLAYER2) {
             com.milkdromeda.blockpal.ai.HuggingFaceClient.warmPlayer2Local();
         }
@@ -1881,6 +2042,17 @@ public class AiCommands {
         }
         sb.append("\n§7").append(connection.blurb());
         switch (connection) {
+            case LOCAL -> {
+                // Switching to it is not the same as agreeing to the download, so say what
+                // is still needed rather than silently doing nothing.
+                if (com.milkdromeda.blockpal.localai.LocalAiManager.isSetUp()) {
+                    sb.append("\n§a").append("Already downloaded — starting it now.");
+                } else {
+                    sb.append("\n§e").append("Nothing has been downloaded yet. Run ")
+                      .append("§f/ai local setup§e to see what it would fetch (about 2 GB) ")
+                      .append("before agreeing to it.");
+                }
+            }
             case MCP -> sb.append("\n§7").append(com.milkdromeda.blockpal.mcp.McpServer.status())
                     .append(" §7— run §f/ai mcp§7 to connect Claude, ChatGPT, Grok or Gemini.");
             case API_KEY -> {
@@ -1984,7 +2156,10 @@ public class AiCommands {
         cfg.mcpPort = port;
         ModConfig.save();
         MinecraftServer server = ctx.getSource().getServer();
-        if (server != null) com.milkdromeda.blockpal.mcp.McpServer.sync(server);
+        if (server != null) {
+            com.milkdromeda.blockpal.mcp.McpServer.sync(server);
+            com.milkdromeda.blockpal.localai.LocalAiManager.sync(server);
+        }
         ctx.getSource().sendSuccess(() -> Component.literal(
                 "§a[Blockpal] MCP port §f" + port + "§a — " + com.milkdromeda.blockpal.mcp.McpServer.status()), false);
         return 1;
@@ -1996,7 +2171,10 @@ public class AiCommands {
         cfg.mcpAllowRemote = on;
         ModConfig.save();
         MinecraftServer server = ctx.getSource().getServer();
-        if (server != null) com.milkdromeda.blockpal.mcp.McpServer.sync(server);
+        if (server != null) {
+            com.milkdromeda.blockpal.mcp.McpServer.sync(server);
+            com.milkdromeda.blockpal.localai.LocalAiManager.sync(server);
+        }
         ctx.getSource().sendSuccess(() -> Component.literal(on
                 ? "§e[Blockpal] MCP now listens on §fall network interfaces§e — needed for cloud AI "
                         + "apps (ChatGPT, AI Studio) reaching in through a tunnel. Keep the token on."

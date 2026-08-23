@@ -45,6 +45,7 @@ public class AiAssistantMod implements ModInitializer {
         registerMcpServer();
         CreativeWatch.register();
         registerPvt();
+        registerLocalAi();
         // Keep parties/games/possession tidy: drop a player from each when they disconnect.
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             PartyManager.handleDisconnect(handler.player);
@@ -89,6 +90,23 @@ public class AiAssistantMod implements ModInitializer {
         });
         ServerLifecycleEvents.SERVER_STOPPING.register(server ->
                 com.milkdromeda.blockpal.mcp.McpServer.stop());
+    }
+
+    /**
+     * The local model: bring it up when the server starts if this server uses it and the
+     * download has already been agreed to, and always shut it down cleanly — a stray
+     * llama-server holding a GPU after Minecraft exits is somebody's next bug report.
+     */
+    private void registerLocalAi() {
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+            if (ModConfig.get().connection() == com.milkdromeda.blockpal.ai.AiConnection.LOCAL) {
+                com.milkdromeda.blockpal.localai.LocalAiManager.sync(server);
+                LOGGER.info("Blockpal local AI: {}",
+                        com.milkdromeda.blockpal.localai.LocalAiManager.state());
+            }
+        });
+        ServerLifecycleEvents.SERVER_STOPPING.register(server ->
+                com.milkdromeda.blockpal.localai.LocalAiManager.stop());
     }
 
     /**

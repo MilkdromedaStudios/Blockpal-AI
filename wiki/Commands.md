@@ -64,6 +64,20 @@ All commands are under `/ai`. Type `/ai help` in-game for the live list.
 > players. Ops on a **vanilla** client can still configure via the text `/ai admin …`
 > tree (and the `BLOCKPAL_API_TOKEN` environment variable for the shared key).
 
+## Running the AI on your own GPU
+
+| Command | Who | Effect |
+|---------|-----|--------|
+| `/ai local` | anyone | Status: model, runtime, hardware, state |
+| `/ai local models` | anyone | The models it can run (all under 3 GB) |
+| `/ai local setup [model]` | ops | Show exactly what would be downloaded — **downloads nothing** |
+| `/ai local accept` | ops | Agree to it. **The only thing that starts a download.** |
+| `/ai local cancel` | ops | Forget the pending download |
+| `/ai local start` / `stop` | ops | Run it / stop it (files are kept) |
+| `/ai local log` | ops | What the model server printed |
+
+Full detail on **[Local AI on your GPU](Local-AI-On-Your-GPU)**.
+
 ## Teaching it by example (PVT)
 
 `/ai pvt watch on` lets your companion learn from **how you play** — it is off until

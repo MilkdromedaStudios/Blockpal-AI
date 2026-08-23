@@ -110,6 +110,25 @@ list, and the Ollama model pool — are still managed with commands
 (`/ai admin models|keylist|ollama models add|remove|list`), since they're add/remove
 lists rather than single values.
 
+## Local AI on this machine (3.27.0)
+
+**Settings → AI & API → Local AI on this machine.** Blockpal downloads a model (under
+3 GB) and runs it on your graphics card — the keyless option, replacing the old free
+internet service.
+
+| Setting | Default | What it does |
+|---------|---------|--------------|
+| `localModelId` | `qwen3b` | Which model to run |
+| `localAutoStart` | on | Start it with the server, once downloaded |
+| `localContext` | 4096 | Context window in tokens |
+| `localGpuLayers` | -1 | Layers on the GPU; -1 lets llama.cpp decide |
+| `localPort` | 8081 | Loopback port; never exposed off the machine |
+
+> **Consent is not a setting.** The panel changes every value above but cannot agree to a
+> download — a settings packet claiming consent is ignored. Agreeing happens at the
+> `/ai local setup` prompt that shows you the size. See
+> **[Local AI on your GPU](Local-AI-On-Your-GPU)**.
+
 ## How fast it acts, and how it fights (3.26.0)
 
 On **Settings → Behavior**:

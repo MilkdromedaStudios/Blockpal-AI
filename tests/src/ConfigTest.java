@@ -24,7 +24,10 @@ public class ConfigTest {
         System.out.println("Fresh install defaults");
         ModConfig.load();
         ModConfig c = ModConfig.get();
-        check("schema version is 14", c.configVersion == 14, "" + c.configVersion);
+        // Assert against the constant, not a literal: the property under test is
+        // "a fresh install lands on the current schema", which stays true across bumps.
+        check("schema version is current", c.configVersion == ModConfig.CURRENT_CONFIG_VERSION,
+                c.configVersion + " (current is " + ModConfig.CURRENT_CONFIG_VERSION + ")");
         check("reactionSpeed defaults to fast", "fast".equals(c.reactionSpeed), c.reactionSpeed);
         check("Tempo resolves it", Tempo.current() == Tempo.FAST, Tempo.current().id());
         check("actionTickDelay default dropped 8 -> 2", c.actionTickDelay == 2, "" + c.actionTickDelay);
@@ -33,12 +36,13 @@ public class ConfigTest {
         check("PVT on, recording NOT auto-consented", c.pvtEnabled && c.pvtAutoRecord, "");
         check("pvtConfidence default", Math.abs(c.pvtConfidence - 0.30) < 1e-9, "" + c.pvtConfidence);
 
-        System.out.println("\nUpgrading a 3.25.x install (schema 13)");
+        System.out.println("\nUpgrading an older install (schema 13)");
         writeConfig("{\"configVersion\":13,\"hfToken\":\"\",\"hfTokenObf\":\"\",\"actionTickDelay\":8,"
                   + "\"aiConnection\":\"free\",\"mcpPort\":8000,\"defaultName\":\"Ethan\"}");
         ModConfig.load();
         c = ModConfig.get();
-        check("migrated to 14", c.configVersion == 14, "" + c.configVersion);
+        check("migrated to the current schema", c.configVersion == ModConfig.CURRENT_CONFIG_VERSION,
+                c.configVersion + " (current is " + ModConfig.CURRENT_CONFIG_VERSION + ")");
         check("PvP still OFF after an upgrade", !c.allowPvp, "an upgrade must never enable it");
         check("reactionSpeed filled in", "fast".equals(c.reactionSpeed), c.reactionSpeed);
         check("shipped 8-tick delay moved to the new default", c.actionTickDelay == 2, "" + c.actionTickDelay);
