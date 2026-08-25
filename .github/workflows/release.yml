@@ -1,11 +1,9 @@
 name: Release to CurseForge
 
 # CurseForge-only publishing workflow for normal/current releases.
-#
-# IMPORTANT: the old GitHub setting names are intentionally reused:
-#   secrets.MODRINTH_TOKEN      = CurseForge upload API token
-#   vars.MODRINTH_PROJECT_ID    = numeric CurseForge project ID
-# No step in this workflow connects to Modrinth.
+# Legacy GitHub setting names intentionally remain:
+#   secrets.MODRINTH_TOKEN   = CurseForge upload API token
+#   vars.MODRINTH_PROJECT_ID = numeric CurseForge project ID
 
 on:
   pull_request:
@@ -19,10 +17,6 @@ on:
 
 permissions:
   contents: write
-
-env:
-  MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
-  MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
 
 jobs:
   publish-current:
@@ -44,16 +38,13 @@ jobs:
           distribution: temurin
           java-version: '25'
 
-      - name: Make scripts executable
-        run: chmod +x ./gradlew ./scripts/publish-curseforge.sh
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
 
-      - name: Read versions
+      - name: Read mod version
         id: ver
         shell: bash
-        run: |
-          set -euo pipefail
-          echo "mod=$(grep '^mod_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
-          echo "mc=$(grep '^minecraft_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+        run: echo "mod=$(grep '^mod_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
 
       - name: Validate tag matches mod_version
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
@@ -82,11 +73,15 @@ jobs:
             JAR="$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n1)"
           fi
           if [[ -z "${JAR:-}" || ! -f "$JAR" ]]; then
-            echo "::error::Could not find the built mod jar."
+            echo "::error::Could not find built mod jar."
             exit 1
           fi
           echo "path=$JAR" >> "$GITHUB_OUTPUT"
-          echo "Publishing $JAR"
 
       - name: Publish current version to CurseForge
-        run: ./scripts/publish-curseforge.sh current "${{ steps.jar.outputs.path }}" "${{ steps.ver.outputs.mod }}"
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: ${{ steps.jar.outputs.path }}
+          version: ${{ steps.ver.outputs.mod }}
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
