@@ -1,0 +1,110 @@
+{
+  "merged_prs": 85,
+  "ai_marked_merged_prs": 85,
+  "other_merged_prs": 0,
+  "other_prs": [],
+  "current_java_files": 141,
+  "current_java_blame_lines": 29964,
+  "current_lines_by_origin": {
+    "ai_pr": 29385,
+    "direct_or_unclassified": 579
+  },
+  "largest_direct_or_unclassified_commits": [
+    {
+      "sha": "6006a281e16ab4440d1e67e8e4631a5c0013173c",
+      "lines": 568,
+      "author": "Claude",
+      "email": "noreply@anthropic.com",
+      "subject": "3.20.0: mini AI chat in ESC/chat menus, model-id fixes, fast world copy"
+    },
+    {
+      "sha": "5747c28a352b971b728208e2b239a3eb7bbb9d71",
+      "lines": 11,
+      "author": "Claude",
+      "email": "noreply@anthropic.com",
+      "subject": "Fix 26.2 compile errors in MiniChatPanel (Screens.getFont, KeyEvent)"
+    }
+  ],
+  "largest_ai_pr_line_commits": [
+    {
+      "sha": "5a0d96119c7706d158e7fbaada16cb6061f7ec09",
+      "lines": 5504
+    },
+    {
+      "sha": "06ba39b19d14572a25e1a00965f2e1dd46bbde38",
+      "lines": 2693
+    },
+    {
+      "sha": "9f695a57da71941865aafb1781f8649f75d0ea19",
+      "lines": 1726
+    },
+    {
+      "sha": "8f8a630e38756f49ffcd60e57a9423d6dfd16130",
+      "lines": 1676
+    },
+    {
+      "sha": "8f25d00ccde607359ebf725bfc248871e2a19573",
+      "lines": 1484
+    },
+    {
+      "sha": "bcf2f7e654384026c92db8b7ef8b359c3bee7906",
+      "lines": 1312
+    },
+    {
+      "sha": "4e24080491ffb5f448f8f73ad207418520641188",
+      "lines": 1291
+    },
+    {
+      "sha": "06075551ca7ad5b08b1f41dd50aafa70307abf48",
+      "lines": 1056
+    },
+    {
+      "sha": "00f7742516e3be640c56e0b537c512368c655a66",
+      "lines": 823
+    },
+    {
+      "sha": "b6e75f1b3825262e5515904e8e6d52c7d4155ef7",
+      "lines": 767
+    },
+    {
+      "sha": "5292703f66166cb7a4ed105b8feab007a1ba16b6",
+      "lines": 666
+    },
+    {
+      "sha": "88e739535e30b9d83225056802f94690cd821034",
+      "lines": 619
+    },
+    {
+      "sha": "d889293702892beecb618d43d9092f1d1a5f5c01",
+      "lines": 614
+    },
+    {
+      "sha": "11b64da27706cf3e2abdb57724a666b520dd6d38",
+      "lines": 581
+    },
+    {
+      "sha": "8749babc4503a63ad69df4452f653616ca1a060e",
+      "lines": 481
+    },
+    {
+      "sha": "45f0ff045a43f785c1da418a1a2a2fc714ebc012",
+      "lines": 459
+    },
+    {
+      "sha": "3be9b658835e19756d05fda3496fd64e967f5750",
+      "lines": 456
+    },
+    {
+      "sha": "d19e7b9b3978498987fcc3a5c74e58347d609c8e",
+      "lines": 433
+    },
+    {
+      "sha": "4f955fad60b35a34a18ea1af766bd5574cadaf93",
+      "lines": 403
+    },
+    {
+      "sha": "e6b6c0e7f3bd17663885e79b25364496719b3c07",
+      "lines": 386
+    }
+  ]
+}
