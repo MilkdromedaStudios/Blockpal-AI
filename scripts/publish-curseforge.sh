@@ -4,21 +4,15 @@ set -euo pipefail
 # These legacy variable names are intentionally kept so existing GitHub
 # repository settings do not need to be renamed. Their VALUES are now:
 #   MODRINTH_TOKEN      = CurseForge upload API token
-#   MODRINTH_PROJECT_ID = numeric CurseForge project ID
+#   MODRINTH_PROJECT_ID = CurseForge project id OR slug (for example blockpal-ai)
 # This script does not contact Modrinth.
-PROJECT_ID="${MODRINTH_PROJECT_ID:-}"
+PROJECT_KEY="${MODRINTH_PROJECT_ID:-blockpal-ai}"
 TOKEN="${MODRINTH_TOKEN:-}"
 CURSEFORGE_BASE_URL="https://minecraft.curseforge.com"
 RELEASE_TYPE="${CURSEFORGE_RELEASE_TYPE:-beta}"
 
-if [[ -z "$PROJECT_ID" ]]; then
-  echo "::error::MODRINTH_PROJECT_ID is empty. Set it to the numeric CurseForge project ID."
-  exit 1
-fi
-
-if [[ ! "$PROJECT_ID" =~ ^[0-9]+$ ]]; then
-  echo "::error::MODRINTH_PROJECT_ID must contain the numeric CurseForge project ID, not a slug. Got: $PROJECT_ID"
-  exit 1
+if [[ -z "$PROJECT_KEY" ]]; then
+  PROJECT_KEY="blockpal-ai"
 fi
 
 if [[ -z "$TOKEN" ]]; then
@@ -140,12 +134,12 @@ upload_one() {
       }
     }')"
 
-  echo "Uploading $(basename "$jar") as $display_name ..."
+  echo "Uploading $(basename "$jar") as $display_name to CurseForge project $PROJECT_KEY ..."
   response="$(curl --silent --show-error --fail-with-body \
     -H "X-Api-Token: $TOKEN" \
     -F "metadata=$metadata" \
     -F "file=@$jar;type=application/java-archive" \
-    "$CURSEFORGE_BASE_URL/api/projects/$PROJECT_ID/upload-file")"
+    "$CURSEFORGE_BASE_URL/api/projects/$PROJECT_KEY/upload-file")"
 
   file_id="$(printf '%s' "$response" | jq -r '.id // empty')"
   if [[ -z "$file_id" ]]; then
@@ -173,8 +167,6 @@ publish_all_builds() {
     return 1
   fi
 
-  # Version-sort by the extracted semantic version. This guarantees that, for
-  # example, 2.9.0 uploads before 2.10.0 and the newest build is uploaded last.
   sort -V -k1,1 "$list_file" -o "$list_file"
 
   echo "CurseForge backfill order (oldest -> newest):"
