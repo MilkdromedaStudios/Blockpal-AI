@@ -1,0 +1,82 @@
+name: Publish one CurseForge build
+description: Publish one historical/current Blockpal jar to CurseForge safely.
+
+inputs:
+  file:
+    description: Jar to publish
+    required: true
+  version:
+    description: Blockpal version
+    required: true
+  curseforge_id:
+    description: Numeric CurseForge project ID
+    required: true
+  curseforge_token:
+    description: CurseForge upload API token
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Read jar metadata and check marker
+      id: meta
+      shell: bash
+      run: |
+        set -euo pipefail
+        FILE='${{ inputs.file }}'
+        VERSION='${{ inputs.version }}'
+
+        if [[ ! -f "$FILE" ]]; then
+          echo "::error::Missing jar: $FILE"
+          exit 1
+        fi
+
+        SPEC="$(unzip -p "$FILE" fabric.mod.json | jq -r '.depends.minecraft // empty')"
+        MC="$(printf '%s\n' "$SPEC" | grep -oE '[0-9]+(\.[0-9]+){1,2}' | head -n1 || true)"
+        if [[ -z "$MC" ]]; then
+          echo "::error::Could not read Minecraft version from $FILE (depends.minecraft=$SPEC)"
+          exit 1
+        fi
+
+        TAG="curseforge-published/${VERSION}_mc${MC}"
+        SKIP=false
+        if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+          SKIP=true
+          echo "::notice::$TAG already exists; skipping this build."
+        fi
+
+        echo "mc=$MC" >> "$GITHUB_OUTPUT"
+        echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+        echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
+        echo "Publishing metadata: version=$VERSION minecraft=$MC file=$FILE"
+
+    - name: Publish to CurseForge
+      if: steps.meta.outputs.skip != 'true'
+      uses: Kira-NT/mc-publish@v3.3
+      with:
+        curseforge-id: ${{ inputs.curseforge_id }}
+        curseforge-token: ${{ inputs.curseforge_token }}
+        files: ${{ inputs.file }}
+        name: Blockpal ${{ inputs.version }} (MC ${{ steps.meta.outputs.mc }})
+        version: ${{ inputs.version }}
+        version-type: beta
+        loaders: fabric
+        game-versions: ${{ steps.meta.outputs.mc }}
+        game-version-filter: none
+        curseforge-dependencies: 306612(required)
+        changelog: Blockpal ${{ inputs.version }} for Minecraft ${{ steps.meta.outputs.mc }}.
+        retry-attempts: 3
+        retry-delay: 5000
+        fail-mode: fail
+
+    - name: Mark CurseForge version as published
+      if: steps.meta.outputs.skip != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        TAG='${{ steps.meta.outputs.tag }}'
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git tag -f "$TAG" "${GITHUB_SHA:-HEAD}"
+        git push --force origin "refs/tags/$TAG"
+        echo "::notice::Marked $TAG as published."
