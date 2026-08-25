@@ -1,7 +1,7 @@
 name: Start CurseForge Backfill
 
-# One-time launcher. Creating this file triggers it once on main, and it then
-# dispatches the real fresh backfill workflow using the current main branch.
+# One-time launcher. Updating this file triggers it on main and dispatches the
+# real fresh backfill workflow using the current main branch.
 on:
   push:
     branches:
