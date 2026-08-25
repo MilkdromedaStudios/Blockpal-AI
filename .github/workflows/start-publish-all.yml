@@ -1,0 +1,24 @@
+name: Start CurseForge Backfill
+
+# One-time launcher. Creating this file triggers it once on main, and it then
+# dispatches the real fresh backfill workflow using the current main branch.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/start-publish-all.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch fresh CurseForge backfill
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run publish-all-fresh.yml --repo "$GITHUB_REPOSITORY" --ref main
