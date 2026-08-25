@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# These legacy variable names are intentionally kept so existing GitHub
-# repository settings do not need to be renamed. Their VALUES are now:
+# Legacy GitHub setting names are intentionally retained:
 #   MODRINTH_TOKEN      = CurseForge upload API token
 #   MODRINTH_PROJECT_ID = numeric CurseForge project ID
 # This script does not contact Modrinth.
@@ -96,10 +95,36 @@ mark_published() {
   git push --force origin "refs/tags/$tag"
 }
 
+# CurseForge's upload API accepts gameVersions as numeric IDs. Query their
+# current catalogue instead of hard-coding IDs so new Minecraft releases keep
+# working. For Fabric builds we need both the Minecraft version and Fabric IDs.
+resolve_game_version_ids() {
+  local mc="$1" response mc_id fabric_id
+
+  response="$(curl --silent --show-error --fail \
+    -H "X-Api-Token: $TOKEN" \
+    "$CURSEFORGE_BASE_URL/api/game/versions")"
+
+  mc_id="$(printf '%s' "$response" | jq -r --arg mc "$mc" '[.[] | select(.name == $mc) | .id] | first // empty')"
+  fabric_id="$(printf '%s' "$response" | jq -r '[.[] | select((.name | ascii_downcase) == "fabric") | .id] | first // empty')"
+
+  if [[ -z "$mc_id" ]]; then
+    echo "::error::CurseForge does not list Minecraft $mc in /api/game/versions." >&2
+    return 1
+  fi
+  if [[ -z "$fabric_id" ]]; then
+    echo "::error::Could not find the Fabric loader ID in CurseForge /api/game/versions." >&2
+    return 1
+  fi
+
+  jq -nc --argjson mc "$mc_id" --argjson fabric "$fabric_id" '[ $mc, $fabric ]'
+}
+
 upload_one() {
   local jar="$1"
   local version="${2:-}"
-  local mc changelog display_name marker metadata response file_id
+  local mc changelog display_name marker metadata file_id game_version_ids
+  local response_file http_code response
 
   if [[ ! -f "$jar" ]]; then
     echo "::error::File not found: $jar"
@@ -118,19 +143,22 @@ upload_one() {
     return 0
   fi
 
+  game_version_ids="$(resolve_game_version_ids "$mc")"
+  echo "Resolved CurseForge game version IDs for Minecraft $mc + Fabric: $game_version_ids"
+
   changelog="$(changelog_for_version "$version")"
   display_name="Blockpal $version (MC $mc)"
 
   metadata="$(jq -n \
     --arg changelog "$changelog" \
     --arg displayName "$display_name" \
-    --arg mc "$mc" \
     --arg releaseType "$RELEASE_TYPE" \
+    --argjson gameVersions "$game_version_ids" \
     '{
       changelog: $changelog,
       changelogType: "markdown",
       displayName: $displayName,
-      gameVersionNames: ["Fabric", $mc],
+      gameVersions: $gameVersions,
       releaseType: $releaseType,
       isMarkedForManualRelease: false,
       relations: {
@@ -141,15 +169,33 @@ upload_one() {
     }')"
 
   echo "Uploading $(basename "$jar") as $display_name to CurseForge project $PROJECT_ID ..."
-  response="$(curl --silent --show-error --fail-with-body \
+  response_file="$(mktemp)"
+
+  # Do not use --fail here: on a 4xx/5xx we want to print CurseForge's response
+  # body, which normally contains the useful validation error.
+  http_code="$(curl --silent --show-error \
+    -o "$response_file" \
+    -w '%{http_code}' \
+    -H "Accept: application/json" \
     -H "X-Api-Token: $TOKEN" \
-    -F "metadata=$metadata" \
+    --form-string "metadata=$metadata" \
     -F "file=@$jar;type=application/java-archive" \
     "$CURSEFORGE_BASE_URL/api/projects/$PROJECT_ID/upload-file")"
 
+  response="$(cat "$response_file")"
+  rm -f "$response_file"
+
+  if [[ "$http_code" -lt 200 || "$http_code" -ge 300 ]]; then
+    echo "::error::CurseForge upload failed with HTTP $http_code"
+    echo "----- CurseForge response -----"
+    printf '%s\n' "$response"
+    echo "-------------------------------"
+    return 1
+  fi
+
   file_id="$(printf '%s' "$response" | jq -r '.id // empty')"
   if [[ -z "$file_id" ]]; then
-    echo "::error::CurseForge returned success but no file id: $response"
+    echo "::error::CurseForge returned HTTP $http_code but no file id: $response"
     return 1
   fi
 
