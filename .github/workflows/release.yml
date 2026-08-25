@@ -1,22 +1,11 @@
 name: Release to CurseForge
 
-# CurseForge-only publishing workflow.
+# CurseForge-only publishing workflow for normal/current releases.
 #
 # IMPORTANT: the old GitHub setting names are intentionally reused:
 #   secrets.MODRINTH_TOKEN      = CurseForge upload API token
 #   vars.MODRINTH_PROJECT_ID    = numeric CurseForge project ID
 # No step in this workflow connects to Modrinth.
-#
-# Normal releases:
-#   * merged PR changing gradle.properties
-#   * v* tag push
-#   * manual run with mode=current
-#
-# One-time history import:
-#   Actions -> Release to CurseForge -> Run workflow -> mode=all-builds
-# This uploads every .jar in builds/ in semantic-version order, OLDEST first
-# and NEWEST last. Each successful upload gets a curseforge-published/* marker
-# tag, so rerunning safely skips versions that already completed.
 
 on:
   pull_request:
@@ -27,30 +16,19 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
-    inputs:
-      mode:
-        description: What should be published?
-        required: true
-        default: current
-        type: choice
-        options:
-          - current
-          - all-builds
 
 permissions:
   contents: write
 
 env:
-  # Legacy names retained at the user's request. These now hold CurseForge data.
   MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
   MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
 
 jobs:
   publish-current:
     if: >-
-      (github.event_name == 'pull_request' && github.event.pull_request.merged == true) ||
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && inputs.mode == 'current')
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     steps:
@@ -112,30 +90,3 @@ jobs:
 
       - name: Publish current version to CurseForge
         run: ./scripts/publish-curseforge.sh current "${{ steps.jar.outputs.path }}" "${{ steps.ver.outputs.mod }}"
-
-  publish-all-builds:
-    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'all-builds'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Make uploader executable
-        run: chmod +x ./scripts/publish-curseforge.sh
-
-      - name: Show build count
-        shell: bash
-        run: |
-          set -euo pipefail
-          COUNT="$(find builds -maxdepth 1 -type f -name '*.jar' | wc -l)"
-          echo "Found $COUNT historical jars to process."
-          if [[ "$COUNT" -eq 0 ]]; then
-            echo "::error::No historical jars found in builds/."
-            exit 1
-          fi
-
-      - name: One-time publish all historical builds to CurseForge
-        run: ./scripts/publish-curseforge.sh all-builds
