@@ -1,0 +1,332 @@
+name: Publish All Builds to CurseForge - FRESH
+
+# Fresh workflow file so old failed runs cannot rerun stale curl code.
+# Each upload is a separate sequential step, oldest first, newest last.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish-all-fresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Publish 2.1.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/ai-assistant-2.1.0.jar
+          version: "2.1.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 2.2.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/ai-assistant-2.2.0.jar
+          version: "2.2.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 2.3.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/ai-assistant-2.3.0.jar
+          version: "2.3.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 2.4.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/ai-assistant-2.4.0.jar
+          version: "2.4.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 2.4.1
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/ai-assistant-2.4.1.jar
+          version: "2.4.1"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 2.4.2
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/ai-assistant-2.4.2.jar
+          version: "2.4.2"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 2.5.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/ai-assistant-2.5.0.jar
+          version: "2.5.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 2.6.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/ai-assistant-2.6.0.jar
+          version: "2.6.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 2.7.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/ai-assistant-2.7.0.jar
+          version: "2.7.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 2.8.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/ai-assistant-2.8.0.jar
+          version: "2.8.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 2.8.1
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/ai-assistant-2.8.1.jar
+          version: "2.8.1"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 2.8.2
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/ai-assistant-2.8.2.jar
+          version: "2.8.2"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 2.9.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/ai-assistant-2.9.0.jar
+          version: "2.9.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 2.10.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/ai-assistant-2.10.0.jar
+          version: "2.10.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 2.11.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/ai-assistant-2.11.0.jar
+          version: "2.11.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 2.12.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/ai-assistant-2.12.0.jar
+          version: "2.12.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 2.12.1
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/ai-assistant-2.12.1.jar
+          version: "2.12.1"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 2.13.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/ai-assistant-2.13.0.jar
+          version: "2.13.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 2.14.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/ai-assistant-2.14.0.jar
+          version: "2.14.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.0.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.0.0.jar
+          version: "3.0.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.1.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.1.0.jar
+          version: "3.1.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.2.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.2.0.jar
+          version: "3.2.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.3.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.3.0.jar
+          version: "3.3.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.4.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.4.0.jar
+          version: "3.4.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.4.1
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.4.1.jar
+          version: "3.4.1"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.5.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.5.0.jar
+          version: "3.5.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.6.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.6.0.jar
+          version: "3.6.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.8.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.8.0.jar
+          version: "3.8.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.9.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.9.0.jar
+          version: "3.9.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.10.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.10.0.jar
+          version: "3.10.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.11.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.11.0.jar
+          version: "3.11.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.12.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.12.0.jar
+          version: "3.12.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.13.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.13.0.jar
+          version: "3.13.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.14.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.14.0.jar
+          version: "3.14.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.15.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.15.0.jar
+          version: "3.15.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.17.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.17.0.jar
+          version: "3.17.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.20.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.20.0.jar
+          version: "3.20.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.26.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.26.0.jar
+          version: "3.26.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.27.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.27.0.jar
+          version: "3.27.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
