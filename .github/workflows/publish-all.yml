@@ -1,0 +1,47 @@
+name: Publish All Builds to CurseForge
+
+# Manual, one-time historical backfill.
+# Uploads every .jar in builds/ from oldest version to newest version.
+# The newest build is uploaded last.
+#
+# GitHub setting names intentionally remain:
+#   secrets.MODRINTH_TOKEN      = CurseForge upload API token
+#   vars.MODRINTH_PROJECT_ID    = numeric CurseForge project ID
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+  MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
+
+jobs:
+  publish-all:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Make uploader executable
+        run: chmod +x ./scripts/publish-curseforge.sh
+
+      - name: Show builds to publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          COUNT="$(find builds -maxdepth 1 -type f -name '*.jar' | wc -l)"
+          echo "Found $COUNT jars in builds/."
+          if [[ "$COUNT" -eq 0 ]]; then
+            echo "::error::No .jar files found in builds/."
+            exit 1
+          fi
+          find builds -maxdepth 1 -type f -name '*.jar' -print
+
+      - name: Publish all builds to CurseForge
+        run: ./scripts/publish-curseforge.sh all-builds
