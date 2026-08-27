@@ -23,8 +23,7 @@ tool allows, reaches about as far as you do, opens chests it's standing next to,
 never teleports. That makes it a little dumber than a bot that conjures blocks into place.
 That's the point.
 
-[![CurseForge version](https://img.shields.io/curseforge/v/1667377?style=for-the-badge&logo=curseforge&label=CurseForge&color=F16436)](https://www.curseforge.com/minecraft/mc-mods/blockpal-ai)
-[![CurseForge downloads](https://img.shields.io/curseforge/dt/1667377?style=for-the-badge&logo=curseforge&label=Downloads&color=F16436)](https://www.curseforge.com/minecraft/mc-mods/blockpal-ai)
+[![CurseForge](https://cf.way2muchnoise.eu/full_1667377_downloads.svg)](https://www.curseforge.com/minecraft/mc-mods/blockpal-ai)
 ![Minecraft 26.x](https://img.shields.io/badge/Minecraft-26.x-62b96e?style=for-the-badge)
 ![Fabric Loader 0.19.3+](https://img.shields.io/badge/Fabric_Loader-0.19.3+-dbb74b?style=for-the-badge)
 ![Java 25+](https://img.shields.io/badge/Java-25+-e76f51?style=for-the-badge)
