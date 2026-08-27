@@ -128,17 +128,17 @@ A few to start with; the full list is in the wiki.
 
 ## Documentation
 
-Full documentation lives in the wiki:
+Everything you need is in the **[Blockpal Wiki](https://github.com/MilkdromedaStudios/Blockpal-AI/wiki)**:
 
-- MCP server (connect Claude/ChatGPT/Grok/Gemini): https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/MCP-Server
-- Vision and Code (how it thinks): https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Vision-and-Code
-- Installation: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Installation
-- Getting Started: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Getting-Started
-- Commands: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Commands
-- Talking to Your Assistant: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Talking-to-Your-Assistant
-- Voice: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Voice
-- Settings: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Settings
-- Personalities: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Personalities
-- Trust and Per-Bot Management: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Trust-and-Per-Bot
-- Bedrock (Geyser) and one-click hosting: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Geyser-Bedrock
-- Troubleshooting: https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Troubleshooting
+- 🧠 [Connect Claude, ChatGPT, Grok, or Gemini](https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/MCP-Server)
+- 👁️ [How Blockpal sees and thinks](https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Vision-and-Code)
+- 📦 [Installation guide](https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Installation)
+- 🚀 [Getting started](https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Getting-Started)
+- ⌨️ [Commands](https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Commands)
+- 💬 [Talking to your assistant](https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Talking-to-Your-Assistant)
+- 🎙️ [Voice setup](https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Voice)
+- ⚙️ [Settings](https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Settings)
+- 🎭 [Personalities](https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Personalities)
+- 🤝 [Trust and bot management](https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Trust-and-Per-Bot)
+- 🎮 [Bedrock + one-click hosting](https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Geyser-Bedrock)
+- 🛠️ [Troubleshooting](https://github.com/MilkdromedaStudios/Blockpal-AI/wiki/Troubleshooting)
