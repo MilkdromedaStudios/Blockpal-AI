@@ -24,10 +24,10 @@ never teleports. That makes it a little dumber than a bot that conjures blocks i
 That's the point.
 
 [![CurseForge](https://cf.way2muchnoise.eu/full_1667377_downloads.svg)](https://www.curseforge.com/minecraft/mc-mods/blockpal-ai)
-![Minecraft 26.x](https://img.shields.io/badge/Minecraft-26.x-62b96e?style=for-the-badge)
-![Fabric Loader 0.19.3+](https://img.shields.io/badge/Fabric_Loader-0.19.3+-dbb74b?style=for-the-badge)
-![Java 25+](https://img.shields.io/badge/Java-25+-e76f51?style=for-the-badge)
-![License MIT](https://img.shields.io/badge/License-MIT-264653?style=for-the-badge)
+![Minecraft 26.x](https://img.shields.io/badge/Minecraft-26.x-62b96e.svg)
+![Fabric Loader 0.19.3+](https://img.shields.io/badge/Fabric_Loader-0.19.3%2B-dbb74b.svg)
+![Java 25+](https://img.shields.io/badge/Java-25%2B-e76f51.svg)
+![License MIT](https://img.shields.io/badge/License-MIT-264653.svg)
 
 ![Ethan in action — walking over on command, building a tower it planned itself, and handing over a diamond pickaxe (live in Minecraft 26.2)](media/gameplay.gif)
 
