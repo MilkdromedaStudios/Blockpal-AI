@@ -15,6 +15,11 @@ repositories {}
 loom {
     splitEnvironmentSourceSets()
 
+    runs {
+        client { runDir = "run/client" }
+        server { runDir = "run/server" }
+    }
+
     mods {
         "blockpal" {
             sourceSet sourceSets.main
