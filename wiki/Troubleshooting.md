@@ -189,4 +189,4 @@ Sneak-right-click opening the menu can trip accidentally. Turn off
 - Apply it by filename without extension: `/ai skin my_skin`.
 - After editing the file, run `/aiskins reload`.
 
-Still stuck? [Open an issue](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/issues).
+Still stuck? [Open an issue](https://github.com/MilkdromedaStudios/Blockpal-AI/issues).

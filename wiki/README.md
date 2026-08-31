@@ -1,6 +1,6 @@
 # Blockpal — Wiki sources
 
-This folder holds the **source** for the [Blockpal GitHub Wiki](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/wiki).
+This folder holds the **source** for the [Blockpal GitHub Wiki](https://github.com/MilkdromedaStudios/Blockpal-AI/wiki).
 Editing the wiki by hand in GitHub's UI is fine for quick fixes, but the canonical
 copy lives here so it's versioned alongside the code and reviewed in pull requests.
 
@@ -42,9 +42,9 @@ Internal links use the page name without extension, e.g. `[Commands](Commands)`.
 If you'd rather not use the Action, clone the wiki repo and copy the files in:
 
 ```bash
-git clone https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI.wiki.git
-cp wiki/*.md Nexus-Minecraft-AI.wiki/
-cd Nexus-Minecraft-AI.wiki
+git clone https://github.com/MilkdromedaStudios/Blockpal-AI.wiki.git
+cp wiki/*.md Blockpal-AI.wiki/
+cd Blockpal-AI.wiki
 git add . && git commit -m "Update wiki" && git push
 ```
 </content>

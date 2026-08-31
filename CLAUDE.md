@@ -11,7 +11,7 @@ OpenAI-compatible API.
 > rebrand in 2.14.0) and originally "AI Assistant", both under the `ai-assistant`
 > id. The 3.0.0 rename is a **breaking change** — configs/skins from older
 > installs are not read. The default companion name is still **Ethan**.
-> Note: only the *mod* was renamed; the GitHub repo is still `Nexus-Minecraft-AI`.
+> Note: the repo has since been renamed too — it is now `MilkdromedaStudios/Blockpal-AI`.
 
 ---
 
@@ -2416,6 +2416,14 @@ Whenever a jar is built and verified during testing, copy it into the repo's
   them. Bump `mod_version` in `gradle.properties` when shipping a new build so the
   new jar lands alongside the old ones instead of replacing them.
 - `builds/` is intentionally **not** gitignored (only `build/` is).
+- **A missing jar here is a version that never reaches CurseForge.** The backfill
+  publishes from `builds/`, so a release whose jar was never committed is invisible to
+  players no matter how healthy the workflow looks. That is not hypothetical: 14 versions
+  (3.7.0, 3.16.0, 3.16.1, 3.17.1, 3.17.2, 3.18.0, 3.19.0, 3.21.0–3.24.0, 3.25.2–3.25.4)
+  are on the old Modrinth listing but absent from CurseForge, and they are **exactly** the
+  14 with no jar in `builds/` — each shipped from a session where Gradle could not run.
+  If a jar cannot be built in-session, retrieve it from the `build` workflow's
+  `blockpal-jar` artifact (see the 3.26.0 entry) rather than skipping this step.
 
 ## Building
 
@@ -2444,18 +2452,21 @@ merge to `main`, not when a PR is opened (so a PR you later close has no side ef
   `main`. No `pull_request` trigger, so there's no duplicate PR-open run.
 - **`wiki.yml`** — publishes `wiki/` to the GitHub Wiki on pushes to `main` that touch
   `wiki/**` (i.e. after a merge), with an hourly cron backup sync.
-- **`release.yml`** — publishes the jar to Modrinth only when a PR is **merged**
-  (`pull_request: types:[closed]` gated by `merged == true`), or on a `v*` tag / manual
-  dispatch. Idempotent via the `modrinth-published/<version>` marker tag.
-- **`modrinth-description.yml`** — keeps the **Modrinth project page's description**
-  in lockstep with the repo: on a push to `main` touching `modrinth/description.md`
-  or `media/**` (or manual dispatch) it PATCHes the project `body` from
-  `modrinth/description.md`. That file mirrors `README.md` adapted for Modrinth —
-  **no H1 headings** (Modrinth rejects them; a lint step enforces this) and absolute
-  `raw.githubusercontent.com` URLs for the `media/` images/GIF. Uses the same
-  `MODRINTH_TOKEN` secret + `MODRINTH_PROJECT_ID` variable as `release.yml`; the
-  token needs project-write scope. **When `README.md` changes, update
-  `modrinth/description.md` in the same change** so the two stay in step.
+- **`release.yml`** — publishes the jar to **CurseForge** when a PR that touches
+  `gradle.properties` is **merged** (`pull_request: types:[closed]` + a `paths:` filter,
+  gated by `merged == true`), or on a `v*` tag / manual dispatch. The `paths:` filter is
+  why an ordinary PR does not publish: only a version bump does. Idempotent via the
+  `curseforge-published/<version>_mc<mc>` marker tag, pushed by
+  `.github/actions/publish-one-curseforge` after a successful upload.
+  **The GitHub setting names are deliberately still the old ones** —
+  `secrets.MODRINTH_TOKEN` holds the *CurseForge* upload token and
+  `vars.MODRINTH_PROJECT_ID` holds the *numeric CurseForge project ID*. Renaming them
+  means creating the new secret/variable first, or publishing breaks in the gap.
+**There is no description-sync workflow, by choice.** `modrinth-description.yml` and a
+short-lived `curseforge-description.yml` both existed and were both removed; CurseForge's
+public API has no project-description endpoint (the author dashboard needs a browser
+cookie), so the project page description is maintained **by hand**. Nothing in the repo
+mirrors it — do not add a `curseforge/description.md` and assume something publishes it.
 
 ## Layout
 
@@ -2465,8 +2476,7 @@ src/client/java      # client-only: rendering and the settings GUI
 src/main/resources   # fabric.mod.json, lang files, skins, assets
 builds/              # tested, ready-to-use jars (full version history, no deleting old builds.)
 wiki/                # source for the GitHub Wiki (all user docs live here)
-media/               # promo images + GIF used by README.md and the Modrinth description
-modrinth/            # description.md — the Modrinth project page body (no H1s!)
+media/               # promo images + GIF used by README.md
 ```
 
 ## Documentation

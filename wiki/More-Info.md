@@ -69,7 +69,7 @@ configs/skins from older installs are not read — set it up fresh.
 ## Changelog
 
 The full version history is maintained in
-[`CLAUDE.md`](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/blob/main/CLAUDE.md)
+[`CLAUDE.md`](https://github.com/MilkdromedaStudios/Blockpal-AI/blob/main/CLAUDE.md)
 in the repo. Highlights:
 
 - **3.4.1** — Internal: the **release, wiki and build workflows now act only on a
@@ -85,7 +85,7 @@ in the repo. Highlights:
   FPS), server-wide **bot cap**, closed a config privilege-escalation hole, and
   **API-key protection** (obfuscated at rest + `BLOCKPAL_API_TOKEN` env var).
 - **3.1.0** — Updated to **Minecraft 26.2** (Fabric API `0.152.2+26.2`); added a
-  Modrinth release workflow that publishes `Blockpal-<version>-<mcversion>.jar`.
+  CurseForge release workflow that publishes `Blockpal-<version>-<mcversion>.jar`.
 - **3.0.0** — Renamed the whole mod to **Blockpal** (mod id, Java package, texture
   namespace, config folder and jar name). Breaking change for existing installs.
 - **2.14.0** — Rebranded the display name to **Nexus AI**.
@@ -108,8 +108,8 @@ You can test any build yourself and open a pull request to tag it as "working".
 
 ## Contributing
 
-Wiki pages are versioned in the [`wiki/`](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/tree/main/wiki)
+Wiki pages are versioned in the [`wiki/`](https://github.com/MilkdromedaStudios/Blockpal-AI/tree/main/wiki)
 folder and published to the GitHub Wiki automatically **when a PR merges to `main`** —
 edit the markdown there and open a PR rather than editing the wiki in place. See
-[`wiki/README.md`](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/blob/main/wiki/README.md).
+[`wiki/README.md`](https://github.com/MilkdromedaStudios/Blockpal-AI/blob/main/wiki/README.md).
 </content>

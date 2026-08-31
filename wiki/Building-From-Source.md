@@ -14,8 +14,8 @@ wrapper handles it.
 ## Build
 
 ```bash
-git clone https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI.git
-cd Nexus-Minecraft-AI
+git clone https://github.com/MilkdromedaStudios/Blockpal-AI.git
+cd Blockpal-AI
 ./gradlew build          # Linux / macOS
 gradlew.bat build        # Windows
 ```
@@ -56,43 +56,50 @@ side effects).
 |----------|--------------|--------------|
 | `build.yml` | pushes to `main` and `claude/**` branches (so a PR's head commit still gets a compile check) | `./gradlew build` + uploads the jar artifact |
 | `wiki.yml` | push to `main` that touches `wiki/**` (i.e. after a merge), plus an hourly backup sync | publishes `wiki/` to the GitHub Wiki |
-| `release.yml` | a **merged** PR, a `v*` tag, or manual dispatch | publishes the jar to Modrinth |
-| `modrinth-description.yml` | push to `main` touching `modrinth/description.md` or `media/**`, or manual dispatch | syncs the Modrinth **project page description** from `modrinth/description.md` (which mirrors the README — no H1 headings, Modrinth rejects them; needs the token to have project-write scope) |
+| `release.yml` | a **merged** PR **that touches `gradle.properties`**, a `v*` tag, or manual dispatch | publishes the jar to CurseForge |
 
-## Releasing to Modrinth
+## Releasing to CurseForge
 
-The **Release to Modrinth** workflow (`.github/workflows/release.yml`) runs when a
-**pull request is merged** (not when it's opened, and not if it's closed without
-merging), on a `v*` tag push, and on a manual dispatch. It builds the mod, renames
-the jar to `Blockpal-<mod_version>-<minecraft_version>.jar`
-(e.g. `Blockpal-3.4.0-26.2.jar`) and uploads it to Modrinth via
-`Kir-Antipov/mc-publish`.
+The **Release to CurseForge** workflow (`.github/workflows/release.yml`) runs when a
+**pull request that changes `gradle.properties` is merged** (not when it's opened, and
+not if it's closed without merging), on a `v*` tag push, and on a manual dispatch. That
+`paths:` filter is deliberate: only a version bump ships a release, so ordinary PRs don't
+publish. It builds the mod and uploads the jar through
+`.github/actions/publish-one-curseforge`, which wraps `Kira-NT/mc-publish`.
 
 Each release is published:
 
-- for the **Fabric and Quilt** loaders (Quilt runs Fabric mods, so it's just tagged compatible),
+- for the **Fabric** loader,
 - as a **`beta`** version type,
-- with the matching `## <version>` section of [`CHANGELOG.md`](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/blob/main/CHANGELOG.md) as the version description, and
-- with the project kept in the **`technology`** category.
+- named `Blockpal <version> (MC <mcversion>)`, with the Minecraft version read out of
+  the jar's own `fabric.mod.json` (`depends.minecraft`) rather than guessed, and
+- with Fabric API (`306612`) recorded as a required dependency.
 
-It is **idempotent** — a given version uploads at most once. Modrinth itself does
-*not* enforce unique version numbers, so the workflow keeps its own marker: after
-a successful publish it pushes a `modrinth-published/<version>` git tag, and the
-gate skips the publish whenever that tag already exists (it also does a
-best-effort Modrinth API check to catch versions uploaded by hand). Bump
-`mod_version` in `gradle.properties` to ship a new one. (Publishing is also
-skipped automatically on fork PRs, where the secrets aren't available.)
+It is **idempotent** — a given version uploads at most once. The workflow keeps its own
+marker: after a successful upload it pushes a `curseforge-published/<version>_mc<mc>` git
+tag, and the gate skips whenever that tag already exists. Bump `mod_version` in
+`gradle.properties` to ship a new one.
+
+> **A release is only as good as `builds/`.** The one-time backfill workflows published
+> from the `builds/` folder, so any version whose jar was never committed there simply
+> never reached CurseForge — 14 versions are missing for exactly that reason. If you ship
+> a version, commit its jar; if you can't build locally, take it from the `build`
+> workflow's `blockpal-jar` artifact.
 
 One-time setup (repo **Settings ▸ Secrets and variables ▸ Actions**):
 
 | Kind | Name | Value |
 |------|------|-------|
-| Secret | `MODRINTH_TOKEN` | a Modrinth PAT with the *Create versions* scope (add *Read/Write projects* too if you want the workflow to set the `technology` category) |
-| Variable | `MODRINTH_PROJECT_ID` | the Modrinth project's ID or slug — must match the real project |
+| Secret | `MODRINTH_TOKEN` | **the CurseForge upload API token.** The name is legacy — it is not a Modrinth token |
+| Variable | `MODRINTH_PROJECT_ID` | **the numeric CurseForge project ID.** Also a legacy name |
 
-> The `MODRINTH_PROJECT_ID` must be the **actual** project slug/ID on Modrinth. If
-> it's wrong, the existence check can't find anything and the marker tag becomes
-> the only thing stopping duplicate uploads.
+> Those two names were kept on purpose when the project moved from Modrinth to
+> CurseForge: renaming them means creating the new secret and variable in repo settings
+> first, and any release in between would fail. The comment at the top of `release.yml`
+> records the same mapping.
+
+There is **no description-sync workflow**. CurseForge's public API has no
+project-description endpoint, so the project page text is edited by hand on CurseForge.
 
 ```bash
 git tag v3.1.0

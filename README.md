@@ -78,7 +78,7 @@ about the build, and guarding the base once it is up.
 
 ## Getting started
 
-1. Download the latest Blockpal jar and put it in your mods folder, next to Fabric API.
+1. Download the latest Blockpal jar from [CurseForge](https://www.curseforge.com/minecraft/mc-mods/blockpal-ai) and put it in your mods folder, next to Fabric API.
 2. Launch Minecraft on the matching Fabric version.
 3. In game, run /ai summon to meet Ethan.
 4. Give it a brain. Easiest: run /ai connection set mcp then /ai mcp, and follow the guide to point Claude, ChatGPT, Grok or Gemini at your world. Or set an API key with /ai mykey followed by your token.

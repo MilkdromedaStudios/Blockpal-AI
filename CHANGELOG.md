@@ -1,8 +1,11 @@
 # Changelog
 
-User-facing release notes for **Blockpal**. The section matching the current
-`mod_version` is published to Modrinth as that version's description, so keep the
-top entry written for players.
+User-facing release notes for **Blockpal**. Keep the top entry written for players.
+
+(Historical note: these sections used to be published verbatim as the Modrinth version
+description. Releases now go to CurseForge, and `publish-one-curseforge` sends a short
+fixed changelog line instead, so nothing here is uploaded automatically — this file is
+for humans reading the repo.)
 
 ## 3.27.0
 
