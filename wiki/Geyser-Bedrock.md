@@ -76,7 +76,7 @@ Floodgate, and shares the address.
    to generate the files; accept the EULA.
 2. **Add the mods** to the server's `mods/` folder:
    [Fabric API](https://modrinth.com/mod/fabric-api), **Blockpal** (from
-   [`builds/`](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/tree/main/builds)),
+   [`builds/`](https://github.com/MilkdromedaStudios/Blockpal-AI/tree/main/builds)),
    **Geyser-Fabric**, and **Floodgate-Fabric**
    ([downloads](https://geysermc.org/download)).
 3. **Let friends reach it without port-forwarding** — instead of editing your router,

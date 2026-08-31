@@ -17,7 +17,7 @@ logs/
 .loom-cache/
 run/
 
-# CI release staging (renamed jars for Modrinth upload)
+# CI release staging (renamed jars for CurseForge upload)
 upload/
 
 # Secrets — never commit tokens/keys.

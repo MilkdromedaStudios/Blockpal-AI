@@ -4,15 +4,24 @@ Blockpal is a **Fabric** mod for Minecraft **26.2**. You need the
 [Fabric Loader](https://fabricmc.net/use/installer/) and
 [Fabric API](https://modrinth.com/mod/fabric-api) installed too.
 
-## Option A — Pre-built jar (recommended)
+## Option A — CurseForge (recommended)
 
 | Step | Action |
 |------|--------|
-| 1 | **[Browse `builds/`](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/tree/main/builds)** and pick the latest `blockpal-<version>.jar` |
-| 2 | Hit **Download raw file** (the download icon) |
-| 3 | Copy the jar into your `mods/` folder |
-| 4 | Make sure **[Fabric Loader 0.19+](https://fabricmc.net/use/installer/)** and **[Fabric API](https://modrinth.com/mod/fabric-api)** are also in `mods/` |
-| 5 | Launch Minecraft — run `/ai summon` to meet Ethan |
+| 1 | Open **[Blockpal on CurseForge](https://www.curseforge.com/minecraft/mc-mods/blockpal-ai)** and download the latest file |
+| 2 | Copy the jar into your `mods/` folder |
+| 3 | Make sure **[Fabric Loader 0.19+](https://fabricmc.net/use/installer/)** and **[Fabric API](https://modrinth.com/mod/fabric-api)** are also in `mods/` |
+| 4 | Launch Minecraft — run `/ai summon` to meet Ethan |
+
+## Option B — Pre-built jar from the repo
+
+Every released version is also kept in the repo, which is handy for grabbing an older
+build. A few versions are only here and never made it onto CurseForge.
+
+| Step | Action |
+|------|--------|
+| 1 | **[Browse `builds/`](https://github.com/MilkdromedaStudios/Blockpal-AI/tree/main/builds)** and pick the `blockpal-<version>.jar` you want |
+| 2 | Hit **Download raw file** (the download icon), then follow steps 2–4 above |
 
 ```
 mods/
@@ -24,13 +33,13 @@ mods/
 > **Server install:** drop the same jar into the server's `mods/` folder alongside
 > Fabric API. Players also need it client-side to open the settings screen.
 
-## Option B — Build from source
+## Option C — Build from source
 
 See **[Building From Source](Building-From-Source)** for the full walkthrough.
 
 ```bash
-git clone https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI.git
-cd Nexus-Minecraft-AI
+git clone https://github.com/MilkdromedaStudios/Blockpal-AI.git
+cd Blockpal-AI
 ./gradlew build          # Linux / macOS
 gradlew.bat build        # Windows
 ```
@@ -50,7 +59,7 @@ Output lands in `build/libs/blockpal-<version>.jar`.
 > texture namespace and jar name all changed, so 3.0.0 does **not** read configs or
 > skins from older `ai-assistant` installs — treat it as a fresh setup.
 >
-> Pre-built jars in [`builds/`](https://github.com/MilkdromedaStudios/Nexus-Minecraft-AI/tree/main/builds)
+> Pre-built jars in [`builds/`](https://github.com/MilkdromedaStudios/Blockpal-AI/tree/main/builds)
 > are kept for every released version — older builds are never deleted (older jars
 > are named `ai-assistant-<version>.jar`).
 
