@@ -32,10 +32,18 @@ place. That's the point.
 
 ![Ethan in action — walking over on command, building a tower it planned itself, and handing over a diamond pickaxe (live in Minecraft 26.2)](https://raw.githubusercontent.com/MilkdromedaStudios/Blockpal-AI/main/media/gameplay.gif)
 
+**No key, no internet, no cloud.** Blockpal can fetch a small model and run it on your own
+machine, so the companion thinks locally and nothing you say leaves your computer.
+Below, Ethan is running on Qwen2.5 through llama.cpp over loopback — following, chatting
+about the build, and guarding the base once it is up.
+
+![A base going up with Ethan alongside — the companion running on a model on the same machine, with no API key and nothing leaving it](https://raw.githubusercontent.com/MilkdromedaStudios/Blockpal-AI/main/media/local-ai.gif)
+
 ## Features
 
 ![What Ethan can do](https://raw.githubusercontent.com/MilkdromedaStudios/Blockpal-AI/main/media/features.png)
 
+- **Runs on your own machine.** Blockpal downloads a small model (nothing over 3 GB) and runs it locally, so the companion works with no API key, no account and no internet. `/ai local setup` shows exactly what it would download and how big it is; nothing is fetched until you say yes.
 - **Connect your own AI over MCP.** Point Claude, ChatGPT, Grok or Gemini at your world and let it drive the companion — no key stored in the game, and you watch it think in the app's own window. `/ai mcp` shows the address, the token and a per-app setup guide.
 - **One AI connection, never two.** Pick exactly one — MCP, your own key, Player2, a local Ollama, the free service, or none. No more guessing which provider answered, or which one is being billed.
 - **It looks, then writes code.** The companion sees a picture rendered from its own eyes, decides, and writes a little script that presses its keys and mouse buttons. Everything it manages, a player could have managed.
