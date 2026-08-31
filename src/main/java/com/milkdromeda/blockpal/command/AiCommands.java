@@ -1004,9 +1004,8 @@ public class AiCommands {
         if (!ensureCanCommand(player, ai)) return 0;
 
         if (!ai.hasUsableApiKey()) {
-            player.sendSystemMessage(Component.literal(ModConfig.get().requireOwnApiKey
-                    ? "§c[AI] You need your own API key — set it in §f/ai mymenu§c or with §f/ai mykey <token>§c."
-                    : "§c[AI] No API key set yet. An admin can add one in §f/ai menu§c (AI tab)."));
+            player.sendSystemMessage(Component.literal(
+                    "§c[AI] Can't plan that — " + ModConfig.get().aiUnavailableHint() + "."));
             return 0;
         }
 

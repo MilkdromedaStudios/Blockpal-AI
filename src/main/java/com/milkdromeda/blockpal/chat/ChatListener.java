@@ -120,9 +120,7 @@ public final class ChatListener {
 
         // Anything else is a real task for the AI planner.
         if (!ai.hasUsableApiKey()) {
-            String how = ModConfig.get().requireOwnApiKey
-                    ? "you'll need your own API key — set it with /ai mykey <token>"
-                    : "I need an API key first — an admin can set one with /ai admin token <token>";
+            String how = ModConfig.get().aiUnavailableHint();
             sender.sendSystemMessage(Component.literal(
                     ai.getAssistantName() + ": \"I'd love to help, but " + how + ".\""));
             return;

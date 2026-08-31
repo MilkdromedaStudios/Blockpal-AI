@@ -1009,6 +1009,34 @@ public class ModConfig {
         };
     }
 
+    /**
+     * Why no model is reachable right now, phrased as the thing to go and do about it.
+     *
+     * <p>Every caller of {@link #aiAvailable()} used to assume the answer was "set an API
+     * key". That is only true for {@link AiConnection#API_KEY}: someone who picked the
+     * local model and has not downloaded it yet was being told to buy a key and sent to
+     * the wrong screen, and someone on MCP was told the same even though the whole point
+     * of that connection is that no key is stored in the game. The text is plain (no
+     * colour codes) so both the command messages and the bot's in-character chat can use
+     * it.
+     */
+    public String aiUnavailableHint() {
+        return switch (connection()) {
+            case API_KEY -> requireOwnApiKey
+                    ? "you'll need your own API key — set it with /ai mykey <token>"
+                    : "an API key isn't set yet — an admin can add one with /ai admin token <token>";
+            // aiAvailable() is false for LOCAL exactly when isSetUp() is false, so the
+            // model still needs downloading; /ai local setup reports what is missing.
+            case LOCAL -> "the local model isn't set up yet — an admin can run /ai local setup, "
+                    + "then /ai local accept to download it";
+            case MCP -> "my thinking happens in an outside AI app over MCP — connect one with /ai mcp";
+            case OFF -> "the AI is switched off — an admin can turn it on with /ai connection set <id>";
+            case PLAYER2 -> "the Player2 app isn't answering — make sure it's running and you're signed in";
+            case OLLAMA -> "the local Ollama server isn't answering — check it's running";
+            case FREE -> "the free AI service isn't answering right now";
+        };
+    }
+
     // ---- Local Ollama model pool (used by the Growth village game) ----
 
     /** @return true if added (false if blank or already present). */

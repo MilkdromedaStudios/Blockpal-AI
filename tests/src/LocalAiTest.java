@@ -123,6 +123,53 @@ public class LocalAiTest {
         check("gpu layers clamped to auto", c.localGpuLayers == -1, "" + c.localGpuLayers);
         check("context clamped up", c.localContext >= 512, "" + c.localContext);
 
+        // The bug this guards: picking the local model and being told to set an API key.
+        // aiAvailable() was right (no model until it is downloaded) but every message
+        // built on it assumed the only possible cause was a missing key, which sent the
+        // player to the API screen for a connection that never wants a key at all.
+        System.out.println("\nThe \"no AI\" message matches the chosen connection");
+        Files.writeString(dir.resolve("blockpal/config.json"),
+                "{\"configVersion\":15,\"aiConnection\":\"local\",\"localConsented\":false}");
+        ModConfig.load();
+        c = ModConfig.get();
+        check("with LOCAL chosen and nothing downloaded, there is no AI yet",
+                !c.aiAvailable(), "so a hint is shown");
+        String localHint = c.aiUnavailableHint();
+        check("the LOCAL hint never mentions an API key",
+                !localHint.toLowerCase(java.util.Locale.ROOT).contains("api key"), localHint);
+        check("the LOCAL hint points at /ai local setup",
+                localHint.contains("/ai local setup"), localHint);
+
+        Files.writeString(dir.resolve("blockpal/config.json"),
+                "{\"configVersion\":15,\"aiConnection\":\"mcp\"}");
+        ModConfig.load();
+        String mcpHint = ModConfig.get().aiUnavailableHint();
+        check("the MCP hint never mentions an API key",
+                !mcpHint.toLowerCase(java.util.Locale.ROOT).contains("api key"), mcpHint);
+        check("the MCP hint points at /ai mcp", mcpHint.contains("/ai mcp"), mcpHint);
+
+        Files.writeString(dir.resolve("blockpal/config.json"),
+                "{\"configVersion\":15,\"aiConnection\":\"off\"}");
+        ModConfig.load();
+        String offHint = ModConfig.get().aiUnavailableHint();
+        check("the OFF hint says the AI is switched off",
+                offHint.contains("switched off"), offHint);
+
+        // The one connection where asking for a key IS the right answer.
+        Files.writeString(dir.resolve("blockpal/config.json"),
+                "{\"configVersion\":15,\"aiConnection\":\"key\"}");
+        ModConfig.load();
+        String keyHint = ModConfig.get().aiUnavailableHint();
+        check("the API_KEY hint still asks for a key",
+                keyHint.toLowerCase(java.util.Locale.ROOT).contains("api key"), keyHint);
+
+        check("no connection produces an empty hint", java.util.Arrays.stream(
+                        com.milkdromeda.blockpal.ai.AiConnection.values()).allMatch(conn -> {
+                    ModConfig.get().aiConnection = conn.id();
+                    String h = ModConfig.get().aiUnavailableHint();
+                    return h != null && !h.isBlank();
+                }), "every enum constant is covered");
+
         System.out.println("\n" + pass + " passed, " + fail + " failed");
         if (fail > 0) System.exit(1);
     }

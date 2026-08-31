@@ -70,9 +70,7 @@ public final class PossessionManager {
             return;
         }
         if (!bot.hasUsableApiKey()) {
-            msg(player, cfg.requireOwnApiKey
-                    ? "§cPossession needs your own API key — set it with §f/ai mykey <token>§c."
-                    : "§cNo API key set for the AI yet — an admin can add one in §f/ai menu§c.");
+            msg(player, "§cPossession needs a model — " + cfg.aiUnavailableHint() + ".");
             return;
         }
         PossessionSession session = new PossessionSession(player.getUUID(), bot.getId(), CLIENT);
