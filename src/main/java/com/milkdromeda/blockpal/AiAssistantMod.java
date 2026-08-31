@@ -60,16 +60,16 @@ public class AiAssistantMod implements ModInitializer {
         // Third-party launchers (e.g. Lunar) may use a game folder other than
         // .minecraft — log the real location so "where did my config go" is answerable.
         LOGGER.info("Blockpal config file: {}", ModConfig.configPath());
-        if (!ModConfig.get().hasApiToken()) {
-            if (ModConfig.get().freeAiFallback) {
-                LOGGER.info("No AI API key set — using the free built-in AI ({}). Add a HuggingFace "
-                        + "key in /ai menu (AI & API tab) or via BLOCKPAL_API_TOKEN for better quality.",
-                        ModConfig.get().freeApiUrl);
-            } else {
-                LOGGER.warn("No AI API token set and the free AI fallback is disabled. Set a key "
-                        + "in-game from /ai menu (AI & API tab), or via the BLOCKPAL_API_TOKEN "
-                        + "environment variable.");
-            }
+        // Keyed off the connection, not off the API key: an install that deliberately has
+        // no key (the local model, or MCP) was being warned that its key was missing,
+        // which reads as a broken setup when nothing is wrong.
+        ModConfig cfg = ModConfig.get();
+        if (!cfg.aiAvailable()) {
+            LOGGER.warn("Blockpal has no model to plan with — {}.", cfg.aiUnavailableHint());
+        } else if (cfg.connection() == com.milkdromeda.blockpal.ai.AiConnection.FREE) {
+            LOGGER.info("Using the free built-in AI ({}). Add a key in /ai menu (AI & API tab), "
+                    + "or run a model on this machine with /ai local setup, for better quality.",
+                    cfg.freeApiUrl);
         }
     }
 
