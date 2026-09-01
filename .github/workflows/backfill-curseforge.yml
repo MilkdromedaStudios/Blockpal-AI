@@ -1,0 +1,151 @@
+name: Backfill missing CurseForge builds
+
+# One-shot backfill for the 14 releases that never reached CurseForge.
+#
+# They were missing for one reason: the backfill publishes from builds/, and these
+# 14 shipped from sessions where Gradle could not run, so no jar was ever committed.
+# Their jars have now been rebuilt from the matching modrinth-published/<version>
+# tags and added to builds/, so this workflow has something to upload.
+#
+# Runs once when this file lands on main, and can be re-run by hand. Re-running is
+# safe: publish-one-curseforge skips any version that already has a
+# curseforge-published/<version>_mc<mc> tag, so nothing is uploaded twice.
+#
+# Legacy GitHub setting names, as elsewhere in this repo:
+#   secrets.MODRINTH_TOKEN   = CurseForge upload API token
+#   vars.MODRINTH_PROJECT_ID = numeric CurseForge project ID
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/backfill-curseforge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: curseforge-backfill
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Publish 3.7.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.7.0.jar
+          version: "3.7.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.16.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.16.0.jar
+          version: "3.16.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.16.1
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.16.1.jar
+          version: "3.16.1"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.17.1
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.17.1.jar
+          version: "3.17.1"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.17.2
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.17.2.jar
+          version: "3.17.2"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.18.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.18.0.jar
+          version: "3.18.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.19.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.19.0.jar
+          version: "3.19.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.21.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.21.0.jar
+          version: "3.21.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.22.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.22.0.jar
+          version: "3.22.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.23.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.23.0.jar
+          version: "3.23.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.24.0
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.24.0.jar
+          version: "3.24.0"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.25.2
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.25.2.jar
+          version: "3.25.2"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.25.3
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.25.3.jar
+          version: "3.25.3"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Publish 3.25.4
+        uses: ./.github/actions/publish-one-curseforge
+        with:
+          file: builds/blockpal-3.25.4.jar
+          version: "3.25.4"
+          curseforge_id: ${{ vars.MODRINTH_PROJECT_ID }}
+          curseforge_token: ${{ secrets.MODRINTH_TOKEN }}
