@@ -27,7 +27,7 @@ public class ModConfig {
      * default instead of silently inheriting Java's zero/false. A file with no
      * version at all reads back as {@code 0} and is migrated from there.
      */
-    public static final int CURRENT_CONFIG_VERSION = 15;
+    public static final int CURRENT_CONFIG_VERSION = 16;
 
     // Settings (including the API key) live in their own folder under the game's
     // config directory. That directory is untouched when you replace the mod jar,
@@ -143,11 +143,11 @@ public class ModConfig {
     // machine. Off = voice input still works, but the agent stays text-only.
     public boolean voiceResponses = true;
 
-    // CLIENT-local: the push-to-talk key as a GLFW key code (default 86 = V). Held
-    // to record, released to send. Deliberately a raw key code polled outside GUI
+    // CLIENT-local: the push-to-talk key as an SDL3 scancode (25 = V). Held
+    // to record, released to send. Deliberately polled outside GUI
     // screens (change with /aivoice key <code>), so it can't clash with another
     // mod's keybinding registration.
-    public int voicePushToTalkKey = 86;
+    public int voicePushToTalkKey = 25;
 
     // CLIENT-local: speech-to-text endpoint + model for push-to-talk. The default
     // is Whisper large-v3-turbo on HuggingFace's serverless inference API (raw
@@ -659,7 +659,7 @@ public class ModConfig {
             // normalize() since they also cover a partially-edited file.
             allowVoice = true;
             voiceResponses = true;
-            voicePushToTalkKey = 86;
+            voicePushToTalkKey = 25;
         }
         if (configVersion < 11) {
             // Local Ollama support, survival-first behaviour and the Growth village
@@ -705,6 +705,12 @@ public class ModConfig {
             localContext = 4096;
             localAutoStart = true;
             localConsented = false;
+        }
+        if (configVersion < 16) {
+            // Minecraft 26.3 replaced GLFW with SDL3. The existing config stores
+            // GLFW key codes; migrate them once so an upgrade cannot silently
+            // rebind voice recording to a completely different physical key.
+            voicePushToTalkKey = oldGlfwKeyToSdl(voicePushToTalkKey);
         }
         if (configVersion < 14) {
             // v14 adds the tempo system, PVT and the combat gate. Booleans in an old
@@ -799,7 +805,7 @@ public class ModConfig {
         }
         if (sttModel == null || sttModel.isBlank()) sttModel = "openai/whisper-large-v3-turbo";
         if (ttsVoice == null || ttsVoice.isBlank()) ttsVoice = "alloy";
-        if (voicePushToTalkKey <= 0) voicePushToTalkKey = 86;   // GLFW_KEY_V
+        if (voicePushToTalkKey <= 0) voicePushToTalkKey = 25;   // SDL_SCANCODE_V
         if (maxTaskSeconds < 0) maxTaskSeconds = 0;
         if (performancePreset == null || performancePreset.isBlank()) performancePreset = "normal";
         if (adminPermissionLevel < 0) adminPermissionLevel = 0;
@@ -828,6 +834,53 @@ public class ModConfig {
             allowedModels.add("HuggingFaceH4/zephyr-7b-beta");
         }
         if (!allowedModels.contains(hfModel)) allowedModels.add(0, hfModel);
+    }
+
+    /**
+     * Converts legacy GLFW keyboard codes in an existing config to SDL3
+     * physical scancodes, following the standard US key positions. Unknown
+     * codes default to V rather than accidentally activating the wrong key.
+     */
+    private static int oldGlfwKeyToSdl(int key) {
+        if (key >= 65 && key <= 90) return key - 65 + 4; // A-Z
+        if (key >= 49 && key <= 57) return key - 49 + 30; // 1-9
+        if (key >= 290 && key <= 301) return key - 290 + 58; // F1-F12
+        return switch (key) {
+            case 48 -> 39;   // 0
+            case 32 -> 44;   // Space
+            case 39 -> 52;   // Apostrophe
+            case 44 -> 54;   // Comma
+            case 45 -> 45;   // Minus
+            case 46 -> 55;   // Period
+            case 47 -> 56;   // Slash
+            case 59 -> 51;   // Semicolon
+            case 61 -> 46;   // Equals
+            case 91 -> 47;   // Left bracket
+            case 92 -> 49;   // Backslash
+            case 93 -> 48;   // Right bracket
+            case 96 -> 53;   // Grave accent
+            case 256 -> 41;  // Escape
+            case 257 -> 40;  // Enter
+            case 258 -> 43;  // Tab
+            case 259 -> 42;  // Backspace
+            case 260 -> 73;  // Insert
+            case 261 -> 76;  // Delete
+            case 262 -> 79;  // Right arrow
+            case 263 -> 80;  // Left arrow
+            case 264 -> 81;  // Down arrow
+            case 265 -> 82;  // Up arrow
+            case 266 -> 75;  // Page up
+            case 267 -> 78;  // Page down
+            case 268 -> 74;  // Home
+            case 269 -> 77;  // End
+            case 340 -> 225; // Left shift
+            case 341 -> 224; // Left control
+            case 342 -> 226; // Left alt
+            case 344 -> 229; // Right shift
+            case 345 -> 228; // Right control
+            case 346 -> 230; // Right alt
+            default -> 25;  // Unknown legacy binding: V (safe default)
+        };
     }
 
     /** Recovers the live token from its obfuscated on-disk form (if needed). */
