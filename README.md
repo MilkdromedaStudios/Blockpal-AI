@@ -24,8 +24,8 @@ never teleports. That makes it a little dumber than a bot that conjures blocks i
 That's the point.
 
 [![CurseForge](https://cf.way2muchnoise.eu/full_1667377_downloads.svg)](https://www.curseforge.com/minecraft/mc-mods/blockpal-ai)
-![Minecraft 26.x](https://img.shields.io/badge/Minecraft-26.x-62b96e.svg)
-![Fabric Loader 0.19.3+](https://img.shields.io/badge/Fabric_Loader-0.19.3%2B-dbb74b.svg)
+![Minecraft 26.3](https://img.shields.io/badge/Minecraft-26.3-62b96e.svg)
+![Fabric Loader 0.20.1+](https://img.shields.io/badge/Fabric_Loader-0.20.1%2B-dbb74b.svg)
 ![Java 25+](https://img.shields.io/badge/Java-25%2B-e76f51.svg)
 ![Client + Server](https://img.shields.io/badge/Side-Client_%2B_Server-5b8def.svg)
 ![Singleplayer](https://img.shields.io/badge/Singleplayer-Supported-6aa84f.svg)
@@ -72,8 +72,8 @@ about the build, and guarding the base once it is up.
 
 ## Requirements
 
-- Minecraft (Java Edition) 26.2
-- Fabric Loader 0.19.3 or newer, plus Fabric API
+- Minecraft (Java Edition) 26.3
+- Fabric Loader 0.20.1 or newer, plus Fabric API 0.166.0+26.3
 - An AI to think with — any one of: an AI app you already have (Claude, ChatGPT, Grok, Gemini) connected over MCP, an OpenAI-compatible API key (a free Hugging Face token works), a local Ollama, or the free built-in service
 
 ## Getting started
