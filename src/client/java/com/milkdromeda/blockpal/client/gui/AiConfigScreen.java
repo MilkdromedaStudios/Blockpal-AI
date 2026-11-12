@@ -15,9 +15,9 @@ import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.layouts.LinearLayout;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Util;
 
 import java.io.IOException;
+import java.awt.Desktop;
 import java.nio.file.Files;
 
 /**
@@ -879,9 +879,17 @@ public class AiConfigScreen extends Screen {
         try {
             Files.createDirectories(RuntimeSkins.SKIN_DIR);
         } catch (IOException ignored) {
-            // openPath below still works if the folder already exists.
+            // The native file browser may still open an existing folder.
         }
-        Util.getPlatform().openPath(RuntimeSkins.SKIN_DIR);
+        try {
+            if (Desktop.isDesktopSupported()
+                    && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+                Desktop.getDesktop().open(RuntimeSkins.SKIN_DIR.toFile());
+            }
+        } catch (IOException | RuntimeException e) {
+            com.milkdromeda.blockpal.AiAssistantMod.LOGGER.warn(
+                    "Could not open skins folder: {}", RuntimeSkins.SKIN_DIR, e);
+        }
     }
 
     // ── body widget factories ───────────────────────────────────────────────────
