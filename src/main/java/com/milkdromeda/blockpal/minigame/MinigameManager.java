@@ -180,7 +180,7 @@ public final class MinigameManager {
             } else if (dist > CHAIN_MAX) {
                 Vec3 pull = delta.normalize().scale(CHAIN_PULL);
                 e.setDeltaMovement(e.getDeltaMovement().add(pull.x, Math.max(0, pull.y) * 0.5, pull.z));
-                e.hurtMarked = true;   // sync the new velocity to the client
+                e.syncVelocity = true;   // sync the new velocity to the client
             }
         }
     }
