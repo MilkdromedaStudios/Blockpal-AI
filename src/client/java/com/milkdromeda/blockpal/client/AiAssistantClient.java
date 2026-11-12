@@ -197,7 +197,7 @@ public class AiAssistantClient implements ClientModInitializer {
             // Client-local voice controls (the server side lives under /ai voice):
             //   /aivoice            — status: key, default voice, responses on/off
             //   /aivoice on|off     — hear your agent speak (text-to-speech) or not
-            //   /aivoice key <code> — rebind push-to-talk (GLFW key code; 86 = V)
+            //   /aivoice key <code> — rebind push-to-talk (SDL scancode; 25 = V)
             //   /aivoice voice <id> — your default TTS voice (alloy, nova, onyx…)
             //   /aivoice stop       — make it stop talking right now
             //   /aivoice test <txt> — hear a line with your current default voice
@@ -218,8 +218,8 @@ public class AiAssistantClient implements ClientModInitializer {
                                         cfg.voicePushToTalkKey = IntegerArgumentType.getInteger(ctx, "code");
                                         cfg.save();
                                         ctx.getSource().sendFeedback(Component.literal(
-                                                "§bPush-to-talk key set to GLFW code §f" + cfg.voicePushToTalkKey
-                                                        + "§b (86=V, 66=B, 71=G — see GLFW key codes)."));
+                                                "§bPush-to-talk key set to SDL scancode §f" + cfg.voicePushToTalkKey
+                                                        + "§b (25=V, 5=B, 10=G — see SDL scancodes)."));
                                         return 1;
                                     })))
                     .then(ClientCommands.literal("voice")
@@ -352,7 +352,7 @@ public class AiAssistantClient implements ClientModInitializer {
         src.sendFeedback(Component.literal(
                 "§6=== Blockpal voice (this client) ===\n"
                 + "§7Agent speech: " + (cfg.voiceResponses ? "§aON" : "§7off") + " §7— toggle with §f/aivoice on|off\n"
-                + "§7Push-to-talk key: §fGLFW " + cfg.voicePushToTalkKey + (cfg.voicePushToTalkKey == 86 ? " (V)" : "")
+                + "§7Push-to-talk key: §fSDL " + cfg.voicePushToTalkKey + (cfg.voicePushToTalkKey == 25 ? " (V)" : "")
                 + " §7— hold it (no menu open) to talk to YOUR companion\n"
                 + "§7Default voice: §f" + cfg.ttsVoice + " §7— change with §f/aivoice voice <id>\n"
                 + "§7Transcription: §f" + cfg.sttModel + "\n"
