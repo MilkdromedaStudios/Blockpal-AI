@@ -30,7 +30,7 @@ loom {
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    // No mappings line — 26.1.x ships with Mojang's official names
+    // No mappings line — Minecraft 26.x ships with Mojang's official names
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 }
