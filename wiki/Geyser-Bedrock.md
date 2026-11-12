@@ -30,7 +30,7 @@ This is a **server-admin** setup. Bedrock players install nothing.
    present) to recognise Bedrock players and tailor their experience.
 
 > **Version note:** Geyser and Floodgate have to support your **Minecraft version**
-> (this build targets **26.2**). Geyser usually adds support shortly after a Java
+> (this build targets **26.3**). Geyser usually adds support shortly after a Java
 > release — check the [GeyserMC downloads](https://geysermc.org/download) and their
 > Discord for the current status before you upgrade your server. Blockpal does **not**
 > bundle Geyser/Floodgate; you add them yourself.
