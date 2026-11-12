@@ -1,5 +1,6 @@
 package com.milkdromeda.blockpal.possession;
 
+import net.minecraft.world.item.component.SwingAnimation;
 import com.milkdromeda.blockpal.ai.ActionPlan;
 import com.milkdromeda.blockpal.ai.ActionStep;
 import com.milkdromeda.blockpal.ai.HuggingFaceClient;
@@ -236,7 +237,7 @@ public class PossessionSession {
             if (id != null) {
                 BuiltInRegistries.BLOCK.get(id).ifPresent(holder -> {
                     level.setBlock(pos, holder.value().defaultBlockState(), Block.UPDATE_ALL);
-                    p.swing(InteractionHand.MAIN_HAND);
+                    p.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
                 });
             }
         }
@@ -250,7 +251,7 @@ public class PossessionSession {
         if (blockDistSqr(p, pos) > REACH_SQR) { pushToward(p, x, y, z); return false; }
         if (p.level() instanceof ServerLevel level) {
             level.destroyBlock(pos, true, p);
-            p.swing(InteractionHand.MAIN_HAND);
+            p.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
         }
         return true;
     }
@@ -284,7 +285,7 @@ public class PossessionSession {
             BlockPos bp = mineQueue.poll();
             if (bp != null && !level.getBlockState(bp).isAir()) {
                 level.destroyBlock(bp, true, p);
-                p.swing(InteractionHand.MAIN_HAND);
+                p.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
             }
         }
         return mineQueue.isEmpty();
@@ -317,7 +318,7 @@ public class PossessionSession {
             } else if (state.hasProperty(BlockStateProperties.OPEN)) {
                 sl.setBlock(pos, state.cycle(BlockStateProperties.OPEN), Block.UPDATE_ALL);
             }
-            p.swing(InteractionHand.MAIN_HAND);
+            p.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
         } catch (Exception ignored) {
             // Never let a quirky block break the plan.
         }
@@ -358,7 +359,7 @@ public class PossessionSession {
     private boolean execJump(ServerPlayer p) {
         if (p.onGround()) {
             p.setDeltaMovement(p.getDeltaMovement().x, 0.42, p.getDeltaMovement().z);
-            p.hurtMarked = true;
+            p.syncVelocity = true;
         }
         return true;
     }
@@ -374,7 +375,7 @@ public class PossessionSession {
         if (target == null) return true;
         faceToward(p, target.getX(), target.getEyeY(), target.getZ());
         if (p.distanceToSqr(target) < 9) {
-            p.swing(InteractionHand.MAIN_HAND);
+            p.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
             p.attack(target);
             return !target.isAlive();
         }
@@ -423,7 +424,7 @@ public class PossessionSession {
 
     /**
      * Drives the player toward a target by setting velocity each tick (and syncing it
-     * to the client via {@code hurtMarked}), jumping to climb or when blocked, and
+     * to the client via {@code syncVelocity}), jumping to climb or when blocked, and
      * teleporting to catch up if it's very far. This is the same server-authoritative
      * push the mini-games use, so it needs no client mod.
      */
@@ -442,14 +443,14 @@ public class PossessionSession {
         boolean needUp = ty > p.getY() + 0.6;
         if (p.onGround() && (needUp || p.horizontalCollision)) vy = 0.42;
         p.setDeltaMovement(nx, vy, nz);
-        p.hurtMarked = true;
+        p.syncVelocity = true;
     }
 
     /** Stops the player's horizontal drift so it doesn't slide past a target. */
     private void stopPlayer(ServerPlayer p) {
         Vec3 v = p.getDeltaMovement();
         p.setDeltaMovement(0, v.y, 0);
-        p.hurtMarked = true;
+        p.syncVelocity = true;
     }
 
     /** Aims the player's server-side facing at a point (best-effort — look is client-owned). */
