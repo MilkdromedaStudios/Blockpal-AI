@@ -1,5 +1,6 @@
 package com.milkdromeda.blockpal.entity.goal;
 
+import net.minecraft.world.item.component.SwingAnimation;
 import com.milkdromeda.blockpal.entity.AiAssistantEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -62,7 +63,7 @@ public class BuildGoal extends Goal {
 
         entity.getLookControl().setLookAt(center.x, center.y, center.z, 30f, 30f);
         placeBlock(current.pos(), current.blockId());
-        entity.swing(InteractionHand.MAIN_HAND);
+        entity.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
         current = null;
         waitTicks = com.milkdromeda.blockpal.agent.Tempo.stepDelayTicks() / 2;
     }

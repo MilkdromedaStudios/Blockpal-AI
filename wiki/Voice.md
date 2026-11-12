@@ -29,7 +29,7 @@ You'll see a private `You → Ethan 🎤 "…"` line confirming what was heard.
   it tries the free voice service instead — but see the honesty note below: the
   free service currently has **no speech model**, so for now voice wants a key
   (the text AI stays fully keyless).
-- **Rebind the key** with `/aivoice key <GLFW code>` (86 = V, 66 = B, 71 = G).
+- **Rebind the key** with `/aivoice key <SDL scancode>` (25 = V, 5 = B, 10 = G).
   The key is only read while no GUI is open, so typing "v" in chat is safe.
 
 ## Hearing your agent (private text-to-speech)
@@ -108,7 +108,7 @@ The whole voice layer is server-gated:
 |---------|---------|---------|
 | `allowVoice` | `true` | **(server)** master gate for the whole voice layer |
 | `voiceResponses` | `true` | Speak the agent's replies out loud on this client |
-| `voicePushToTalkKey` | `86` (V) | Push-to-talk key as a GLFW key code |
+| `voicePushToTalkKey` | `25` (V) | Push-to-talk key as a GLFW key code |
 | `sttApiUrl` | HF Whisper endpoint | Where push-to-talk audio is transcribed |
 | `sttModel` | `openai/whisper-large-v3-turbo` | The transcription model |
 | `ttsVoice` | `alloy` | Default TTS voice when a bot has none of its own |

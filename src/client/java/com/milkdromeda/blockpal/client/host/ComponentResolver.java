@@ -24,7 +24,7 @@ final class ComponentResolver {
     private ComponentResolver() {}
 
     /** The Minecraft version this Blockpal build targets (keep in sync with gradle.properties). */
-    static final String MC_VERSION = "26.2";
+    static final String MC_VERSION = "26.3";
 
     record Artifact(String url, String sha1) {}
 

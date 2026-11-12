@@ -1,6 +1,6 @@
 # Installation
 
-Blockpal is a **Fabric** mod for Minecraft **26.2**. You need the
+Blockpal is a **Fabric** mod for Minecraft **26.3**. You need the
 [Fabric Loader](https://fabricmc.net/use/installer/) and
 [Fabric API](https://modrinth.com/mod/fabric-api) installed too.
 
@@ -10,7 +10,7 @@ Blockpal is a **Fabric** mod for Minecraft **26.2**. You need the
 |------|--------|
 | 1 | Open **[Blockpal on CurseForge](https://www.curseforge.com/minecraft/mc-mods/blockpal-ai)** and download the latest file |
 | 2 | Copy the jar into your `mods/` folder |
-| 3 | Make sure **[Fabric Loader 0.19+](https://fabricmc.net/use/installer/)** and **[Fabric API](https://modrinth.com/mod/fabric-api)** are also in `mods/` |
+| 3 | Make sure **[Fabric Loader 0.20.1+](https://fabricmc.net/use/installer/)** and **[Fabric API](https://modrinth.com/mod/fabric-api)** are also in `mods/` |
 | 4 | Launch Minecraft — run `/ai summon` to meet Ethan |
 
 ## Option B — Pre-built jar from the repo
@@ -25,8 +25,8 @@ build. A few versions are only here and never made it onto CurseForge.
 
 ```
 mods/
-├── blockpal-3.1.0.jar   ← this mod
-├── fabric-api-0.152.2+26.2.jar
+├── blockpal-3.28.0.jar  ← this mod
+├── fabric-api-0.166.0+26.3.jar
 └── ...
 ```
 
@@ -50,7 +50,8 @@ Output lands in `build/libs/blockpal-<version>.jar`.
 
 | Mod version | Minecraft | Fabric Loader | Fabric API |
 |-------------|-----------|---------------|------------|
-| **3.1.0** *(latest)* | 26.2 | 0.19.3+ | 0.152.2+ |
+| **3.28.0** *(source port)* | 26.3 | 0.20.1+ | 0.166.0+ |
+| 3.27.0 | 26.2 | 0.19.3+ | 0.152.2+ |
 | 3.0.0 | 26.1.2 | 0.19.3+ | 0.151.0+ |
 | 2.14.x | 26.1.2 | 0.19.3+ | 0.151.0+ |
 | 2.13.x | 26.1.2 | 0.19.3+ | 0.151.0+ |

@@ -6,7 +6,7 @@ import com.milkdromeda.blockpal.network.VoiceInputPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.lang.reflect.Method;
 
@@ -14,23 +14,14 @@ import java.lang.reflect.Method;
  * The client half of agent voice: the <b>push-to-talk key</b> and the incoming
  * speech player.
  *
- * <p>Hold the talk key (default <b>V</b> — a raw GLFW key code in
- * {@code voicePushToTalkKey}, changed with {@code /aivoice key <code>}) while no
- * GUI is open to record; release to transcribe (Whisper large-v3-turbo by
- * default) and send the words to <b>your own companion only</b> — voice input
- * never touches public chat. The key state is read straight from GLFW
- * ({@link GLFW#glfwGetKey}) rather than through a registered KeyMapping, so it
- * can never collide with another mod's binding registration; "a GUI is open" is
- * tracked from Fabric's ScreenEvents (see AiAssistantClient), so pressing V
- * while typing in chat is safe.
+ * <p>Hold the talk key (default <b>V</b>, SDL scancode 25, rebind with
+ * {@code /aivoice key <code>}) while no GUI is open to record; release it to
+ * transcribe and send the speech to your own companion. The key is polled using
+ * Minecraft's SDL3 {@link InputConstants#isKeyDown(int)}, rather than GLFW,
+ * and ScreenEvents prevent accidental recording when typing in chat.
  *
- * <p>Two spots deliberately use one-time reflection instead of a direct call —
- * the {@code Window} native-handle getter and the player's client-message
- * (action bar) method — because this Minecraft version renamed both accessors
- * and this codebase has no compiled use of either to borrow from (the 3.17.2
- * lesson: don't ship an unverifiable mapping guess). Both degrade gracefully:
- * no handle → the talk key is disabled with one log line; no message method →
- * status text is skipped (the server still echoes what it heard in chat).
+ * <p>The player's optional client-message (action bar) accessor is looked up
+ * reflectively. If missing, cosmetic status text is skipped.
  *
  * <p>Incoming {@code VoiceSpeakPayload}s (your agent — or one shared with you —
  * said something) are synthesized and played privately; the local playback
@@ -46,11 +37,7 @@ public final class VoiceClient {
     /** Whether some GUI screen is currently open (maintained via ScreenEvents). */
     private static volatile boolean screenOpen = false;
 
-    // One-time reflective lookups (see class javadoc). "Done" flags keep a failed
-    // lookup from being retried every tick.
-    private static Method windowHandleMethod;
-    private static boolean windowHandleLookupDone;
-    private static long windowHandle = 0L;
+    // The optional action-bar client-message accessor is looked up once.
     private static Method clientMessageMethod;
     private static boolean clientMessageLookupDone;
 
@@ -78,47 +65,13 @@ public final class VoiceClient {
         keyWasDown = down;
     }
 
-    /** Reads the raw key state from GLFW using the window's native handle. */
+    /** Poll the SDL3 physical keyboard scancode used by Minecraft 26.3. */
     private static boolean isTalkKeyDown(Minecraft mc) {
         try {
-            long handle = handleOf(mc);
-            if (handle == 0L) return false;
-            return GLFW.glfwGetKey(handle, ModConfig.get().voicePushToTalkKey) == GLFW.GLFW_PRESS;
-        } catch (Exception e) {
+            return InputConstants.isKeyDown(ModConfig.get().voicePushToTalkKey);
+        } catch (RuntimeException e) {
             return false;
         }
-    }
-
-    /**
-     * The GLFW window handle, found once by reflection: the no-arg {@code long}
-     * getter on {@code Window} whose name mentions window/handle/pointer (its
-     * exact mapped name varies across Minecraft versions).
-     */
-    private static long handleOf(Minecraft mc) throws Exception {
-        if (windowHandle != 0L) return windowHandle;
-        Object window = mc.getWindow();
-        if (window == null) return 0L;
-        if (!windowHandleLookupDone) {
-            windowHandleLookupDone = true;
-            Method fallback = null;
-            for (Method m : window.getClass().getMethods()) {
-                if (m.getParameterCount() != 0 || m.getReturnType() != long.class) continue;
-                String n = m.getName().toLowerCase(java.util.Locale.ROOT);
-                if (n.contains("window") || n.contains("handle") || n.contains("pointer")) {
-                    windowHandleMethod = m;
-                    break;
-                }
-                if (fallback == null) fallback = m;
-            }
-            if (windowHandleMethod == null) windowHandleMethod = fallback;
-            if (windowHandleMethod == null) {
-                AiAssistantMod.LOGGER.warn(
-                        "[Voice] Couldn't find the window-handle getter — push-to-talk disabled.");
-            }
-        }
-        if (windowHandleMethod == null) return 0L;
-        windowHandle = (long) windowHandleMethod.invoke(window);
-        return windowHandle;
     }
 
     private static void startTalking(Minecraft mc) {

@@ -1,5 +1,6 @@
 package com.milkdromeda.blockpal.agent;
 
+import net.minecraft.world.item.component.SwingAnimation;
 import com.milkdromeda.blockpal.entity.AiAssistantEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -199,7 +200,7 @@ public class BotInput {
             cancelBreak(bot, level);
             if (attackCooldown <= 0) {
                 attackCooldown = 12;      // roughly a sword's swing cooldown
-                bot.swing(InteractionHand.MAIN_HAND);
+                bot.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
                 bot.doHurtTarget(level, target);
                 lastEvent = "hit " + target.getType().toShortString();
             }
@@ -242,7 +243,7 @@ public class BotInput {
 
         if (swingCooldown <= 0) {
             swingCooldown = Tempo.current().swingCooldown();
-            bot.swing(InteractionHand.MAIN_HAND);
+            bot.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
         }
 
         int stage = (int) (breakProgress * 10f);
@@ -289,7 +290,7 @@ public class BotInput {
         BlockState state = level.getBlockState(pos);
 
         if (!bot.isShiftKeyDown() && toggle(level, pos, state)) {
-            bot.swing(InteractionHand.MAIN_HAND);
+            bot.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
             lastEvent = "used " + com.milkdromeda.blockpal.vision.BotVision.blockName(state);
             return;
         }
@@ -361,7 +362,7 @@ public class BotInput {
             return false;
         }
         held.shrink(1);
-        bot.swing(InteractionHand.MAIN_HAND);
+        bot.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
         lastEvent = "placed " + com.milkdromeda.blockpal.vision.BotVision.blockName(placed);
         return true;
     }

@@ -1,5 +1,6 @@
 package com.milkdromeda.blockpal.entity;
 
+import net.minecraft.world.item.component.SwingAnimation;
 import com.milkdromeda.blockpal.ai.AiTaskManager;
 import com.milkdromeda.blockpal.ai.ChatIntent;
 import com.milkdromeda.blockpal.ai.Personality;
@@ -589,7 +590,7 @@ public class AiAssistantEntity extends PathfinderMob {
         heal(Math.max(1.0f, food.nutrition() * 0.6f + 1.0f));
         applyConsumeEffects(level, one);
         held.shrink(1);
-        swing(InteractionHand.MAIN_HAND);
+        swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
         return true;
     }
 
@@ -777,7 +778,7 @@ public class AiAssistantEntity extends PathfinderMob {
         if (food != null) heal(Math.max(1.0f, food.nutrition() * 0.6f + 1.0f));
         applyConsumeEffects(level, one);   // e.g. a golden apple's regeneration + absorption
         inventory.removeItem(slot, 1);
-        swing(InteractionHand.MAIN_HAND);
+        swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
     }
 
     /** Drinks one potion from a slot, applying its (beneficial) effects. */
@@ -787,7 +788,7 @@ public class AiAssistantEntity extends PathfinderMob {
         if (contents != null) contents.applyToLivingEntity(this, 1.0f);
         applyConsumeEffects(level, one);
         inventory.removeItem(slot, 1);
-        swing(InteractionHand.MAIN_HAND);
+        swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
     }
 
     /** Runs an item's on-consume effects on the assistant, exactly as eating/drinking would. */

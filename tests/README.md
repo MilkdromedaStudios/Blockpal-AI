@@ -5,7 +5,7 @@ sandboxes — but the mod can still be **compiled and meaningfully tested** with
 `javac`, because 26.x ships unobfuscated with official names and needs no mappings step.
 
 ```bash
-./tests/setup-toolchain.sh    # once — MC 26.2 + libraries + Fabric + JDK 25 (~700 MB)
+./tests/setup-toolchain.sh    # once — MC 26.3 + libraries + Fabric + JDK 25 (~700 MB)
 ./tests/run.sh
 ```
 

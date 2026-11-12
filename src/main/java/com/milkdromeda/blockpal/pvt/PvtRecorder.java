@@ -148,7 +148,7 @@ public final class PvtRecorder {
         // A jump is the moment somebody left the ground upwards under their own steam.
         boolean jump = lastOnGround && !onGround && dy > 0.05;
 
-        boolean attack = subject.swinging;
+        boolean attack = subject.isSwinging();
         boolean use = subject.isUsingItem();
 
         float yawDelta = net.minecraft.util.Mth.wrapDegrees(yaw - lastYaw);

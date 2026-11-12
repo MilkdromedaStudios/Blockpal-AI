@@ -29,11 +29,17 @@ if [ ! -x "$TC/jdk/bin/javac" ]; then
 fi
 "$TC/jdk/bin/javac" -version 2>&1 | sed 's/^/[tc] javac: /'
 
-# ── Minecraft 26.2 client.jar + libraries ─────────────────────────────────────
+# ── Minecraft 26.3 client.jar + libraries ─────────────────────────────────────
+# A 26.2 toolchain cannot compile 26.3 even if its jars still exist.
+# On first use of this target version, clear obsolete cached jars and unpacked API.
+if [ ! -f "$TC/.minecraft-26.3" ]; then
+  rm -f "$TC/libs/"*.jar "$TC/libs/.api-unpacked" "$TC/fabric-api.jar"
+  touch "$TC/.minecraft-26.3"
+fi
 if [ ! -f "$TC/libs/client.jar" ]; then
-  log "resolving Minecraft 26.2 from piston-meta"
+  log "resolving Minecraft 26.3 from piston-meta"
   VJ=$(curl -s --max-time 60 https://piston-meta.mojang.com/mc/game/version_manifest_v2.json \
-       | python3 -c "import sys,json;m=json.load(sys.stdin);print(next(v['url'] for v in m['versions'] if v['id']=='26.2'))")
+       | python3 -c "import sys,json;m=json.load(sys.stdin);print(next(v['url'] for v in m['versions'] if v['id']=='26.3'))")
   log "version json: $VJ"
   curl -s --max-time 120 -o version.json "$VJ"
   python3 - <<'PY' > urls.txt
@@ -50,8 +56,8 @@ PY
 fi
 
 # ── Fabric loader + API ───────────────────────────────────────────────────────
-FL=0.19.3
-FA=0.152.2+26.2
+FL=0.20.1
+FA=0.166.0+26.3
 [ -f "$TC/libs/fabric-loader.jar" ] || curl -s --max-time 300 -o "$TC/libs/fabric-loader.jar" \
   "https://maven.fabricmc.net/net/fabricmc/fabric-loader/$FL/fabric-loader-$FL.jar"
 [ -f "$TC/fabric-api.jar" ] || curl -s --max-time 600 -o "$TC/fabric-api.jar" \

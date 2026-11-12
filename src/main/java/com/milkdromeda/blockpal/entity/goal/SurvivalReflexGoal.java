@@ -1,5 +1,6 @@
 package com.milkdromeda.blockpal.entity.goal;
 
+import net.minecraft.world.item.component.SwingAnimation;
 import com.milkdromeda.blockpal.config.ModConfig;
 import com.milkdromeda.blockpal.entity.AiAssistantEntity;
 import net.minecraft.server.level.ServerLevel;
@@ -76,7 +77,7 @@ public class SurvivalReflexGoal extends Goal {
         // Engage: close in (re-pathing only periodically) and strike.
         if (shouldRepath()) entity.getNavigation().moveTo(target, 1.3);
         if (attackCooldown <= 0 && entity.distanceToSqr(target) < 9.0) {
-            entity.swing(InteractionHand.MAIN_HAND);
+            entity.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
             if (entity.level() instanceof ServerLevel sl) {
                 entity.doHurtTarget(sl, target);
             }

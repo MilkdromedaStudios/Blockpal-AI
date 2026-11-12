@@ -1,5 +1,6 @@
 package com.milkdromeda.blockpal.entity.goal;
 
+import net.minecraft.world.item.component.SwingAnimation;
 import com.milkdromeda.blockpal.ai.ActionStep;
 import com.milkdromeda.blockpal.config.ModConfig;
 import com.milkdromeda.blockpal.entity.AiAssistantEntity;
@@ -164,7 +165,7 @@ public class ExecuteTaskGoal extends Goal {
             if (id != null) {
                 BuiltInRegistries.BLOCK.get(id).ifPresent(holder -> {
                     level.setBlock(pos, holder.value().defaultBlockState(), Block.UPDATE_ALL);
-                    entity.swing(InteractionHand.MAIN_HAND);
+                    entity.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
                 });
             }
         }
@@ -184,7 +185,7 @@ public class ExecuteTaskGoal extends Goal {
         Level level = entity.level();
         if (!level.isClientSide()) {
             level.destroyBlock(pos, true, entity);
-            entity.swing(InteractionHand.MAIN_HAND);
+            entity.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
         }
         return true;
     }
@@ -228,7 +229,7 @@ public class ExecuteTaskGoal extends Goal {
             BlockPos p = mineQueue.poll();
             if (p != null && !level.getBlockState(p).isAir()) {
                 level.destroyBlock(p, true, entity);
-                entity.swing(InteractionHand.MAIN_HAND);
+                entity.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
             }
         }
         return mineQueue.isEmpty();
@@ -269,7 +270,7 @@ public class ExecuteTaskGoal extends Goal {
                 // trapdoors, fence gates, etc.
                 sl.setBlock(pos, state.cycle(BlockStateProperties.OPEN), Block.UPDATE_ALL);
             }
-            entity.swing(InteractionHand.MAIN_HAND);
+            entity.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
         } catch (Exception ignored) {
             // Never let a quirky block break the whole plan.
         }
@@ -347,7 +348,7 @@ public class ExecuteTaskGoal extends Goal {
         navTo(target, 1.2);
 
         if (entity.distanceToSqr(target) < 9 && entity.level() instanceof ServerLevel sl) {
-            entity.swing(InteractionHand.MAIN_HAND);
+            entity.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
             entity.doHurtTarget(sl, target);
             return !target.isAlive();
         }
@@ -413,7 +414,7 @@ public class ExecuteTaskGoal extends Goal {
             entity.getLookControl().setLookAt(x, y, z, 30f, 30f);
             if (collectDwell-- > 0) return false;
         }
-        entity.swing(InteractionHand.MAIN_HAND);
+        entity.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
         return true;
     }
 }
