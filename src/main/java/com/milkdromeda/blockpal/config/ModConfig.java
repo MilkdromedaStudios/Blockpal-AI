@@ -27,7 +27,7 @@ public class ModConfig {
      * default instead of silently inheriting Java's zero/false. A file with no
      * version at all reads back as {@code 0} and is migrated from there.
      */
-    public static final int CURRENT_CONFIG_VERSION = 16;
+    public static final int CURRENT_CONFIG_VERSION = 17;
 
     // Settings (including the API key) live in their own folder under the game's
     // config directory. That directory is untouched when you replace the mod jar,
@@ -61,6 +61,13 @@ public class ModConfig {
     // connection errors. You can point this at any OpenAI-compatible API
     // (HuggingFace, OpenAI, a local Ollama/LM Studio server, etc.).
     public String apiUrl = "https://router.huggingface.co/v1/chat/completions";
+
+    // Groq multi-model routing. These are only selected when apiUrl is Groq's
+    // OpenAI-compatible endpoint; other providers keep using their configured model.
+    public String groqChatModel = "llama-3.1-8b-instant";
+    public String groqWorldModel = "meta-llama/llama-4-scout-17b-16e-instruct";
+    public String groqLogicModel = "openai/gpt-oss-120b";
+    public String groqFallbackModel = "qwen/qwen3.8-27b";
     public int maxNewTokens = 512;
     public double temperature = 0.7;
     public boolean debugLogging = false;
@@ -750,6 +757,10 @@ public class ModConfig {
         hfModel = com.milkdromeda.blockpal.ai.ModelIds.clean(hfModel);
         if (hfModel.isBlank()) hfModel = "mistralai/Mistral-7B-Instruct-v0.2";
         if (apiUrl == null || apiUrl.isBlank()) apiUrl = "https://router.huggingface.co/v1/chat/completions";
+        if (groqChatModel == null || groqChatModel.isBlank()) groqChatModel = "llama-3.1-8b-instant";
+        if (groqWorldModel == null || groqWorldModel.isBlank()) groqWorldModel = "meta-llama/llama-4-scout-17b-16e-instruct";
+        if (groqLogicModel == null || groqLogicModel.isBlank()) groqLogicModel = "openai/gpt-oss-120b";
+        if (groqFallbackModel == null || groqFallbackModel.isBlank()) groqFallbackModel = "qwen/qwen3.8-27b";
         if (freeApiUrl == null || freeApiUrl.isBlank()) freeApiUrl = "https://text.pollinations.ai/openai";
         if (freeModel == null || freeModel.isBlank()) freeModel = "openai";
         if (ollamaUrl == null || ollamaUrl.isBlank()) ollamaUrl = "http://localhost:11434/v1/chat/completions";
