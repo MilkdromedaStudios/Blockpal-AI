@@ -81,7 +81,7 @@ about the build, and guarding the base once it is up.
 1. Download the latest Blockpal jar from [CurseForge](https://www.curseforge.com/minecraft/mc-mods/blockpal-ai) and put it in your mods folder, next to Fabric API.
 2. Launch Minecraft on the matching Fabric version.
 3. In game, run /ai summon to meet Ethan.
-4. Give it a brain. Easiest: run /ai connection set mcp then /ai mcp, and follow the guide to point Claude, ChatGPT, Grok or Gemini at your world. Or set an API key with /ai mykey followed by your token.
+4. Give it a brain. Easiest: run /ai connection set mcp then /ai mcp, and follow the guide to point Claude, ChatGPT, Grok or Gemini at your world. Or use an API provider key. For Groq, run /ai admin provider groq, then /ai admin token <your-groq-key>; this enables specialist routing for chat, world-state analysis, and precise planning.
 5. Try a task, for example /ai build a 5x5 floor, or just type "Ethan, follow me" in chat.
 6. Curious what it can see? /ai look reads out its actual field of view.
 
