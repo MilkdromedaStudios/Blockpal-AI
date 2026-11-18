@@ -166,6 +166,7 @@ The **AI provider** cycler at the top of the **AI & API** tab does both in one c
 | **Claude (Anthropic)** | `api.anthropic.com/v1/chat/completions` | `claude-3-5-sonnet-20241022` | your Anthropic key |
 | **Gemini (Google)** | `generativelanguage.googleapis.com/v1beta/openai/chat/completions` | `gemini-2.0-flash` | your Google API key |
 | **Grok (xAI)** | `api.x.ai/v1/chat/completions` | `grok-2-latest` | your xAI key |
+| **Groq** | `api.groq.com/openai/v1/chat/completions` | `openai/gpt-oss-120b` | your Groq API key |
 
 - Picking a provider fills the **API URL** and **Model** boxes for you. For **ChatGPT**
   it also reveals and pre-fills a **public demo key** so it isn't blank the first time
@@ -176,9 +177,17 @@ The **AI provider** cycler at the top of the **AI & API** tab does both in one c
 - If the API URL matches none of the presets the cycler reads **Custom** — you can still
   point at any other OpenAI-compatible endpoint (a local Ollama/LM Studio, OpenRouter, …)
   by editing the URL by hand.
+- **Groq multi-model routing:** choosing Groq routes chat and chat-intent classification
+  to `llama-3.1-8b-instant`; world/inventory interpretation to
+  `meta-llama/llama-4-scout-17b-16e-instruct`; and planning/script generation to
+  `openai/gpt-oss-120b`. If the logic model returns HTTP 429, that logic request is
+  retried with `qwen/qwen3.8-27b`. These model IDs can be changed in
+  `config/blockpal/config.json` with `groqChatModel`, `groqWorldModel`,
+  `groqLogicModel`, and `groqFallbackModel`.
 - **Bedrock / vanilla / no GUI:** `/ai admin provider <name>` where `<name>` is
-  `huggingface`, `chatgpt`, `claude`, `gemini` or `grok` (bare `/ai admin provider`
-  lists them and shows the current one).
+  `huggingface`, `chatgpt`, `claude`, `gemini`, `grok` or `groq` (bare `/ai admin provider`
+  lists them and shows the current one). The provider command switches the AI connection
+  to **My own API key**; add your Groq key with `/ai admin token <key>`.
 
 ## The free AI fallback (3.17.0)
 
