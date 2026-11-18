@@ -35,6 +35,14 @@ public class HuggingFaceClient {
      * keys, let them pick models — and still work with no key at all.
      */
     public record ApiAuth(String token, String model, String url, boolean free, boolean local) {
+        public boolean isGroq() {
+            return url != null && url.toLowerCase(Locale.ROOT).contains("api.groq.com/");
+        }
+
+        public ApiAuth withModel(String selectedModel) {
+            return new ApiAuth(token, selectedModel, url, free, local);
+        }
+
         public boolean hasToken() {
             return token != null && !token.isBlank();
         }
@@ -210,9 +218,10 @@ public class HuggingFaceClient {
                     new Moderation(false, "no API key to verify the text is safe"));
         }
         ModConfig cfg = ModConfig.get();
+        ApiAuth requestAuth = auth.isGroq() ? auth.withModel(cfg.groqChatModel) : auth;
         HttpRequest request;
         try {
-            request = buildModerationRequest(cfg, text, auth);
+            request = buildModerationRequest(cfg, text, requestAuth);
         } catch (IllegalArgumentException e) {
             return CompletableFuture.completedFuture(new Moderation(false, "the API URL looks invalid"));
         }
@@ -296,15 +305,16 @@ public class HuggingFaceClient {
         }
         ModConfig cfg = ModConfig.get();
         HttpRequest request;
+        ApiAuth requestAuth = auth.isGroq() ? auth.withModel(cfg.groqChatModel) : auth;
         try {
-            request = buildChatRequest(cfg, history, userMessage, auth);
+            request = buildChatRequest(cfg, history, userMessage, requestAuth);
         } catch (IllegalArgumentException e) {
             return CompletableFuture.completedFuture("(The API URL looks invalid — an admin can fix it in /ai menu.)");
         }
         return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                 .handle((resp, ex) -> {
                     if (ex != null) return "(" + friendlyNetworkError(ex) + ")";
-                    if (resp.statusCode() != 200) return "(" + friendlyHttpError(resp, auth) + ")";
+                    if (resp.statusCode() != 200) return "(" + friendlyHttpError(resp, requestAuth) + ")";
                     String content = extractContent(resp.body());
                     return content == null || content.isBlank() ? "(No reply — try again.)" : content.trim();
                 });
@@ -392,6 +402,20 @@ public class HuggingFaceClient {
             return CompletableFuture.completedFuture(CodeReply.failed("no AI connection is usable"));
         }
         ModConfig cfg = ModConfig.get();
+        if (auth.isGroq()) {
+            // Scout interprets the visual/world snapshot and inventory first; the
+            // reasoning model then writes the executable script from that compact state.
+            return summarizeWorldState(scene, carrying, imageDataUri, auth)
+                    .thenCompose(summary -> requestCodeWithModel(goal, summary, "", journal,
+                            carrying, auth.withModel(cfg.groqLogicModel), personaStyle, true));
+        }
+        return requestCodeWithModel(goal, scene, imageDataUri, journal, carrying, auth, personaStyle, false);
+    }
+
+    private CompletableFuture<CodeReply> requestCodeWithModel(String goal, String scene, String imageDataUri,
+                                                               String journal, String carrying, ApiAuth auth,
+                                                               String personaStyle, boolean allowFallback) {
+        ModConfig cfg = ModConfig.get();
         HttpRequest request;
         try {
             request = buildCodeRequest(cfg, goal, scene, imageDataUri, journal, carrying, auth, personaStyle);
@@ -404,15 +428,77 @@ public class HuggingFaceClient {
                     if (resp.statusCode() == 200) {
                         return CompletableFuture.completedFuture(parseCode(resp.body()));
                     }
-                    // A 4xx on a request carrying an image usually means "this model has
-                    // no eyes" — drop the picture and try once more with words only.
-                    if (hadImage && resp.statusCode() >= 400 && resp.statusCode() < 500) {
-                        return requestCode(goal, scene, "", journal, carrying, auth, personaStyle);
+                    // Groq's precise model has a separate daily cap. Switch only the
+                    // logic stage to Qwen when Groq explicitly rate-limits it.
+                    if (allowFallback && auth.isGroq() && resp.statusCode() == 429) {
+                        return requestCodeWithModel(goal, scene, imageDataUri, journal, carrying,
+                                auth.withModel(cfg.groqFallbackModel), personaStyle, false);
                     }
-                    return CompletableFuture.completedFuture(
-                            CodeReply.failed(friendlyHttpError(resp, auth)));
+                    if (hadImage && resp.statusCode() >= 400 && resp.statusCode() < 500) {
+                        return requestCodeWithModel(goal, scene, "", journal, carrying, auth, personaStyle, false);
+                    }
+                    return CompletableFuture.completedFuture(CodeReply.failed(friendlyHttpError(resp, auth)));
                 })
                 .exceptionally(ex -> CodeReply.failed(friendlyNetworkError(ex)));
+    }
+
+    /**
+     * Scout is the world-state specialist: it reads the rendered view (when present),
+     * nearby scene description and carried inventory, then returns a compact factual
+     * snapshot for the logic model. If Scout is unavailable, the original scene is kept.
+     */
+    private CompletableFuture<String> summarizeWorldState(String scene, String carrying,
+                                                          String imageDataUri, ApiAuth auth) {
+        ModConfig cfg = ModConfig.get();
+        if (!auth.isGroq()) {
+            return CompletableFuture.completedFuture(scene + "\\nCarrying: " + carrying);
+        }
+        ApiAuth worldAuth = auth.withModel(cfg.groqWorldModel);
+        JsonObject body = new JsonObject();
+        body.addProperty("model", worldAuth.model());
+        body.addProperty("temperature", 0.1);
+        body.addProperty("max_tokens", 1200);
+        body.addProperty("stream", false);
+        JsonArray messages = new JsonArray();
+        messages.add(message("system",
+                "You are Blockpal's Minecraft world-state and inventory analyst. Extract only observable facts: " +
+                "nearby blocks, entities, containers, workstations, hazards, terrain, coordinates if supplied, " +
+                "and the player's carried items. Do not choose actions or invent unseen facts. Return a compact " +
+                "structured JSON object with keys scene, inventory, interactables, hazards, and uncertainties."));
+        JsonObject user = new JsonObject();
+        user.addProperty("role", "user");
+        String written = "SCENE DESCRIPTION:\\n" + scene + "\\n\\nCARRIED INVENTORY:\\n" + carrying;
+        if (imageDataUri != null && !imageDataUri.isBlank()) {
+            JsonArray parts = new JsonArray();
+            JsonObject textPart = new JsonObject();
+            textPart.addProperty("type", "text");
+            textPart.addProperty("text", written);
+            parts.add(textPart);
+            JsonObject imagePart = new JsonObject();
+            imagePart.addProperty("type", "image_url");
+            JsonObject imageUrl = new JsonObject();
+            imageUrl.addProperty("url", imageDataUri);
+            imagePart.add("image_url", imageUrl);
+            parts.add(imagePart);
+            user.add("content", parts);
+        } else {
+            user.addProperty("content", written);
+        }
+        messages.add(user);
+        body.add("messages", messages);
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(endpoint(cfg, worldAuth)))
+                .header("Content-Type", "application/json")
+                .timeout(Duration.ofSeconds(60))
+                .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body)));
+        addProviderHeaders(builder, worldAuth);
+        String fallback = written;
+        return HTTP.sendAsync(builder.build(), HttpResponse.BodyHandlers.ofString())
+                .handle((resp, ex) -> {
+                    if (ex != null || resp.statusCode() != 200) return fallback;
+                    String summary = extractContent(resp.body());
+                    return summary == null || summary.isBlank() ? fallback : summary.trim();
+                });
     }
 
     private HttpRequest buildCodeRequest(ModConfig cfg, String goal, String scene, String imageDataUri,
@@ -520,6 +606,10 @@ public class HuggingFaceClient {
                                                      String personaStyle) {
         ModConfig cfg = ModConfig.get();
 
+        if (auth != null && auth.isGroq()) {
+            return summarizeWorldState(context, "", "", auth)
+                    .thenCompose(summary -> requestPlanWithGroqFallback(task, summary, auth, personaStyle, false));
+        }
         HttpRequest request;
         try {
             request = buildRequest(cfg, task, context, auth, personaStyle);
@@ -527,8 +617,32 @@ public class HuggingFaceClient {
             return CompletableFuture.completedFuture(
                     errorPlan(task, "the API URL looks invalid — an admin can fix it in /ai menu (AI & API tab)"));
         }
-
         return sendWithRetry(request, task, 2, auth);
+    }
+
+    private CompletableFuture<ActionPlan> requestPlanWithGroqFallback(String task, String context,
+                                                                            ApiAuth baseAuth, String personaStyle,
+                                                                            boolean usingFallback) {
+        ModConfig cfg = ModConfig.get();
+        ApiAuth logicAuth = baseAuth.withModel(usingFallback ? cfg.groqFallbackModel : cfg.groqLogicModel);
+        HttpRequest request;
+        try {
+            request = buildRequest(cfg, task, context, logicAuth, personaStyle);
+        } catch (IllegalArgumentException e) {
+            return CompletableFuture.completedFuture(errorPlan(task, "the API URL looks invalid"));
+        }
+        return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                .thenCompose(resp -> {
+                    if (resp.statusCode() == 200) {
+                        return CompletableFuture.completedFuture(parseResponse(resp.body(), task));
+                    }
+                    if (!usingFallback && resp.statusCode() == 429) {
+                        return requestPlanWithGroqFallback(task, context, baseAuth, personaStyle, true);
+                    }
+                    if (resp.statusCode() >= 500) return sendWithRetry(request, task, 2, logicAuth);
+                    return CompletableFuture.completedFuture(errorPlan(task, friendlyHttpError(resp, logicAuth)));
+                })
+                .exceptionally(ex -> errorPlan(task, friendlyNetworkError(ex)));
     }
 
     /**
@@ -543,9 +657,10 @@ public class HuggingFaceClient {
             return CompletableFuture.completedFuture(ChatIntent.none());
         }
 
+        ApiAuth requestAuth = auth.isGroq() ? auth.withModel(cfg.groqChatModel) : auth;
         HttpRequest request;
         try {
-            request = buildClassifierRequest(cfg, message, context, assistantName, auth);
+            request = buildClassifierRequest(cfg, message, context, assistantName, requestAuth);
         } catch (IllegalArgumentException e) {
             return CompletableFuture.completedFuture(ChatIntent.none());
         }
