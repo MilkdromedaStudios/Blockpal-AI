@@ -597,7 +597,7 @@ public class AiConfigScreen extends Screen {
 
         header(body, "Language model & API");
         // One-click provider presets: pick HuggingFace / ChatGPT / Claude / Gemini /
-        // Grok and the API URL + a matching default model are filled in for you (and
+        // Grok / Groq and the API URL + a matching default model are filled in for you (and
         // ChatGPT's public demo key is pre-filled). "Custom" = a URL that matches no
         // preset — chosen automatically when you hand-edit the API URL below.
         body.addChild(new StringWidget(W, LABEL_H, Component.literal("AI provider"), this.font));
@@ -609,7 +609,7 @@ public class AiConfigScreen extends Screen {
                         (btn, val) -> applyProvider(val)));
         providerButton.setTooltip(Tooltip.create(Component.literal(
                 "Quick-switch which AI you use — fills the API URL and a matching default model below. "
-                        + "ChatGPT / Claude / Gemini / Grok need that provider's own API key; HuggingFace uses yours. "
+                        + "ChatGPT / Claude / Gemini / Grok / Groq need that provider's own API key; HuggingFace uses yours. "
                         + "\"Custom\" is any other OpenAI-compatible endpoint — just edit the URL yourself.")));
         modelBox = bodyBox(body, "Model", pModel, 128, "Model id sent to the API (e.g. mistralai/Mistral-7B-Instruct-v0.2).");
         apiUrlBox = bodyBox(body, "API URL", pApiUrl, 256, "Any OpenAI-compatible chat-completions endpoint (HuggingFace, OpenAI, Ollama, LM Studio…).");
