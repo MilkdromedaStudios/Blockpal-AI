@@ -181,7 +181,8 @@ The **AI provider** cycler at the top of the **AI & API** tab does both in one c
   to `llama-3.1-8b-instant`; world/inventory interpretation to
   `meta-llama/llama-4-scout-17b-16e-instruct`; and planning/script generation to
   `openai/gpt-oss-120b`. If the logic model returns HTTP 429, that logic request is
-  retried with `qwen/qwen3.8-27b`. These model IDs can be changed in
+  retried with `qwen/qwen3.8-27b`, and subsequent logic requests use that backup
+  for the rest of the UTC day. These model IDs can be changed in
   `config/blockpal/config.json` with `groqChatModel`, `groqWorldModel`,
   `groqLogicModel`, and `groqFallbackModel`.
 - **Bedrock / vanilla / no GUI:** `/ai admin provider <name>` where `<name>` is
