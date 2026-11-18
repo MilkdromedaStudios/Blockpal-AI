@@ -21,7 +21,7 @@ import java.util.Locale;
  *       API key is stored in the game at all: the AI connects to the world and drives
  *       the bot with tools. See {@code /ai mcp} for the in-game setup guide.</li>
  *   <li>{@link #API_KEY} — your own OpenAI-compatible key (HuggingFace, OpenAI,
- *       Anthropic, Google, xAI …) typed into the settings panel.</li>
+ *       Anthropic, Google, xAI, Groq …) typed into the settings panel.</li>
  *   <li>{@link #PLAYER2} — the free Player2 app / its cloud.</li>
  *   <li>{@link #LOCAL} — <b>the keyless one.</b> Blockpal downloads a small model (never
  *       more than 3 GB) and runs it on this machine's graphics card. Free, private,
