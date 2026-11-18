@@ -1027,7 +1027,7 @@ public class AiCommands {
                 "§f/ai admin reload §7— reload config from disk\n" +
                 "§f/ai admin token <token> §7— set the shared AI API key (no GUI needed)\n" +
                 "§f/ai admin apiurl <url> §7— set the OpenAI-compatible API endpoint\n" +
-                "§f/ai admin provider <name> §7— quick-switch: huggingface|chatgpt|claude|gemini|grok\n" +
+                "§f/ai admin provider <name> §7— quick-switch: huggingface|chatgpt|claude|gemini|grok|groq\n" +
                 "§f/ai admin model <id> §7— set the server default model\n" +
                 "§f/ai admin ollama on|off|url|model|models §7— use custom LOCAL models (Ollama)\n" +
                 "§f/ai admin player2 on|off|url §7— easiest AI: Player2 (local app, or online w/ PLAYER2_KEY)\n" +
@@ -1180,6 +1180,7 @@ public class AiCommands {
         final boolean didKey = setKey;
         ctx.getSource().sendSuccess(() -> Component.literal(
                 "§a[Blockpal] Provider set to §f" + p.display() + "§a ✓\n"
+                        + "§7• AI connection: §fMy own API key\n"
                         + "§7• Endpoint: §f" + p.url() + "\n"
                         + "§7• Default model: §f" + cfg.hfModel + "\n"
                         + (didKey
