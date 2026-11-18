@@ -41,7 +41,10 @@ public enum ProviderPreset {
             "gemini-2.0-flash", ""),
     GROK("grok", "Grok (xAI)",
             "https://api.x.ai/v1/chat/completions",
-            "grok-2-latest", "");
+            "grok-2-latest", ""),
+    GROQ("groq", "Groq",
+            "https://api.groq.com/openai/v1/chat/completions",
+            "openai/gpt-oss-120b", "");
 
     /** Shown in the "Custom" position of the provider picker (URL didn't match a preset). */
     public static final String CUSTOM_LABEL = "Custom";
