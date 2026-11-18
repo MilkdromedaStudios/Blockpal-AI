@@ -10,7 +10,7 @@ import java.util.Locale;
  * just swapping the {@code apiUrl} (and a matching default model). This enum
  * bundles the endpoint + a sensible default model for the big providers so a
  * player can pick <b>HuggingFace</b>, <b>ChatGPT</b>, <b>Claude</b>,
- * <b>Gemini</b> or <b>Grok</b> from a single control instead of hand-typing a URL.
+ * <b>Gemini</b>, <b>Grok</b> or <b>Groq</b> from a single control instead of hand-typing a URL.
  *
  * <p>All of these speak the OpenAI wire format (OpenAI/xAI natively; Anthropic
  * and Google via their documented OpenAI-compatible endpoints) and authenticate
