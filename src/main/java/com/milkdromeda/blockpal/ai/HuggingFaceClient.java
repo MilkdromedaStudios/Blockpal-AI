@@ -451,7 +451,7 @@ public class HuggingFaceClient {
                                                           String imageDataUri, ApiAuth auth) {
         ModConfig cfg = ModConfig.get();
         if (!auth.isGroq()) {
-            return CompletableFuture.completedFuture(scene + "\\nCarrying: " + carrying);
+            return CompletableFuture.completedFuture(scene + "\nCarrying: " + carrying);
         }
         ApiAuth worldAuth = auth.withModel(cfg.groqWorldModel);
         JsonObject body = new JsonObject();
