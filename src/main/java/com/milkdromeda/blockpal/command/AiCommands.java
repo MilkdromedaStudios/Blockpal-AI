@@ -1168,6 +1168,7 @@ public class AiCommands {
                                      com.milkdromeda.blockpal.ai.ProviderPreset p) {
         ModConfig cfg = ModConfig.get();
         cfg.apiUrl = p.url();
+        cfg.setConnection(AiConnection.API_KEY);
         cfg.hfModel = com.milkdromeda.blockpal.ai.ModelIds.clean(p.model());
         cfg.addAllowedModel(cfg.hfModel);   // keep the preset's model selectable by players
         boolean setKey = false;
