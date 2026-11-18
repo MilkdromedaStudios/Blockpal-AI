@@ -8,6 +8,8 @@ import java.net.URI;
 import java.net.UnknownHostException;
 import java.net.http.*;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -27,6 +29,9 @@ public class HuggingFaceClient {
             .connectTimeout(Duration.ofSeconds(15))
             .build();
     private static final Gson GSON = new Gson();
+    // Once Groq reports a logic-model rate limit, use the backup for the rest of
+    // the UTC day instead of repeatedly spending requests on a model at its RPD cap.
+    private static volatile LocalDate groqLogicRateLimitedOnUtc;
 
     /**
      * The token + model + endpoint a particular request should use. Resolved per bot
@@ -405,11 +410,21 @@ public class HuggingFaceClient {
         if (auth.isGroq()) {
             // Scout interprets the visual/world snapshot and inventory first; the
             // reasoning model then writes the executable script from that compact state.
+            boolean useBackup = groqLogicFallbackActive();
             return summarizeWorldState(scene, carrying, imageDataUri, auth)
                     .thenCompose(summary -> requestCodeWithModel(goal, summary, "", journal,
-                            carrying, auth.withModel(cfg.groqLogicModel), personaStyle, true));
+                            carrying, auth.withModel(useBackup ? cfg.groqFallbackModel : cfg.groqLogicModel),
+                            personaStyle, !useBackup));
         }
         return requestCodeWithModel(goal, scene, imageDataUri, journal, carrying, auth, personaStyle, false);
+    }
+
+    private static boolean groqLogicFallbackActive() {
+        return LocalDate.now(ZoneOffset.UTC).equals(groqLogicRateLimitedOnUtc);
+    }
+
+    private static void markGroqLogicRateLimited() {
+        groqLogicRateLimitedOnUtc = LocalDate.now(ZoneOffset.UTC);
     }
 
     private CompletableFuture<CodeReply> requestCodeWithModel(String goal, String scene, String imageDataUri,
@@ -431,6 +446,7 @@ public class HuggingFaceClient {
                     // Groq's precise model has a separate daily cap. Switch only the
                     // logic stage to Qwen when Groq explicitly rate-limits it.
                     if (allowFallback && auth.isGroq() && resp.statusCode() == 429) {
+                        markGroqLogicRateLimited();
                         return requestCodeWithModel(goal, scene, imageDataUri, journal, carrying,
                                 auth.withModel(cfg.groqFallbackModel), personaStyle, false);
                     }
@@ -607,8 +623,9 @@ public class HuggingFaceClient {
         ModConfig cfg = ModConfig.get();
 
         if (auth != null && auth.isGroq()) {
+            boolean useBackup = groqLogicFallbackActive();
             return summarizeWorldState(context, "", "", auth)
-                    .thenCompose(summary -> requestPlanWithGroqFallback(task, summary, auth, personaStyle, false));
+                    .thenCompose(summary -> requestPlanWithGroqFallback(task, summary, auth, personaStyle, useBackup));
         }
         HttpRequest request;
         try {
@@ -637,6 +654,7 @@ public class HuggingFaceClient {
                         return CompletableFuture.completedFuture(parseResponse(resp.body(), task));
                     }
                     if (!usingFallback && resp.statusCode() == 429) {
+                        markGroqLogicRateLimited();
                         return requestPlanWithGroqFallback(task, context, baseAuth, personaStyle, true);
                     }
                     if (resp.statusCode() >= 500) return sendWithRetry(request, task, 2, logicAuth);
