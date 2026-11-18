@@ -467,7 +467,7 @@ public class HuggingFaceClient {
                 "structured JSON object with keys scene, inventory, interactables, hazards, and uncertainties."));
         JsonObject user = new JsonObject();
         user.addProperty("role", "user");
-        String written = "SCENE DESCRIPTION:\\n" + scene + "\\n\\nCARRIED INVENTORY:\\n" + carrying;
+        String written = "SCENE DESCRIPTION:\n" + scene + "\n\nCARRIED INVENTORY:\n" + carrying;
         if (imageDataUri != null && !imageDataUri.isBlank()) {
             JsonArray parts = new JsonArray();
             JsonObject textPart = new JsonObject();
